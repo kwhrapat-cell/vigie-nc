@@ -1,0 +1,55 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
+@import "leaflet/dist/leaflet.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background:
+    radial-gradient(60% 50% at 50% 0%, rgba(34, 184, 176, 0.1), transparent 60%),
+    #071b21;
+  color: #eaf6f4;
+  font-family: "Inter", sans-serif;
+  min-height: 100vh;
+}
+
+/* Marqueurs Leaflet custom (pastille + halo pulsé pour les signalements récents) */
+.pulse-marker {
+  position: relative;
+  width: 16px;
+  height: 16px;
+}
+.pulse-marker .core {
+  position: absolute;
+  inset: 5px;
+  border-radius: 9999px;
+}
+.pulse-marker .ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  animation: ring-pulse 1.8s ease-out infinite;
+}
+@keyframes ring-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-marker .ring {
+    animation: none !important;
+  }
+}

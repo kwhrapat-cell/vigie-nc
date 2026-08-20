@@ -1,0 +1,85 @@
+import { Report, ZoneHistory } from "./types";
+
+export const MOCK_REPORTS: Report[] = [
+  {
+    id: "r0",
+    type: "sos",
+    label: "SOS — urgence",
+    lat: -22.238,
+    lng: 166.458,
+    createdAt: new Date(Date.now() - 2 * 60_000).toISOString(),
+    expiresAt: new Date(Date.now() + 2 * 60 * 60_000).toISOString(),
+    confirmations: 0,
+    zoneId: undefined,
+    zoneName: undefined,
+  },
+  {
+    id: "r1",
+    type: "route_coupee",
+    label: "route coupée",
+    lat: -22.15,
+    lng: 166.449,
+    createdAt: new Date(Date.now() - 4 * 60_000).toISOString(),
+    expiresAt: new Date(Date.now() + 4 * 60 * 60_000).toISOString(),
+    confirmations: 6,
+    zoneId: "rt1-dumbea",
+    zoneName: "RT1 — Dumbéa",
+  },
+  {
+    id: "r2",
+    type: "trafic_dense",
+    label: "ralentissement",
+    lat: -22.26,
+    lng: 166.442,
+    createdAt: new Date(Date.now() - 18 * 60_000).toISOString(),
+    expiresAt: new Date(Date.now() + 3.5 * 60 * 60_000).toISOString(),
+    confirmations: 2,
+    zoneId: "vallee-du-tir",
+    zoneName: "Vallée du Tir",
+  },
+  {
+    id: "r3",
+    type: "inondation",
+    label: "chaussée inondée",
+    lat: -22.283,
+    lng: 166.52,
+    createdAt: new Date(Date.now() - 51 * 60_000).toISOString(),
+    expiresAt: new Date(Date.now() + 3 * 60 * 60_000).toISOString(),
+    confirmations: 3,
+    zoneId: "riviere-sud",
+    zoneName: "Rivière Sud",
+  },
+];
+
+export const MOCK_ZONE_HISTORY: Record<string, ZoneHistory> = {
+  "col-de-tonghoue": {
+    zoneId: "col-de-tonghoue",
+    zoneName: "RT1 — Col de Tonghoué",
+    riskLabel: "Risque élevé par fortes pluies",
+    incidentsThisYear: 12,
+    monthlyCounts: [20, 10, 80, 40, 15, 8, 5, 5, 8, 12, 30, 65],
+    timeline: [
+      {
+        id: "t1",
+        text: "Route coupée — niveau d'eau au-dessus du bas-côté",
+        severity: "rust",
+        relativeTime: "il y a 2 j",
+        confirmations: 6,
+      },
+      {
+        id: "t2",
+        text: "Chaussée inondée après fortes pluies",
+        severity: "lagoon",
+        relativeTime: "il y a 9 j",
+        confirmations: 3,
+      },
+      {
+        id: "t3",
+        text: "Ralentissement, déviation locale en place",
+        severity: "ochre",
+        relativeTime: "il y a 3 sem",
+        confirmations: 2,
+      },
+    ],
+  },
+};
