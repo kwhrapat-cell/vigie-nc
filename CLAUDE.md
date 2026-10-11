@@ -23,6 +23,12 @@ mairies de Païta, du Mont-Dore et de Yaté.
   le besoin vient de la route (« les prochains km sont-ils dégagés ? »).
 - Le SOS ne prévient pas les secours à la place de la personne : il met la
   position sur la carte, prépare un SMS et propose d'appeler 15/17/18.
+- **Facebook : uniquement ce qui est légal.** Pas de récupération
+  automatique (pas d'API pour les groupes depuis 2024, collecte automatisée
+  interdite par Meta). Les infos vues sur Facebook passent par un humain
+  qui les **relaie** (`/relayer`) : le texte collé reste sur le téléphone,
+  seul le fait est publié (type, lieu, heure, provenance), jamais de nom ni
+  de photo, étiquette « Relayé » jusqu'à confirmation sur place.
 
 ## Stack et structure
 
@@ -30,7 +36,7 @@ Le code est dans `vigie-nc/` (Root Directory Vercel).
 
 ```
 vigie-nc/
-  app/            écrans (/, /signaler, /sos, /alertes, /historique, /profil, /contacts)
+  app/            écrans (/, /signaler, /relayer, /sos, /alertes, /historique, /profil, /contacts)
   components/     CarteLive (accueil), LiveMap, HomeSheet, ReportDetail,
                   PositionPicker, BottomNav, ui.tsx (Logo, TypeTile, boutons…)
   lib/
@@ -43,6 +49,7 @@ vigie-nc/
     map-styles.ts    fonds de carte (OpenStreetMap / Esri, sans clé — pas CARTO,
                      qui exige une clé depuis 2026) + emprise NC
     cluster.ts       regroupement des signalements en pastilles chiffrées
+    relay-parser.ts  lecture d'un message collé → type + lieu (sur le téléphone)
   supabase/schema.sql  schéma complet, ré-exécutable
 ```
 

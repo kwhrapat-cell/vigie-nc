@@ -246,7 +246,22 @@ export default function SignalerPage() {
       {/* ---------------- Étape 1 : type ---------------- */}
       {s === 1 && (
         <section className="flex-1 px-4">
-          <h2 className="font-display font-semibold text-[18px] mb-3">Quel est le type de signalement ?</h2>
+          <Link
+            href="/relayer"
+            className="mb-4 flex items-center gap-3 rounded-xl border border-dashed border-lagoon/40 bg-lagoon/5 px-3 py-2.5"
+          >
+            <span className="w-9 h-9 shrink-0 rounded-lg bg-[#1877F2] flex items-center justify-center text-white font-display font-bold text-[17px]">
+              f
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-[13px] font-semibold">Vu sur Facebook ou à la radio ?</span>
+              <span className="block text-[11px] text-mist-dim">Relaie l&apos;info en collant le message</span>
+            </span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-lagoon shrink-0">
+              <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Link>
+          <h2 className="font-display font-semibold text-[18px] mb-3">Tu es sur place : que se passe-t-il ?</h2>
           <div className="grid grid-cols-2 gap-2.5" role="radiogroup" aria-label="Type de signalement">
             {SIGNALABLE_TYPES.map((t) => {
               const selected = type === t;

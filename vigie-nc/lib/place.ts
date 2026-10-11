@@ -55,3 +55,31 @@ export async function reversePlace(lat: number, lng: number): Promise<string | n
     return null;
   }
 }
+
+/**
+ * Cherche un lieu en Nouvelle-Calédonie à partir de son nom (« Radier de la
+ * Coulée, Mont-Dore »). Essaie les recherches dans l'ordre et renvoie la
+ * première trouvée. Seul le nom du lieu est envoyé, jamais un texte copié.
+ */
+export async function searchPlace(queries: string[]): Promise<{ lat: number; lng: number; query: string } | null> {
+  for (const q of queries.slice(0, 4)) {
+    const url =
+      "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=nc&accept-language=fr" +
+      `&viewbox=163.5,-19.5,168.2,-22.8&bounded=1&q=${encodeURIComponent(q)}`;
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(url, { signal: controller.signal, headers: { Accept: "application/json" } });
+      clearTimeout(timer);
+      if (res.ok) {
+        const data = (await res.json()) as { lat: string; lon: string }[];
+        if (data[0]) return { lat: Number(data[0].lat), lng: Number(data[0].lon), query: q };
+      }
+    } catch {
+      // réseau : on essaie la recherche suivante
+    }
+    // Règle du service : pas plus d'une requête par seconde
+    await new Promise((r) => setTimeout(r, 1100));
+  }
+  return null;
+}

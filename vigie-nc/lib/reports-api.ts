@@ -6,11 +6,12 @@
 
 import { supabase } from "./supabase";
 import { getDeviceId } from "./device-id";
-import { demoCreate, demoDetail, demoNearby, demoStats, demoVote } from "./demo-store";
+import { demoCreate, demoDetail, demoNearby, demoRelay, demoStats, demoVote } from "./demo-store";
 import { LatLng } from "./geo";
-import { Report, ReportType, REPORT_TYPE_LABELS, RiskLevel, Vote } from "./types";
+import { RelaySource, Report, ReportType, REPORT_TYPE_LABELS, RiskLevel, Vote } from "./types";
 
 export type CreateResult = "cree" | "fusionne" | "deja_signale";
+export type RelayResult = "relaye" | "existe_deja";
 export type VoteResult = "confirme" | "en_baisse" | "resolu" | "deja_vote";
 
 export interface VoteOutcome {
@@ -48,6 +49,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   photo_invalide: "La photo n'a pas pu être rattachée au signalement.",
   description_trop_longue: "La description est trop longue (200 caractères maximum).",
   niveau_invalide: "Niveau de risque non reconnu.",
+  type_invalide: "Ce type d'événement ne peut pas être relayé.",
+  source_invalide: "Indique où tu as vu l'info.",
   appareil_invalide: "Identifiant du téléphone invalide — recharge la page.",
   vote_invalide: "Vote non reconnu.",
 };
@@ -86,6 +89,7 @@ export interface ReportRow {
   niveau_risque: RiskLevel | null;
   lieu: string | null;
   source_officielle: string | null;
+  relais_source?: RelaySource | null;
   confirmations: number;
   infirmations: number;
   created_at: string;
@@ -117,6 +121,7 @@ export function mapRow(row: ReportRow): Report {
     riskLevel: row.niveau_risque,
     place: row.lieu,
     officialSource: row.source_officielle,
+    relaySource: row.relais_source ?? null,
     active: row.actif,
   };
 }
@@ -126,7 +131,7 @@ export async function fetchNearby(center: LatLng | null, radiusM: number): Promi
   const deviceId = getDeviceId();
   if (!supabase) return demoNearby(center, radiusM, deviceId).map(mapRow);
 
-  const { data, error } = await supabase.rpc("signalements_proches", {
+  const { data, error } = await supabase.rpc("signalements_proches_v2", {
     p_lat: center?.lat ?? null,
     p_lng: center?.lng ?? null,
     p_rayon_m: Math.round(radiusM),
@@ -143,7 +148,7 @@ export async function fetchReport(id: string): Promise<Report | null> {
     const row = demoDetail(id, deviceId);
     return row ? mapRow(row) : null;
   }
-  const { data, error } = await supabase.rpc("signalement_detail", {
+  const { data, error } = await supabase.rpc("signalement_detail_v2", {
     p_id: id,
     p_device_id: deviceId,
   });
@@ -190,6 +195,41 @@ export async function createReport(input: NewReport): Promise<{ id: string; resu
   });
   if (error) throw new ReportsApiError(codeFromMessage(error.message));
   const result = data as { id: string; resultat: CreateResult };
+  return { id: result.id, resultat: result.resultat };
+}
+
+/**
+ * Relaie une info vue ailleurs (Facebook, radio, SMS…). Seul le fait est
+ * envoyé : type, position, nom du lieu et provenance. Jamais le texte copié.
+ */
+export async function relayReport(input: {
+  type: Exclude<ReportType, "sos">;
+  lat: number;
+  lng: number;
+  source: RelaySource;
+  place?: string | null;
+}): Promise<{ id: string; resultat: RelayResult }> {
+  const deviceId = getDeviceId();
+
+  if (!supabase) {
+    try {
+      const r = demoRelay({ ...input, deviceId });
+      return { id: r.id, resultat: r.resultat as RelayResult };
+    } catch (e) {
+      throw new ReportsApiError(e instanceof Error ? e.message : "inconnu");
+    }
+  }
+
+  const { data, error } = await supabase.rpc("relayer_signalement", {
+    p_type: input.type,
+    p_lat: input.lat,
+    p_lng: input.lng,
+    p_device_id: deviceId,
+    p_source: input.source,
+    p_lieu: input.place ?? null,
+  });
+  if (error) throw new ReportsApiError(codeFromMessage(error.message));
+  const result = data as { id: string; resultat: RelayResult };
   return { id: result.id, resultat: result.resultat };
 }
 

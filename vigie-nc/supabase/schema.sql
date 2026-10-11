@@ -101,6 +101,9 @@ alter table reports add column if not exists niveau_risque text;
 alter table reports add column if not exists lieu text;
 -- Rempli à la main par l'équipe (mairie, pompiers…) : niveau « Vérifié »
 alter table reports add column if not exists source_officielle text;
+-- Info relayée (vue sur Facebook, à la radio, par SMS…) par quelqu'un qui
+-- n'est pas forcément sur place ; nul = signalement fait sur le terrain.
+alter table reports add column if not exists relais_source text;
 
 do $$
 begin
@@ -118,6 +121,12 @@ do $$
 begin
   alter table reports add constraint reports_lieu_longueur
     check (lieu is null or char_length(lieu) <= 80);
+exception when duplicate_object then null;
+end $$;
+do $$
+begin
+  alter table reports add constraint reports_relais_source_valeurs
+    check (relais_source is null or relais_source in ('facebook', 'radio', 'sms', 'autre'));
 exception when duplicate_object then null;
 end $$;
 do $$
@@ -745,6 +754,203 @@ as $$
 $$;
 
 -- ---------------------------------------------------------------------
+-- RPC : relayer une info vue ailleurs (Facebook, radio, SMS…)
+--   select relayer_signalement('inondation', -22.27, 166.58, '<id>', 'facebook', 'Radier de la Coulée');
+-- Seul le fait est enregistré (type, lieu, heure) : jamais le texte, le
+-- nom de l'auteur ni la photo d'origine. Pas de limite de distance (la
+-- personne n'est pas forcément sur place) : l'info apparaît « relayée, à
+-- confirmer » tant que personne sur place ne l'a confirmée. Un relais ne
+-- compte jamais comme une confirmation.
+-- Retour : {"id": "...", "resultat": "relaye" | "existe_deja"}
+-- ---------------------------------------------------------------------
+create or replace function relayer_signalement(
+  p_type report_type,
+  p_lat double precision,
+  p_lng double precision,
+  p_device_id text,
+  p_source text,
+  p_lieu text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_key text;
+  v_point geography;
+  v_dernier timestamptz;
+  v_existant uuid;
+  v_rayon int;
+  v_id uuid;
+  v_lieu text := left(nullif(btrim(p_lieu), ''), 80);
+begin
+  if p_device_id is null or length(p_device_id) not between 16 and 128 then
+    raise exception 'appareil_invalide';
+  end if;
+  if p_type is null or p_type::text = 'sos' then
+    raise exception 'type_invalide';
+  end if;
+  if p_source is null or p_source not in ('facebook', 'radio', 'sms', 'autre') then
+    raise exception 'source_invalide';
+  end if;
+  if p_lat is null or p_lng is null or not vigie_dans_nc(p_lat, p_lng) then
+    raise exception 'position_hors_nc';
+  end if;
+
+  v_key := vigie_device_key(p_device_id);
+  v_point := st_setsrid(st_makepoint(p_lng, p_lat), 4326)::geography;
+
+  select max(created_at) into v_dernier from report_authors where device_key = v_key;
+  if v_dernier is not null and now() - v_dernier < interval '60 seconds' then
+    raise exception 'rate_limit';
+  end if;
+
+  v_rayon := vigie_rayon_fusion_m(p_type);
+  if v_rayon > 0 then
+    select r.id into v_existant
+    from reports r
+    where r.type = p_type
+      and r.resolved_at is null
+      and r.expires_at > now()
+      and st_dwithin(r.geom, v_point, v_rayon)
+    order by st_distance(r.geom, v_point)
+    limit 1;
+
+    if v_existant is not null then
+      return jsonb_build_object('id', v_existant, 'resultat', 'existe_deja');
+    end if;
+  end if;
+
+  insert into reports (type, lat, lng, lieu, relais_source, expires_at)
+  values (p_type, p_lat, p_lng, v_lieu, p_source, now() + vigie_duree_vie(p_type))
+  returning id into v_id;
+
+  insert into report_authors (report_id, device_key) values (v_id, v_key);
+
+  return jsonb_build_object('id', v_id, 'resultat', 'relaye');
+end;
+$$;
+
+-- ---------------------------------------------------------------------
+-- Versions 2 des lectures : mêmes colonnes + relais_source.
+-- (Les versions 1 restent pour les anciennes versions de l'appli.)
+-- ---------------------------------------------------------------------
+create or replace function signalements_proches_v2(
+  p_lat double precision default null,
+  p_lng double precision default null,
+  p_rayon_m int default 5000,
+  p_device_id text default null
+)
+returns table (
+  id uuid,
+  type report_type,
+  lat double precision,
+  lng double precision,
+  photo_url text,
+  description text,
+  niveau_risque text,
+  lieu text,
+  source_officielle text,
+  relais_source text,
+  confirmations int,
+  infirmations int,
+  created_at timestamptz,
+  expires_at timestamptz,
+  last_confirmed_at timestamptz,
+  distance_m double precision,
+  est_auteur boolean,
+  mon_vote text,
+  actif boolean
+)
+language sql
+stable
+security definer
+set search_path = public, extensions
+as $$
+  with
+    moi as (
+      select case when p_device_id is null then null
+                  else vigie_device_key(p_device_id) end as cle
+    ),
+    centre as (
+      select case when p_lat is null or p_lng is null then null
+                  else st_setsrid(st_makepoint(p_lng, p_lat), 4326)::geography end as pt
+    )
+  select
+    r.id, r.type, r.lat, r.lng, r.photo_url, r.description, r.niveau_risque,
+    r.lieu, r.source_officielle, r.relais_source, r.confirmations, r.infirmations,
+    r.created_at, r.expires_at, r.last_confirmed_at,
+    case when c.pt is null then null else st_distance(r.geom, c.pt) end as distance_m,
+    coalesce(a.device_key = m.cle, false) as est_auteur,
+    v.vote as mon_vote,
+    true as actif
+  from reports r
+  cross join moi m
+  cross join centre c
+  left join report_authors a on a.report_id = r.id
+  left join report_votes v on v.report_id = r.id and v.device_key = m.cle
+  where r.expires_at > now()
+    and r.resolved_at is null
+    and (
+      c.pt is null
+      or st_dwithin(r.geom, c.pt, least(greatest(coalesce(p_rayon_m, 5000), 500), 20000))
+    )
+  order by distance_m nulls last, r.created_at desc
+  limit 200;
+$$;
+
+create or replace function signalement_detail_v2(
+  p_id uuid,
+  p_device_id text default null
+)
+returns table (
+  id uuid,
+  type report_type,
+  lat double precision,
+  lng double precision,
+  photo_url text,
+  description text,
+  niveau_risque text,
+  lieu text,
+  source_officielle text,
+  relais_source text,
+  confirmations int,
+  infirmations int,
+  created_at timestamptz,
+  expires_at timestamptz,
+  last_confirmed_at timestamptz,
+  distance_m double precision,
+  est_auteur boolean,
+  mon_vote text,
+  actif boolean
+)
+language sql
+stable
+security definer
+set search_path = public, extensions
+as $$
+  with moi as (
+    select case when p_device_id is null then null
+                else vigie_device_key(p_device_id) end as cle
+  )
+  select
+    r.id, r.type, r.lat, r.lng, r.photo_url, r.description, r.niveau_risque,
+    r.lieu, r.source_officielle, r.relais_source, r.confirmations, r.infirmations,
+    r.created_at, r.expires_at, r.last_confirmed_at,
+    null::double precision as distance_m,
+    coalesce(a.device_key = m.cle, false) as est_auteur,
+    v.vote as mon_vote,
+    (r.resolved_at is null and r.expires_at > now()) as actif
+  from reports r
+  cross join moi m
+  left join report_authors a on a.report_id = r.id
+  left join report_votes v on v.report_id = r.id and v.device_key = m.cle
+  where r.id = p_id
+    and r.type::text <> 'sos'
+$$;
+
+-- ---------------------------------------------------------------------
 -- Vue agrégée par zone nommée (Sprint 1 — remplacée par statistiques_zone,
 -- conservée pour d'éventuelles zones officielles plus tard)
 -- ---------------------------------------------------------------------
@@ -795,6 +1001,9 @@ grant execute on function voter_signalement(uuid, text, text) to anon, authentic
 grant execute on function signalements_proches(double precision, double precision, integer, text) to anon, authenticated;
 grant execute on function signalement_detail(uuid, text) to anon, authenticated;
 grant execute on function statistiques_zone(double precision, double precision, integer) to anon, authenticated;
+grant execute on function relayer_signalement(report_type, double precision, double precision, text, text, text) to anon, authenticated;
+grant execute on function signalements_proches_v2(double precision, double precision, integer, text) to anon, authenticated;
+grant execute on function signalement_detail_v2(uuid, text) to anon, authenticated;
 
 -- ---------------------------------------------------------------------
 -- Photos : bucket public en lecture, upload anonyme limité aux images

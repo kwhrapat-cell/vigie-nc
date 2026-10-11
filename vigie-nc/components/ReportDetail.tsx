@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { errorMessage, voteOnReport, VoteResult } from "@/lib/reports-api";
 import { formatAge, formatDistance, formatDuration } from "@/lib/geo";
 import { getReliability, RELIABILITY_HEX } from "@/lib/reliability";
-import { Report, RISK_LABELS, Vote } from "@/lib/types";
+import { RELAY_SOURCE_LABELS, Report, RISK_LABELS, Vote } from "@/lib/types";
 import { ReliabilityBadge, TypeTile } from "./ui";
 
 const RESULT_MESSAGES: Record<VoteResult, string> = {
@@ -146,7 +146,13 @@ export function ReportDetail({
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <ReliabilityBadge report={report} size="md" />
             <span className="text-[11.5px] text-mist-dim">
-              {rel.people > 1 ? `${rel.people - 1} confirmation${rel.people > 2 ? "s" : ""}` : "Pas encore confirmé"}
+              {report.relaySource
+                ? rel.people > 0
+                  ? `${rel.people} confirmation${rel.people > 1 ? "s" : ""} sur place`
+                  : "Pas encore confirmé sur place"
+                : rel.people > 1
+                  ? `${rel.people - 1} confirmation${rel.people > 2 ? "s" : ""}`
+                  : "Pas encore confirmé"}
             </span>
             {report.riskLevel && (
               <span
@@ -178,7 +184,9 @@ export function ReportDetail({
         )}
 
         <p className="mt-3 text-[11px] text-mist-dim">
-          Signalé anonymement · {formatAge(report.createdAt)}
+          {report.relaySource
+            ? `Info relayée depuis ${RELAY_SOURCE_LABELS[report.relaySource]} · ${formatAge(report.createdAt)}`
+            : `Signalé anonymement · ${formatAge(report.createdAt)}`}
         </p>
         {report.description && (
           <p className="mt-1.5 text-[13px] leading-relaxed whitespace-pre-line">{report.description}</p>
@@ -201,7 +209,13 @@ export function ReportDetail({
                 </svg>
               }
             >
-              {rel.people > 1 ? `${rel.people} personnes l'ont vu` : "Signalé par 1 personne"}
+              {report.relaySource
+                ? rel.people > 0
+                  ? `${rel.people} personne${rel.people > 1 ? "s" : ""} sur place l'${rel.people > 1 ? "ont" : "a"} confirmé`
+                  : "Personne sur place ne l'a encore confirmé"
+                : rel.people > 1
+                  ? `${rel.people} personnes l'ont vu`
+                  : "Signalé par 1 personne"}
               {rel.contested && <span className="block text-[11px] text-warn">{rel.contested}</span>}
             </Row>
             {report.officialSource && (

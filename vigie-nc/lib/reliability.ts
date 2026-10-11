@@ -32,9 +32,11 @@ export const RELIABILITY_HEX: Record<ReliabilityLevel, string> = {
 };
 
 export function getReliability(
-  r: Pick<Report, "confirmations" | "infirmations" | "officialSource">,
+  r: Pick<Report, "confirmations" | "infirmations" | "officialSource" | "relaySource">,
 ): Reliability {
-  const people = r.confirmations + 1;
+  // Une info relayée ne compte pas son auteur comme témoin : il ne l'a pas
+  // forcément vue lui-même.
+  const people = r.confirmations + (r.relaySource ? 0 : 1);
   const contested =
     r.infirmations > 0 && r.infirmations >= r.confirmations
       ? r.infirmations > 1
@@ -48,6 +50,15 @@ export function getReliability(
       label: "Vérifié",
       people,
       detail: `Source officielle (${r.officialSource})`,
+      contested,
+    };
+  }
+  if (people === 0) {
+    return {
+      level: "signalement",
+      label: "Relayé",
+      people,
+      detail: "Info relayée, pas encore confirmée sur place",
       contested,
     };
   }

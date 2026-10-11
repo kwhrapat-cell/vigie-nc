@@ -40,7 +40,7 @@ export function ReliabilityBadge({
   report,
   size = "sm",
 }: {
-  report: Pick<Report, "confirmations" | "infirmations" | "officialSource">;
+  report: Pick<Report, "confirmations" | "infirmations" | "officialSource" | "relaySource">;
   size?: "sm" | "md";
 }) {
   const rel = getReliability(report);

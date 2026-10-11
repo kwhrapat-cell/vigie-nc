@@ -144,6 +144,16 @@ export const REPORT_TYPE_ICON: Record<ReportType, string> = {
 };
 
 export type Vote = "present" | "termine";
+
+// Info relayée par quelqu'un qui l'a vue ailleurs (pas forcément sur place)
+export type RelaySource = "facebook" | "radio" | "sms" | "autre";
+
+export const RELAY_SOURCE_LABELS: Record<RelaySource, string> = {
+  facebook: "Facebook",
+  radio: "Radio / TV",
+  sms: "SMS / WhatsApp",
+  autre: "Autre",
+};
 export type RiskLevel = "faible" | "moyen" | "eleve";
 
 export const RISK_LABELS: Record<RiskLevel, string> = {
@@ -171,6 +181,7 @@ export interface Report {
   riskLevel?: RiskLevel | null;
   place?: string | null; // « RT1, Dumbéa »
   officialSource?: string | null; // renseigné par l'équipe : niveau « Vérifié »
+  relaySource?: RelaySource | null; // info relayée, pas vue sur place par l'auteur
   active?: boolean;
 }
 

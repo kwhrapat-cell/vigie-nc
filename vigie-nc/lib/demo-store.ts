@@ -9,6 +9,7 @@
 import { distanceM, GRAND_NOUMEA, LatLng, offsetKm } from "./geo";
 import type { ReportRow } from "./reports-api";
 import {
+  RelaySource,
   ReportType,
   REPORT_TYPE_LIFETIME_MIN,
   REPORT_TYPE_MERGE_RADIUS_M,
@@ -26,6 +27,7 @@ interface DemoReport {
   riskLevel: RiskLevel | null;
   place: string | null;
   officialSource: string | null;
+  relaySource: RelaySource | null;
   createdAt: number;
   expiresAt: number;
   resolvedAt: number | null;
@@ -107,6 +109,7 @@ function seed(center: LatLng | null) {
       riskLevel: null,
       place: null,
       officialSource: null,
+      relaySource: null,
       createdAt: now - ageMin * MIN,
       expiresAt: now + (REPORT_TYPE_LIFETIME_MIN[type] - ageMin) * MIN,
       resolvedAt: null,
@@ -126,6 +129,7 @@ function seed(center: LatLng | null) {
   add("travaux", -3.9, 0.6, 60, 0, { riskLevel: "faible" });
   add("meteo", 3.2, -3.5, 40, 2, { description: "Fortes pluies, visibilité réduite." });
   add("trafic_dense", 1.8, 1.4, 8, 0);
+  add("route_coupee", 4.6, 3.2, 15, 0, { relaySource: "facebook", place: "Info relayée (démo)" });
 }
 
 function reanchor(center: LatLng) {
@@ -157,6 +161,7 @@ function toRow(r: DemoReport, deviceId: string, center: LatLng | null): ReportRo
     niveau_risque: r.riskLevel,
     lieu: r.place,
     source_officielle: r.officialSource,
+    relais_source: r.relaySource,
     confirmations,
     infirmations,
     created_at: new Date(r.createdAt).toISOString(),
@@ -273,6 +278,7 @@ export function demoCreate(input: {
     riskLevel: input.riskLevel ?? null,
     place: input.place ?? null,
     officialSource: null,
+    relaySource: null,
     createdAt: now,
     expiresAt: now + REPORT_TYPE_LIFETIME_MIN[input.type] * MIN,
     resolvedAt: null,
@@ -283,6 +289,52 @@ export function demoCreate(input: {
   lastReportByDevice.set(input.deviceId, now);
   notify();
   return { id, resultat: "cree" };
+}
+
+export function demoRelay(input: {
+  type: ReportType;
+  lat: number;
+  lng: number;
+  source: RelaySource;
+  place?: string | null;
+  deviceId: string;
+}): { id: string; resultat: string } {
+  const now = Date.now();
+  seed({ lat: input.lat, lng: input.lng });
+  if (input.type === "sos") throw new DemoError("type_invalide");
+  const last = lastReportByDevice.get(input.deviceId);
+  if (last && now - last < 60_000) throw new DemoError("rate_limit");
+
+  const radius = REPORT_TYPE_MERGE_RADIUS_M[input.type];
+  if (radius > 0) {
+    const existing = store.find(
+      (r) => r.type === input.type && isActive(r, now) && distanceM(r, input) <= radius,
+    );
+    if (existing) return { id: existing.id, resultat: "existe_deja" };
+  }
+
+  const id = `demo-relais-${store.length + 1}-${now}`;
+  store.push({
+    id,
+    type: input.type,
+    lat: input.lat,
+    lng: input.lng,
+    photoUrl: null,
+    description: null,
+    riskLevel: null,
+    place: input.place ?? null,
+    officialSource: null,
+    relaySource: input.source,
+    createdAt: now,
+    expiresAt: now + REPORT_TYPE_LIFETIME_MIN[input.type] * MIN,
+    resolvedAt: null,
+    lastConfirmedAt: null,
+    author: input.deviceId,
+    votes: new Map(),
+  });
+  lastReportByDevice.set(input.deviceId, now);
+  notify();
+  return { id, resultat: "relaye" };
 }
 
 export function demoVote(reportId: string, deviceId: string, vote: Vote) {

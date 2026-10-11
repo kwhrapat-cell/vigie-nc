@@ -169,7 +169,7 @@ export function HomeSheet({
                     il y a {formatAgeShort(r.createdAt)}
                   </span>
                 </span>
-                {r.type !== "sos" && (
+                {r.type !== "sos" && rel.people > 0 && (
                   <span
                     className="shrink-0 flex items-center gap-1 text-[11px] text-mist-dim"
                     aria-label={`${rel.people} personne${rel.people > 1 ? "s" : ""}`}

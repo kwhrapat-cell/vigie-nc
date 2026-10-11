@@ -32,6 +32,7 @@ base (doublons, votes, expiration), rien n'est enregistré.
 |---|---|
 | `/` | Accueil : carte centrée sur toi (zone 1, 3 ou 5 km), compteurs Dangers / Perturbations / Infos météo, liste « À proximité », fiche d'un signalement |
 | `/signaler` | Signalement en 3 étapes : type → localisation (repère déplaçable) → détails (photo, description, niveau de risque) → « Merci ! » |
+| `/relayer` | Relayer une info vue sur Facebook, à la radio, par SMS : on colle le message, l'appli repère le type et le lieu sur le téléphone, seul le fait est publié (« Relayé » jusqu'à confirmation sur place) |
 | `/sos` | SOS « Je suis en danger » : appui long 3 s, position sur la carte, SMS préparé pour les contacts, appel 15 / 17 / 18 |
 | `/alertes` | Alertes en cours, ma zone ou toute la Calédonie |
 | `/historique` | Mémoire du territoire : 12 derniers mois, évolution mensuelle, événements |
@@ -81,6 +82,18 @@ dans le dossier `vigie-nc/` du dépôt (**Root Directory = `vigie-nc`**).
 Variables d'environnement (Settings → Environment Variables) :
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — sans elles,
 l'aperçu tourne en mode démo.
+
+## Facebook et autres sources
+
+Pas de récupération automatique depuis Facebook : l'accès aux groupes a été
+fermé aux applications en avril 2024 et Meta interdit la collecte
+automatisée. Les infos sont **relayées par des personnes** (`/relayer`) :
+le texte collé ne quitte pas le téléphone, seuls le type, le lieu, l'heure
+et la provenance sont publiés. Un relais ne compte jamais comme une
+confirmation ; un doublon proche n'est pas recréé (`relayer_signalement`).
+
+Prévu ensuite : bandeau de vigilance Météo-France (API officielle gratuite,
+compte à créer sur portail-api.meteofrance.fr).
 
 ## Vie privée
 
