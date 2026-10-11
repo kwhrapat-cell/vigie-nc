@@ -20,7 +20,7 @@ body {
 
 /* Espace pour la barre de navigation du bas (+ encoche iPhone) */
 .pb-nav {
-  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  padding-bottom: calc(62px + env(safe-area-inset-bottom));
 }
 
 /* ---------- Marqueurs de la carte ---------- */
@@ -88,17 +88,19 @@ body {
   filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.5));
 }
 
-.leaflet-container {
+/* Préfixe `html` : la feuille de Leaflet est chargée après celle-ci dans
+   le CSS final, il faut une spécificité plus forte pour la surcharger. */
+html .leaflet-container {
   background: #0b1d22;
   font-family: "Inter", sans-serif;
 }
-.leaflet-control-attribution {
-  font-size: 9px !important;
-  background: rgba(8, 19, 23, 0.7) !important;
-  color: #93b0ad !important;
+html .leaflet-container .leaflet-control-attribution {
+  font-size: 9px;
+  background: rgba(8, 19, 23, 0.7);
+  color: #93b0ad;
 }
-.leaflet-control-attribution a {
-  color: #93b0ad !important;
+html .leaflet-container .leaflet-control-attribution a {
+  color: #93b0ad;
 }
 
 /* Anneau de progression du SOS (appui long) */

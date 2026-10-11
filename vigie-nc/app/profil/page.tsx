@@ -92,7 +92,7 @@ export default function ProfilPage() {
       <Card title="Confidentialité">
         <ul className="flex flex-col gap-1.5 text-[11.5px] text-mist-dim leading-relaxed list-disc pl-4">
           <li>Pas de compte, pas de nom : les signalements sont anonymes.</li>
-          <li>Ta position n&apos;est utilisée que sur ton téléphone, et envoyée seulement quand tu signales.</li>
+          <li>Ta position reste sur ton téléphone. Elle n&apos;est envoyée que quand tu signales (et au service OpenStreetMap, pour trouver le nom du lieu).</li>
           <li>Les visages sont floutés et la position cachée dans les photos est retirée avant l&apos;envoi.</li>
           <li>L&apos;identifiant de ton téléphone n&apos;est jamais public : la base n&apos;en garde qu&apos;une empreinte.</li>
           <li>Aucune exploitation commerciale des données.</li>

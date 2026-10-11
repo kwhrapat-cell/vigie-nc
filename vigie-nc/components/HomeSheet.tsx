@@ -55,7 +55,7 @@ export function HomeSheet({
   const time = timeLabel(updatedAt);
 
   return (
-    <section className="relative z-[12] -mt-4 rounded-t-[22px] bg-panel border-t border-line px-4 pt-2.5 pb-3">
+    <section className="relative z-[12] -mt-4 rounded-t-[22px] bg-panel border-t border-line px-4 pt-2.5 pb-7">
       <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-2.5" />
 
       <div className="flex items-baseline justify-between gap-2">

@@ -40,6 +40,10 @@ const store: DemoReport[] = [];
 const lastReportByDevice = new Map<string, number>();
 const listeners = new Set<() => void>();
 let seeded = false;
+// Les signalements de démo sont d'abord posés autour de Nouméa, puis
+// déplacés autour de l'utilisateur dès que sa position est connue.
+let anchoredOnUser = false;
+let seedCenter: LatLng = GRAND_NOUMEA;
 
 export class DemoError extends Error {
   constructor(public code: string) {
@@ -74,9 +78,15 @@ function fakeVotes(present: number, termine: number): Map<string, Vote> {
 
 // Signalements de démonstration placés autour de la première position
 // connue, pour que la démo ait du sens où que l'on soit.
-function seed(center: LatLng) {
-  if (seeded) return;
+function seed(center: LatLng | null) {
+  if (seeded) {
+    if (center && !anchoredOnUser) reanchor(center);
+    return;
+  }
   seeded = true;
+  if (center) anchoredOnUser = true;
+  seedCenter = center ?? GRAND_NOUMEA;
+  const origin = seedCenter;
   const now = Date.now();
   const add = (
     type: ReportType,
@@ -86,7 +96,7 @@ function seed(center: LatLng) {
     present: number,
     extra: Partial<DemoReport> = {},
   ) => {
-    const p = offsetKm(center, northKm, eastKm);
+    const p = offsetKm(origin, northKm, eastKm);
     store.push({
       id: `demo-${store.length + 1}`,
       type,
@@ -118,6 +128,19 @@ function seed(center: LatLng) {
   add("trafic_dense", 1.8, 1.4, 8, 0);
 }
 
+function reanchor(center: LatLng) {
+  anchoredOnUser = true;
+  const dLat = center.lat - seedCenter.lat;
+  const dLng = center.lng - seedCenter.lng;
+  for (const r of store) {
+    if (r.author === "demo-auteur") {
+      r.lat += dLat;
+      r.lng += dLng;
+    }
+  }
+  seedCenter = center;
+}
+
 function isActive(r: DemoReport, now: number) {
   return r.resolvedAt === null && r.expiresAt > now;
 }
@@ -147,7 +170,7 @@ function toRow(r: DemoReport, deviceId: string, center: LatLng | null): ReportRo
 }
 
 export function demoNearby(center: LatLng | null, radiusM: number, deviceId: string): ReportRow[] {
-  seed(center ?? GRAND_NOUMEA);
+  seed(center);
   const now = Date.now();
   const radius = Math.min(Math.max(radiusM, 500), 20_000);
   return store
@@ -280,7 +303,7 @@ export function demoVote(reportId: string, deviceId: string, vote: Vote) {
 // Statistiques fictives mais cohérentes (saison des pluies plus chargée),
 // complétées par les signalements de la démo.
 export function demoStats(center: LatLng | null, radiusM: number) {
-  seed(center ?? GRAND_NOUMEA);
+  seed(center);
   const factor = center ? Math.min(1, radiusM / 5000) : 4;
   const seasonal = [9, 11, 8, 5, 3, 2, 2, 2, 3, 4, 6, 8]; // janv. → déc.
   const now = new Date();
