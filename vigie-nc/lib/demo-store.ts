@@ -7,12 +7,12 @@
 // rechargement de la page.
 
 import { distanceM, GRAND_NOUMEA, LatLng, offsetKm } from "./geo";
+import type { ReportRow } from "./reports-api";
 import {
-  Report,
   ReportType,
-  REPORT_TYPE_LABELS,
   REPORT_TYPE_LIFETIME_MIN,
   REPORT_TYPE_MERGE_RADIUS_M,
+  RiskLevel,
   Vote,
 } from "./types";
 
@@ -22,6 +22,10 @@ interface DemoReport {
   lat: number;
   lng: number;
   photoUrl: string | null;
+  description: string | null;
+  riskLevel: RiskLevel | null;
+  place: string | null;
+  officialSource: string | null;
   createdAt: number;
   expiresAt: number;
   resolvedAt: number | null;
@@ -31,6 +35,7 @@ interface DemoReport {
 }
 
 const MIN = 60_000;
+const RISK_RANK: Record<string, number> = { faible: 1, moyen: 2, eleve: 3 };
 const store: DemoReport[] = [];
 const lastReportByDevice = new Map<string, number>();
 const listeners = new Set<() => void>();
@@ -79,7 +84,7 @@ function seed(center: LatLng) {
     eastKm: number,
     ageMin: number,
     present: number,
-    termine: number,
+    extra: Partial<DemoReport> = {},
   ) => {
     const p = offsetKm(center, northKm, eastKm);
     store.push({
@@ -88,62 +93,77 @@ function seed(center: LatLng) {
       lat: p.lat,
       lng: p.lng,
       photoUrl: null,
+      description: null,
+      riskLevel: null,
+      place: null,
+      officialSource: null,
       createdAt: now - ageMin * MIN,
       expiresAt: now + (REPORT_TYPE_LIFETIME_MIN[type] - ageMin) * MIN,
       resolvedAt: null,
       lastConfirmedAt: present > 0 ? now - Math.min(ageMin, 5) * MIN : null,
       author: "demo-auteur",
-      votes: fakeVotes(present, termine),
+      votes: fakeVotes(present, 0),
+      ...extra,
     });
   };
-  add("route_coupee", 0.9, 0.2, 6, 4, 0);
-  add("trafic_dense", 0.3, 2.1, 18, 1, 0);
-  add("inondation", -2.4, -2.3, 40, 0, 0);
-  add("accident", -4.3, 0.6, 25, 1, 1);
-  add("chaussee_degradee", 0.4, -4.4, 60 * 30, 0, 0);
+  add("inondation", 0.9, 0.2, 5, 3, {
+    description: "Route partiellement inondée. Attention dans les deux sens.",
+    riskLevel: "moyen",
+    officialSource: "Mairie",
+  });
+  add("accident", 0.3, 2.1, 12, 6, { riskLevel: "eleve" });
+  add("route_coupee", -2.4, -2.3, 25, 1, { description: "Arbre en travers de la route." });
+  add("travaux", -3.9, 0.6, 60, 0, { riskLevel: "faible" });
+  add("meteo", 3.2, -3.5, 40, 2, { description: "Fortes pluies, visibilité réduite." });
+  add("trafic_dense", 1.8, 1.4, 8, 0);
 }
 
 function isActive(r: DemoReport, now: number) {
   return r.resolvedAt === null && r.expiresAt > now;
 }
 
-function toReport(r: DemoReport, deviceId: string, center: LatLng | null): Report {
+function toRow(r: DemoReport, deviceId: string, center: LatLng | null): ReportRow {
   const { confirmations, infirmations } = counts(r);
   return {
     id: r.id,
     type: r.type,
-    label: REPORT_TYPE_LABELS[r.type],
     lat: r.lat,
     lng: r.lng,
-    createdAt: new Date(r.createdAt).toISOString(),
-    expiresAt: new Date(r.expiresAt).toISOString(),
+    photo_url: r.photoUrl,
+    description: r.description,
+    niveau_risque: r.riskLevel,
+    lieu: r.place,
+    source_officielle: r.officialSource,
     confirmations,
     infirmations,
-    lastConfirmedAt: r.lastConfirmedAt ? new Date(r.lastConfirmedAt).toISOString() : null,
-    distanceM: center ? distanceM(center, r) : null,
-    isMine: r.author === deviceId,
-    myVote: r.votes.get(deviceId) ?? null,
-    photoUrl: r.photoUrl,
+    created_at: new Date(r.createdAt).toISOString(),
+    expires_at: new Date(r.expiresAt).toISOString(),
+    last_confirmed_at: r.lastConfirmedAt ? new Date(r.lastConfirmedAt).toISOString() : null,
+    distance_m: center ? distanceM(center, r) : null,
+    est_auteur: r.author === deviceId,
+    mon_vote: r.votes.get(deviceId) ?? null,
+    actif: isActive(r, Date.now()),
   };
 }
 
-export function demoNearby(
-  center: LatLng | null,
-  radiusM: number,
-  deviceId: string,
-): Report[] {
+export function demoNearby(center: LatLng | null, radiusM: number, deviceId: string): ReportRow[] {
   seed(center ?? GRAND_NOUMEA);
   const now = Date.now();
   const radius = Math.min(Math.max(radiusM, 500), 20_000);
   return store
     .filter((r) => isActive(r, now))
-    .map((r) => toReport(r, deviceId, center))
-    .filter((r) => r.distanceM == null || r.distanceM <= radius)
+    .map((r) => toRow(r, deviceId, center))
+    .filter((r) => r.distance_m == null || r.distance_m <= radius)
     .sort((a, b) =>
-      a.distanceM != null && b.distanceM != null
-        ? a.distanceM - b.distanceM
-        : b.createdAt.localeCompare(a.createdAt),
+      a.distance_m != null && b.distance_m != null
+        ? a.distance_m - b.distance_m
+        : b.created_at.localeCompare(a.created_at),
     );
+}
+
+export function demoDetail(id: string, deviceId: string): ReportRow | null {
+  const r = store.find((x) => x.id === id && x.type !== "sos");
+  return r ? toRow(r, deviceId, null) : null;
 }
 
 function applyVote(r: DemoReport, deviceId: string, vote: Vote): string {
@@ -179,11 +199,16 @@ export function demoCreate(input: {
   type: ReportType;
   lat: number;
   lng: number;
-  photoUrl: string | null;
+  photoUrl?: string | null;
+  description?: string | null;
+  riskLevel?: RiskLevel | null;
+  place?: string | null;
   deviceId: string;
 }): { id: string; resultat: string } {
   const now = Date.now();
   seed({ lat: input.lat, lng: input.lng });
+  const description = input.description?.trim() || null;
+  if (description && description.length > 200) throw new DemoError("description_trop_longue");
 
   if (input.type !== "sos") {
     const last = lastReportByDevice.get(input.deviceId);
@@ -202,7 +227,12 @@ export function demoCreate(input: {
           return { id: existing.id, resultat: "deja_signale" };
         }
         applyVote(existing, input.deviceId, "present");
-        if (input.photoUrl && !existing.photoUrl) existing.photoUrl = input.photoUrl;
+        existing.photoUrl ??= input.photoUrl ?? null;
+        existing.description ??= description;
+        existing.place ??= input.place ?? null;
+        if (input.riskLevel && (RISK_RANK[input.riskLevel] ?? 0) > (RISK_RANK[existing.riskLevel ?? ""] ?? 0)) {
+          existing.riskLevel = input.riskLevel;
+        }
         notify();
         return { id: existing.id, resultat: "fusionne" };
       }
@@ -215,7 +245,11 @@ export function demoCreate(input: {
     type: input.type,
     lat: input.lat,
     lng: input.lng,
-    photoUrl: input.photoUrl,
+    photoUrl: input.photoUrl ?? null,
+    description,
+    riskLevel: input.riskLevel ?? null,
+    place: input.place ?? null,
+    officialSource: null,
     createdAt: now,
     expiresAt: now + REPORT_TYPE_LIFETIME_MIN[input.type] * MIN,
     resolvedAt: null,
@@ -240,5 +274,51 @@ export function demoVote(reportId: string, deviceId: string, vote: Vote) {
     infirmations,
     expires_at: new Date(r.expiresAt).toISOString(),
     resolu: r.resolvedAt !== null,
+  };
+}
+
+// Statistiques fictives mais cohérentes (saison des pluies plus chargée),
+// complétées par les signalements de la démo.
+export function demoStats(center: LatLng | null, radiusM: number) {
+  seed(center ?? GRAND_NOUMEA);
+  const factor = center ? Math.min(1, radiusM / 5000) : 4;
+  const seasonal = [9, 11, 8, 5, 3, 2, 2, 2, 3, 4, 6, 8]; // janv. → déc.
+  const now = new Date();
+  const parMois: { mois: string; total: number; inondations: number }[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const base = Math.round(seasonal[d.getMonth()] * 1.6 * factor);
+    parMois.push({
+      mois: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+      total: base,
+      inondations: Math.round(base * 0.4),
+    });
+  }
+  const recentsAll = store.filter((r) => r.type !== "sos");
+  const live = recentsAll.length;
+  parMois[11].total += live;
+  const total = parMois.reduce((s, m) => s + m.total, 0);
+  const inond = parMois.reduce((s, m) => s + m.inondations, 0);
+  return {
+    total,
+    actifs: recentsAll.filter((r) => isActive(r, Date.now())).length,
+    par_type: {
+      inondation: inond,
+      accident: Math.round(total * 0.27),
+      route_coupee: Math.round(total * 0.18),
+      travaux: Math.round(total * 0.1),
+      trafic_dense: Math.round(total * 0.08),
+    },
+    par_mois: parMois,
+    recents: recentsAll
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map((r) => ({
+        id: r.id,
+        type: r.type,
+        lieu: r.place,
+        created_at: new Date(r.createdAt).toISOString(),
+        confirmations: counts(r).confirmations,
+        actif: isActive(r, Date.now()),
+      })),
   };
 }

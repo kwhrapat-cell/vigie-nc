@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
 import { GRAND_NOUMEA, distanceM, LatLng } from "@/lib/geo";
 import { getReliability } from "@/lib/reliability";
-import { Report, REPORT_TYPE_SEVERITY, SEVERITY_HEX } from "@/lib/types";
+import { CATEGORY_HEX, Report, REPORT_TYPE_CATEGORY, REPORT_TYPE_ICON } from "@/lib/types";
 
 const RECENT_THRESHOLD_MIN = 15;
 
@@ -102,14 +102,14 @@ export function LiveMap({
     const now = Date.now();
 
     for (const r of reports) {
-      const color = SEVERITY_HEX[REPORT_TYPE_SEVERITY[r.type]];
+      const color = CATEGORY_HEX[REPORT_TYPE_CATEGORY[r.type]];
       const ageMin = (now - new Date(r.createdAt).getTime()) / 60_000;
       const isSos = r.type === "sos";
       const pulse = isSos || ageMin <= RECENT_THRESHOLD_MIN;
-      const level = getReliability(r).level;
+      const rel = getReliability(r);
       const classes = [
-        "pulse-marker",
-        level === "non_confirme" || level === "incertain" ? "is-faint" : "",
+        "vigie-marker",
+        rel.level === "signalement" || rel.contested ? "is-faint" : "",
         r.id === selectedId ? "is-selected" : "",
       ].join(" ");
 
@@ -119,9 +119,11 @@ export function LiveMap({
           pulse
             ? `<span class="ring" style="background:${color}22;border:1px solid ${color}"></span>`
             : ""
-        }<span class="core" style="background:${color}"></span></div>`,
-        iconSize: [16, 16],
-        iconAnchor: [8, 8],
+        }<span class="core" style="background:${color}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${
+          REPORT_TYPE_ICON[r.type]
+        }</svg></span></div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
       });
 
       L.marker([r.lat, r.lng], {

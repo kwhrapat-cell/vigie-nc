@@ -1,7 +1,8 @@
 "use client";
 
-export const RADIUS_OPTIONS_KM = [1, 3, 5] as const;
-export type RadiusKm = (typeof RADIUS_OPTIONS_KM)[number];
+import { RADIUS_OPTIONS_KM, type RadiusKm } from "@/lib/preferences";
+
+export type { RadiusKm };
 
 export function RadiusSelector({
   value,
@@ -16,7 +17,7 @@ export function RadiusSelector({
     <div
       role="radiogroup"
       aria-label="Rayon de la zone surveillée"
-      className={`flex items-center gap-1 rounded-full bg-void/85 border border-white/[0.1] p-1 backdrop-blur ${
+      className={`flex items-center gap-1 rounded-full bg-void/85 border border-line p-1 backdrop-blur ${
         disabled ? "opacity-50" : ""
       }`}
     >
@@ -34,7 +35,7 @@ export function RadiusSelector({
             disabled={disabled}
             onClick={() => onChange(km)}
             className={`min-w-[44px] h-8 rounded-full px-2 text-[12px] font-medium transition-colors ${
-              selected ? "bg-lagoon text-void" : "text-mist-dim"
+              selected ? "bg-primary text-white" : "text-mist-dim"
             }`}
           >
             {km} km

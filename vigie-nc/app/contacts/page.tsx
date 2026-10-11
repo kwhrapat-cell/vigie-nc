@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TopBarPlain } from "@/components/TopBar";
+import { PrimaryButton, ScreenHeader } from "@/components/ui";
 import {
   getEmergencyContacts,
   addEmergencyContact,
@@ -31,16 +31,16 @@ export default function ContactsPage() {
   }
 
   return (
-    <>
-      <TopBarPlain title="Contacts d'urgence" backHref="/" />
+    <main className="min-h-[100dvh] pb-8">
+      <ScreenHeader title="Contacts d'urgence" backHref="/profil" />
 
-      <p className="mx-3.5 mt-3 text-[11.5px] text-mist-dim leading-relaxed">
+      <p className="mx-4 mt-1 text-[11.5px] text-mist-dim leading-relaxed">
         Ces contacts restent uniquement sur ton téléphone. En cas de SOS,
         l&apos;app ouvre ton appli SMS avec un message pré-rempli — c&apos;est
         toi qui décides d&apos;envoyer.
       </p>
 
-      <div className="mx-3.5 mt-4 flex flex-col gap-2">
+      <div className="mx-4 mt-4 flex flex-col gap-2">
         {contacts.length === 0 && (
           <p className="text-[12px] text-mist-dim opacity-70">
             Aucun contact enregistré pour l&apos;instant.
@@ -49,7 +49,7 @@ export default function ContactsPage() {
         {contacts.map((c) => (
           <div
             key={c.id}
-            className="flex items-center justify-between rounded-xl bg-panel-2 px-3 py-2.5"
+            className="flex items-center justify-between rounded-xl border border-line bg-panel px-3 py-2.5"
           >
             <div>
               <div className="text-[13px] font-medium">{c.name}</div>
@@ -69,30 +69,24 @@ export default function ContactsPage() {
         ))}
       </div>
 
-      <div className="mx-3.5 mt-5 flex flex-col gap-2.5">
+      <div className="mx-4 mt-5 flex flex-col gap-2.5">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Nom (ex: Maman)"
-          className="rounded-xl bg-panel-2 border border-white/[0.09] px-3 py-2.5 text-[13px] placeholder:text-mist-dim/60"
+          className="rounded-xl bg-panel border border-line px-3 py-3 text-[13px] placeholder:text-mist-dim/60 focus:outline-none focus:border-lagoon"
         />
         <input
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           placeholder="Téléphone (ex: +687 XX.XX.XX)"
           inputMode="tel"
-          className="rounded-xl bg-panel-2 border border-white/[0.09] px-3 py-2.5 text-[13px] placeholder:text-mist-dim/60"
+          className="rounded-xl bg-panel border border-line px-3 py-3 text-[13px] placeholder:text-mist-dim/60 focus:outline-none focus:border-lagoon"
         />
-        <button
-          type="button"
-          onClick={handleAdd}
-          disabled={!name.trim() || !phone.trim()}
-          className="rounded-xl py-2.5 font-display font-semibold text-[13px] text-void disabled:opacity-40"
-          style={{ background: "linear-gradient(160deg, #7FC9C4, #22B8B0)" }}
-        >
+        <PrimaryButton onClick={handleAdd} disabled={!name.trim() || !phone.trim()}>
           Ajouter le contact
-        </button>
+        </PrimaryButton>
       </div>
-    </>
+    </main>
   );
 }

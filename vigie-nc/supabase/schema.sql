@@ -1,10 +1,12 @@
 -- =====================================================================
--- Vigie NC — schéma Supabase / PostGIS (Sprint 2)
+-- Vigie NC — schéma Supabase / PostGIS (Sprint 2 — maquettes)
 --
 -- À exécuter dans l'éditeur SQL Supabase (SQL Editor > New query > Run).
 -- Le script est ré-exécutable : il fonctionne sur une base vide comme sur
--- une base où le schéma du Sprint 1 a déjà été passé (il migre alors les
--- données existantes).
+-- une base où une version précédente a déjà été passée (il migre alors
+-- les données existantes). Il peut être lancé d'un bloc depuis l'éditeur
+-- SQL : les nouvelles valeurs de type ne sont utilisées qu'en texte dans
+-- les fonctions, ce qui évite l'erreur « unsafe use of new value ».
 --
 -- Principes :
 --   - toutes les écritures passent par des fonctions (RPC) contrôlées côté
@@ -22,7 +24,9 @@ create extension if not exists postgis with schema extensions;
 create extension if not exists pgcrypto with schema extensions;
 
 -- ---------------------------------------------------------------------
--- Types de signalement (inchangés depuis le Sprint 1)
+-- Types de signalement
+-- (« incivilité » et « véhicule volé » volontairement absents : on s'en
+-- tient à des informations d'infrastructure vérifiables)
 -- ---------------------------------------------------------------------
 do $$
 begin
@@ -33,11 +37,19 @@ begin
     'route_coupee',
     'inondation',
     'chaussee_degradee',
-    'autre'
+    'autre',
+    'danger',
+    'travaux',
+    'meteo'
   );
 exception
   when duplicate_object then null;
 end $$;
+
+-- Valeurs ajoutées après le Sprint 1 (sans effet si elles existent déjà)
+alter type report_type add value if not exists 'danger';
+alter type report_type add value if not exists 'travaux';
+alter type report_type add value if not exists 'meteo';
 
 -- Empreinte de l'identifiant d'appareil (lib/device-id.ts). L'identifiant
 -- brut reste sur le téléphone ; la base ne garde que son empreinte.
@@ -82,10 +94,43 @@ alter table reports add column if not exists last_confirmed_at timestamptz;
 -- Rempli quand l'événement est déclaré terminé (par son auteur ou par la
 -- majorité des votes). On garde la ligne : elle nourrit l'historique.
 alter table reports add column if not exists resolved_at timestamptz;
+-- Détails saisis à l'étape 3 du signalement
+alter table reports add column if not exists description text;
+alter table reports add column if not exists niveau_risque text;
+-- Lieu lisible (« RT1, Dumbéa »), déduit de la position sur le téléphone
+alter table reports add column if not exists lieu text;
+-- Rempli à la main par l'équipe (mairie, pompiers…) : niveau « Vérifié »
+alter table reports add column if not exists source_officielle text;
+
+do $$
+begin
+  alter table reports add constraint reports_description_longueur
+    check (description is null or char_length(description) <= 200);
+exception when duplicate_object then null;
+end $$;
+do $$
+begin
+  alter table reports add constraint reports_niveau_risque_valeurs
+    check (niveau_risque is null or niveau_risque in ('faible', 'moyen', 'eleve'));
+exception when duplicate_object then null;
+end $$;
+do $$
+begin
+  alter table reports add constraint reports_lieu_longueur
+    check (lieu is null or char_length(lieu) <= 80);
+exception when duplicate_object then null;
+end $$;
+do $$
+begin
+  alter table reports add constraint reports_source_longueur
+    check (source_officielle is null or char_length(source_officielle) <= 60);
+exception when duplicate_object then null;
+end $$;
 
 create index if not exists reports_geom_idx on reports using gist (geom);
 create index if not exists reports_expires_at_idx on reports (expires_at);
 create index if not exists reports_type_expires_idx on reports (type, expires_at);
+create index if not exists reports_created_at_idx on reports (created_at desc);
 
 -- Auteur d'un signalement — table privée, jamais lisible depuis l'appli.
 create table if not exists report_authors (
@@ -177,11 +222,14 @@ returns int
 language sql
 immutable
 as $$
-  select case p_type
+  select case p_type::text
     when 'accident'          then 300
+    when 'danger'            then 300
+    when 'travaux'           then 300
     when 'trafic_dense'      then 500
     when 'route_coupee'      then 800
     when 'inondation'        then 1000
+    when 'meteo'             then 2000
     when 'chaussee_degradee' then 150
     else 0  -- 'sos' et 'autre' : jamais regroupés
   end;
@@ -194,15 +242,27 @@ returns interval
 language sql
 immutable
 as $$
-  select case p_type
+  select case p_type::text
     when 'trafic_dense'      then interval '1 hour'
     when 'accident'          then interval '2 hours'
     when 'sos'               then interval '2 hours'
+    when 'danger'            then interval '3 hours'
+    when 'meteo'             then interval '3 hours'
     when 'route_coupee'      then interval '4 hours'
     when 'inondation'        then interval '4 hours'
+    when 'travaux'           then interval '3 days'
     when 'chaussee_degradee' then interval '3 days'
     else interval '3 hours'
   end;
+$$;
+
+-- Ordre des niveaux de risque saisis par les usagers
+create or replace function vigie_rang_risque(p_niveau text)
+returns int
+language sql
+immutable
+as $$
+  select case p_niveau when 'faible' then 1 when 'moyen' then 2 when 'eleve' then 3 else 0 end;
 $$;
 
 -- Emprise de la Nouvelle-Calédonie (Grande Terre, Belep, îles Loyauté,
@@ -311,12 +371,17 @@ $$;
 --   select creer_signalement('inondation', -22.27, 166.45, '<id appareil>');
 -- Retour : {"id": "...", "resultat": "cree" | "fusionne" | "deja_signale"}
 -- ---------------------------------------------------------------------
+drop function if exists creer_signalement(report_type, double precision, double precision, text, text);
+
 create or replace function creer_signalement(
   p_type report_type,
   p_lat double precision,
   p_lng double precision,
   p_device_id text,
-  p_photo_url text default null
+  p_photo_url text default null,
+  p_description text default null,
+  p_niveau_risque text default null,
+  p_lieu text default null
 )
 returns jsonb
 language plpgsql
@@ -330,6 +395,9 @@ declare
   v_existant record;
   v_rayon int;
   v_id uuid;
+  v_description text := nullif(btrim(p_description), '');
+  v_niveau text := nullif(btrim(p_niveau_risque), '');
+  v_lieu text := left(nullif(btrim(p_lieu), ''), 80);
 begin
   if p_device_id is null or length(p_device_id) not between 16 and 128 then
     raise exception 'appareil_invalide';
@@ -341,11 +409,17 @@ begin
      and p_photo_url !~ '^https://[^/]+/storage/v1/object/public/report-photos/[A-Za-z0-9._-]+$' then
     raise exception 'photo_invalide';
   end if;
+  if v_description is not null and char_length(v_description) > 200 then
+    raise exception 'description_trop_longue';
+  end if;
+  if v_niveau is not null and v_niveau not in ('faible', 'moyen', 'eleve') then
+    raise exception 'niveau_invalide';
+  end if;
 
   v_key := vigie_device_key(p_device_id);
   v_point := st_setsrid(st_makepoint(p_lng, p_lat), 4326)::geography;
 
-  if p_type <> 'sos' then
+  if p_type::text <> 'sos' then
     -- Anti-spam : un signalement par minute et par appareil.
     -- Le SOS n'est jamais bloqué : mieux vaut un doublon qu'une urgence muette.
     select max(created_at) into v_dernier from report_authors where device_key = v_key;
@@ -373,18 +447,25 @@ begin
 
         perform vigie_appliquer_vote(v_existant.id, v_key, 'present');
 
-        if p_photo_url is not null then
-          update reports set photo_url = p_photo_url
-          where id = v_existant.id and photo_url is null;
-        end if;
+        -- Complète l'événement existant avec ce qui lui manquait.
+        update reports
+        set photo_url = coalesce(photo_url, p_photo_url),
+            description = coalesce(description, v_description),
+            lieu = coalesce(lieu, v_lieu),
+            niveau_risque = case
+              when vigie_rang_risque(v_niveau) > vigie_rang_risque(niveau_risque) then v_niveau
+              else niveau_risque
+            end
+        where id = v_existant.id;
 
         return jsonb_build_object('id', v_existant.id, 'resultat', 'fusionne');
       end if;
     end if;
   end if;
 
-  insert into reports (type, lat, lng, photo_url, expires_at)
-  values (p_type, p_lat, p_lng, p_photo_url, now() + vigie_duree_vie(p_type))
+  insert into reports (type, lat, lng, photo_url, description, niveau_risque, lieu, expires_at)
+  values (p_type, p_lat, p_lng, p_photo_url, v_description, v_niveau, v_lieu,
+          now() + vigie_duree_vie(p_type))
   returning id into v_id;
 
   insert into report_authors (report_id, device_key) values (v_id, v_key);
@@ -450,8 +531,8 @@ $$;
 -- Sans position (p_lat/p_lng nuls) : tous les signalements actifs.
 -- Le rayon est borné entre 500 m et 20 km.
 -- ---------------------------------------------------------------------
--- Le type de retour a changé depuis la première version de cette fonction :
--- on la supprime d'abord, sinon `create or replace` échoue.
+-- Le type de retour change d'une version à l'autre : on supprime d'abord,
+-- sinon `create or replace` échoue.
 drop function if exists signalements_proches(double precision, double precision, integer, text);
 
 create or replace function signalements_proches(
@@ -466,6 +547,10 @@ returns table (
   lat double precision,
   lng double precision,
   photo_url text,
+  description text,
+  niveau_risque text,
+  lieu text,
+  source_officielle text,
   confirmations int,
   infirmations int,
   created_at timestamptz,
@@ -473,7 +558,8 @@ returns table (
   last_confirmed_at timestamptz,
   distance_m double precision,
   est_auteur boolean,
-  mon_vote text
+  mon_vote text,
+  actif boolean
 )
 language sql
 stable
@@ -495,6 +581,10 @@ as $$
     r.lat,
     r.lng,
     r.photo_url,
+    r.description,
+    r.niveau_risque,
+    r.lieu,
+    r.source_officielle,
     r.confirmations,
     r.infirmations,
     r.created_at,
@@ -502,7 +592,8 @@ as $$
     r.last_confirmed_at,
     case when c.pt is null then null else st_distance(r.geom, c.pt) end as distance_m,
     coalesce(a.device_key = m.cle, false) as est_auteur,
-    v.vote as mon_vote
+    v.vote as mon_vote,
+    true as actif
   from reports r
   cross join moi m
   cross join centre c
@@ -519,7 +610,139 @@ as $$
 $$;
 
 -- ---------------------------------------------------------------------
--- Vue agrégée pour l'écran Historique (branchée au Sprint 3)
+-- RPC : un signalement précis (lien partagé), même terminé
+--   select * from signalement_detail('<uuid>', '<id appareil>');
+-- ---------------------------------------------------------------------
+drop function if exists signalement_detail(uuid, text);
+
+create or replace function signalement_detail(
+  p_id uuid,
+  p_device_id text default null
+)
+returns table (
+  id uuid,
+  type report_type,
+  lat double precision,
+  lng double precision,
+  photo_url text,
+  description text,
+  niveau_risque text,
+  lieu text,
+  source_officielle text,
+  confirmations int,
+  infirmations int,
+  created_at timestamptz,
+  expires_at timestamptz,
+  last_confirmed_at timestamptz,
+  distance_m double precision,
+  est_auteur boolean,
+  mon_vote text,
+  actif boolean
+)
+language sql
+stable
+security definer
+set search_path = public, extensions
+as $$
+  with moi as (
+    select case when p_device_id is null then null
+                else vigie_device_key(p_device_id) end as cle
+  )
+  select
+    r.id, r.type, r.lat, r.lng, r.photo_url, r.description, r.niveau_risque,
+    r.lieu, r.source_officielle, r.confirmations, r.infirmations, r.created_at,
+    r.expires_at, r.last_confirmed_at,
+    null::double precision as distance_m,
+    coalesce(a.device_key = m.cle, false) as est_auteur,
+    v.vote as mon_vote,
+    (r.resolved_at is null and r.expires_at > now()) as actif
+  from reports r
+  cross join moi m
+  left join report_authors a on a.report_id = r.id
+  left join report_votes v on v.report_id = r.id and v.device_key = m.cle
+  where r.id = p_id
+    and r.type::text <> 'sos'  -- un SOS n'est pas partageable par lien
+$$;
+
+-- ---------------------------------------------------------------------
+-- RPC : mémoire du territoire — statistiques des 12 derniers mois autour
+-- d'une position (ou sur toute la Calédonie si la position est nulle).
+-- Les SOS sont exclus : ce sont des urgences de personnes, pas des
+-- informations sur le territoire.
+--   select statistiques_zone(-22.27, 166.45, 5000);
+-- ---------------------------------------------------------------------
+create or replace function statistiques_zone(
+  p_lat double precision default null,
+  p_lng double precision default null,
+  p_rayon_m int default 5000
+)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public, extensions
+as $$
+  with
+    centre as (
+      select case when p_lat is null or p_lng is null then null
+                  else st_setsrid(st_makepoint(p_lng, p_lat), 4326)::geography end as pt
+    ),
+    debut as (
+      select (date_trunc('month', timezone('Pacific/Noumea', now())) - interval '11 months') as mois
+    ),
+    zone as (
+      select r.*, timezone('Pacific/Noumea', r.created_at) as local_at
+      from reports r, centre c, debut d
+      where r.type::text <> 'sos'
+        and timezone('Pacific/Noumea', r.created_at) >= d.mois
+        and (
+          c.pt is null
+          or st_dwithin(r.geom, c.pt, least(greatest(coalesce(p_rayon_m, 5000), 500), 20000))
+        )
+    ),
+    mois as (
+      select generate_series(d.mois, d.mois + interval '11 months', interval '1 month') as m
+      from debut d
+    )
+  select jsonb_build_object(
+    'total', (select count(*) from zone),
+    'actifs', (select count(*) from zone where resolved_at is null and expires_at > now()),
+    'par_type', coalesce(
+      (select jsonb_object_agg(t, n) from (
+         select type::text as t, count(*) as n from zone group by type
+       ) x),
+      '{}'::jsonb),
+    'par_mois', (
+      select jsonb_agg(jsonb_build_object(
+               'mois', to_char(mo.m, 'YYYY-MM'),
+               'total', (select count(*) from zone z where date_trunc('month', z.local_at) = mo.m),
+               'inondations', (select count(*) from zone z
+                               where date_trunc('month', z.local_at) = mo.m
+                                 and z.type::text in ('inondation', 'meteo'))
+             ) order by mo.m)
+      from mois mo
+    ),
+    'recents', coalesce(
+      (select jsonb_agg(e order by e->>'created_at' desc) from (
+         select jsonb_build_object(
+                  'id', z.id,
+                  'type', z.type,
+                  'lieu', z.lieu,
+                  'created_at', z.created_at,
+                  'confirmations', z.confirmations,
+                  'actif', (z.resolved_at is null and z.expires_at > now())
+                ) as e
+         from zone z
+         order by z.created_at desc
+         limit 30
+       ) x),
+      '[]'::jsonb)
+  );
+$$;
+
+-- ---------------------------------------------------------------------
+-- Vue agrégée par zone nommée (Sprint 1 — remplacée par statistiques_zone,
+-- conservée pour d'éventuelles zones officielles plus tard)
 -- ---------------------------------------------------------------------
 create or replace view zone_history as
 select
@@ -559,9 +782,11 @@ revoke all on report_votes from anon, authenticated;
 
 revoke execute on function vigie_appliquer_vote(uuid, text, text) from public, anon, authenticated;
 
-grant execute on function creer_signalement(report_type, double precision, double precision, text, text) to anon, authenticated;
+grant execute on function creer_signalement(report_type, double precision, double precision, text, text, text, text, text) to anon, authenticated;
 grant execute on function voter_signalement(uuid, text, text) to anon, authenticated;
 grant execute on function signalements_proches(double precision, double precision, integer, text) to anon, authenticated;
+grant execute on function signalement_detail(uuid, text) to anon, authenticated;
+grant execute on function statistiques_zone(double precision, double precision, integer) to anon, authenticated;
 
 -- ---------------------------------------------------------------------
 -- Photos : bucket public en lecture, upload anonyme limité aux images

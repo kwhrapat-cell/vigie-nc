@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -11,51 +11,63 @@ body {
 }
 
 body {
-  background:
-    radial-gradient(60% 50% at 50% 0%, rgba(34, 184, 176, 0.1), transparent 60%),
-    #071b21;
+  background: #081317;
   color: #eaf6f4;
   font-family: "Inter", sans-serif;
   min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Marqueurs Leaflet custom (pastille + halo pulsé pour les signalements récents) */
-.pulse-marker {
+/* Espace pour la barre de navigation du bas (+ encoche iPhone) */
+.pb-nav {
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+
+/* ---------- Marqueurs de la carte ---------- */
+.vigie-marker {
   position: relative;
+  width: 30px;
+  height: 30px;
+}
+.vigie-marker .core {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid #081317;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.6);
+}
+.vigie-marker .core svg {
   width: 16px;
   height: 16px;
 }
-.pulse-marker .core {
+.vigie-marker .ring {
   position: absolute;
-  inset: 5px;
-  border-radius: 9999px;
-}
-.pulse-marker .ring {
-  position: absolute;
-  inset: 0;
+  inset: -4px;
   border-radius: 9999px;
   animation: ring-pulse 1.8s ease-out infinite;
 }
 @keyframes ring-pulse {
   0% {
-    transform: scale(0.6);
+    transform: scale(0.7);
     opacity: 0.9;
   }
   100% {
-    transform: scale(2.2);
+    transform: scale(1.8);
     opacity: 0;
   }
 }
-
-/* Signalement non confirmé ou contesté : plus discret */
-.pulse-marker.is-faint .core {
-  opacity: 0.55;
+/* Simple signalement (1 personne) ou contesté : plus discret */
+.vigie-marker.is-faint .core {
+  opacity: 0.6;
 }
 /* Signalement ouvert dans la fiche */
-.pulse-marker.is-selected .core {
-  inset: 2px;
+.vigie-marker.is-selected .core {
   box-shadow:
-    0 0 0 2px #071b21,
+    0 0 0 2px #081317,
     0 0 0 4px #eaf6f4;
 }
 
@@ -64,19 +76,41 @@ body {
   width: 18px;
   height: 18px;
   border-radius: 9999px;
-  background: #eaf6f4;
-  border: 4px solid #22b8b0;
-  box-shadow: 0 0 0 6px rgba(34, 184, 176, 0.25);
+  background: #3b82f6;
+  border: 3px solid #eaf6f4;
+  box-shadow: 0 0 0 7px rgba(59, 130, 246, 0.25);
 }
 
-/* Fond de carte assorti au thème pendant le chargement des tuiles */
+/* Repère déplaçable de l'écran « Localisation » */
+.pick-pin {
+  width: 34px;
+  height: 44px;
+  filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.5));
+}
+
 .leaflet-container {
-  background: #0b2228;
+  background: #0b1d22;
   font-family: "Inter", sans-serif;
+}
+.leaflet-control-attribution {
+  font-size: 9px !important;
+  background: rgba(8, 19, 23, 0.7) !important;
+  color: #93b0ad !important;
+}
+.leaflet-control-attribution a {
+  color: #93b0ad !important;
+}
+
+/* Anneau de progression du SOS (appui long) */
+.sos-ring {
+  transition: stroke-dashoffset 0.05s linear;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pulse-marker .ring {
+  .vigie-marker .ring,
+  .animate-blink,
+  .animate-pop-in,
+  .animate-fab-in {
     animation: none !important;
   }
 }

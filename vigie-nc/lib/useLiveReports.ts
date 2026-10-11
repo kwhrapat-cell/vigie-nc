@@ -21,6 +21,7 @@ export function useLiveReports(center: LatLng | null, radiusM: number) {
   const [reports, setReports] = useState<Report[]>([]);
   const [status, setStatus] = useState<LiveStatus>("loading");
   const [error, setError] = useState<string | null>(null);
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const requestId = useRef(0);
 
   const refresh = useCallback(async () => {
@@ -31,6 +32,7 @@ export function useLiveReports(center: LatLng | null, radiusM: number) {
       setReports(data);
       setStatus("ready");
       setError(null);
+      setUpdatedAt(new Date());
     } catch (e) {
       if (id !== requestId.current) return;
       setError(errorMessage(e, "Impossible de charger les signalements — vérifie ta connexion."));
@@ -90,5 +92,5 @@ export function useLiveReports(center: LatLng | null, radiusM: number) {
     );
   }, []);
 
-  return { reports, status, error, refresh, patchReport };
+  return { reports, status, error, updatedAt, refresh, patchReport };
 }

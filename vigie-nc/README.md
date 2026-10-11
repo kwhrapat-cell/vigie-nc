@@ -1,99 +1,98 @@
 # Vigie NC
 
-La route, le ciel et le terrain calédonien, réunis en direct — et une mémoire
-de ce qui revient trop souvent.
+Voir, signaler, agir ensemble. Carte gratuite et anonyme de l'état des
+routes en Nouvelle-Calédonie (accidents, inondations, routes coupées,
+travaux, météo…), avec une mémoire de ce qui revient trop souvent.
 
 ## Stack
 
-- Next.js 14 (App Router) + TypeScript
-- Tailwind CSS — tokens de couleur repris tels quels de la maquette
-  (`tailwind.config.ts`)
-- Leaflet / react-leaflet — carte en direct, fond de carte sombre CARTO
-- Supabase (Postgres + PostGIS, Storage) — signalements géolocalisés, RLS
+- Next.js 14 (App Router) + TypeScript + Tailwind CSS
+- Leaflet — fonds de carte sombres CARTO / OpenStreetMap
+- Supabase — Postgres + PostGIS, Storage (photos), Realtime (carte en direct)
+- MediaPipe (dans le navigateur) — floutage des visages sur les photos
+- Nominatim (OpenStreetMap) — nom du lieu (« RT1, Dumbéa ») à l'étape Localisation
 
 ## Démarrage
 
 ```bash
 npm install
-cp .env.example .env.local   # puis remplir avec les clés Supabase du projet
+cp .env.example .env.local   # puis remplir avec les clés Supabase
 npm run dev
 ```
 
-Sans `.env.local` rempli, l'app tourne quand même : tous les écrans
-utilisent les données de démonstration de `lib/mock-data.ts`.
+**Sans `.env.local`, l'appli tourne en mode démo** : badge « MODE DÉMO »,
+signalements fictifs placés autour de ta position, mêmes règles que la vraie
+base (doublons, votes, expiration), rien n'est enregistré.
 
-## État — Sprint 1 (MVP)
+## Écrans
 
-Périmètre de ce sprint : transformer la maquette en app fonctionnelle,
-sans toucher au reste (l'historique de zone reste sur données de démo).
+| Route | Écran |
+|---|---|
+| `/` | Accueil : carte centrée sur toi (zone 1, 3 ou 5 km), compteurs Dangers / Perturbations / Infos météo, liste « À proximité », fiche d'un signalement |
+| `/signaler` | Signalement en 3 étapes : type → localisation (repère déplaçable) → détails (photo, description, niveau de risque) → « Merci ! » |
+| `/sos` | SOS « Je suis en danger » : appui long 3 s, position sur la carte, SMS préparé pour les contacts, appel 15 / 17 / 18 |
+| `/alertes` | Alertes en cours, ma zone ou toute la Calédonie |
+| `/historique` | Mémoire du territoire : 12 derniers mois, évolution mensuelle, événements |
+| `/profil` | Rayon par défaut, contacts d'urgence, niveaux de fiabilité, confidentialité |
+| `/contacts` | Contacts d'urgence (gardés sur le téléphone uniquement) |
 
-- ✅ **Carte** — signalements réels affichés depuis Supabase
-- ✅ **Localisation réelle** — `lib/useGeolocation.ts`, utilisé par
-  Signaler et par le SOS
-- ✅ **Créer un signalement** — position réelle captée à l'envoi
-- ✅ **Photo** — floutage automatique des visages détectés (MediaPipe,
-  entièrement côté client) avant l'upload vers le bucket Supabase
-  Storage `report-photos`. La photo brute avec un visage visible ne
-  quitte jamais l'appareil — voir `lib/face-blur.ts`.
-- ✅ **SOS** — signalement prioritaire immédiat + ouverture de l'appli
-  SMS locale vers les contacts d'urgence enregistrés (`app/contacts`,
-  `lib/emergency-contacts.ts`). Aucun appel automatique aux services
-  d'urgence — ça reste à négocier avec les institutions partenaires.
-- ✅ **Base de données durcie** — anti-spam par appareil (1
-  signalement/minute, SOS jamais bloqué), contraintes sur lat/lng,
-  policies RLS sur les signalements et sur le stockage des photos
+Un lien `/?signalement=<id>` ouvre directement la fiche (bouton « Partager »).
 
-## Base de données
+## Base de données (Supabase)
 
-Le schéma complet est dans `supabase/schema.sql`. À exécuter une fois
-dans l'éditeur SQL du dashboard Supabase, ou via `supabase db push`.
+1. Créer un projet Supabase.
+2. **SQL Editor → New query** : coller tout `supabase/schema.sql` → **Run**.
+   Le script est ré-exécutable et migre une base existante (Sprint 1 compris).
+3. **Project Settings → API** : copier l'URL et la clé `anon` dans `.env.local`
+   (et dans les variables d'environnement Vercel).
 
-Logique clé :
-- le client envoie `lat`/`lng` directement ; un trigger maintient une
-  colonne `geom` (PostGIS) en arrière-plan pour les futures requêtes
-  spatiales (ex: signalements dans un rayon donné) ;
-- anti-spam : un trigger refuse un 2ᵉ signalement du même appareil
-  (`device_hash`, généré côté client dans `lib/device-id.ts`) en moins
-  d'une minute — sauf pour les SOS ;
-- chaque confirmation d'un autre appareil repousse l'expiration de 2h ;
-- le bucket `report-photos` est créé et rendu public en lecture par le
-  script — l'upload anonyme y est autorisé.
+Ce que fait le schéma :
 
-## Structure
+- **Tout passe par des fonctions** (`creer_signalement`, `voter_signalement`,
+  `signalements_proches`, `signalement_detail`, `statistiques_zone`) : le
+  téléphone ne peut pas écrire directement dans les tables, ni choisir
+  l'expiration ou le nombre de confirmations.
+- **Doublons regroupés** : un même type signalé à proximité (300 m pour un
+  accident, 1 km pour une inondation…) devient une confirmation de
+  l'événement existant au lieu d'un nouveau point.
+- **Votes** « Toujours là » / « C'est terminé » : une confirmation relance la
+  durée de vie ; si les « terminé » l'emportent, le signalement est retiré.
+  L'auteur peut clore le sien, pas le confirmer.
+- **Niveaux de fiabilité** : Signalement (1 personne), À confirmer (2-3),
+  Confirmé (4+), Vérifié (source officielle).
+- **Anonymat** : l'identifiant du téléphone n'est stocké que sous forme
+  d'empreinte, dans des tables illisibles depuis l'appli.
+- **Anti-spam** : 1 signalement par minute et par téléphone (le SOS n'est
+  jamais bloqué), positions hors Nouvelle-Calédonie refusées.
 
-```
-app/
-  page.tsx                    écran 1 — carte en direct (+ FAB, SOS)
-  signaler/page.tsx           écran 2 — formulaire de signalement
-  contacts/page.tsx           gestion des contacts d'urgence (SOS)
-  historique/[zoneId]/page.tsx écran 3 — historique de zone (démo)
-components/                   composants d'écran
-lib/                          types, géoloc, Supabase, contacts, mapper DB
-supabase/schema.sql           schéma complet + RLS + anti-spam
-```
+### Marquer un signalement « Vérifié »
 
-## Droit à l'image
+Quand une source officielle confirme (mairie, pompiers…), dans **Table
+Editor → reports**, remplir la colonne `source_officielle` (ex. `Mairie du
+Mont-Dore`). La fiche affiche alors « Vérifié · Source officielle ».
 
-Le floutage des visages (`lib/face-blur.ts`) répond à une exigence du
-porteur du projet : éviter de capter et publier, même par inadvertance,
-le visage d'un tiers photographié en marge d'un signalement — le RGPD
-s'applique en Nouvelle-Calédonie depuis 2019 et la CNIL en est
-l'autorité compétente. Ceci n'est pas un avis juridique : pour toute
-question de conformité précise, un avocat local ou la CNIL restent la
-référence.
+## Mise en ligne (Vercel)
 
-Le modèle de détection (MediaPipe) tourne dans le navigateur, chargé
-depuis un CDN au premier usage — une connexion internet est donc
-nécessaire la première fois que l'écran Signaler est ouvert.
+Le code de l'appli est dans le dossier `vigie-nc/` du dépôt : dans Vercel,
+**Root Directory = `vigie-nc`**. Variables d'environnement :
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 
-## À faire ensuite (hors Sprint 1)
+## Vie privée
 
-- Peupler la table `zones` et brancher l'historique sur les vraies
-  données (actuellement sur `lib/mock-data.ts`).
-- Discuter avec les partenaires institutionnels (Sécurité civile,
-  Gendarmerie, pompiers) avant d'envisager un lien SOS → numéro
-  d'urgence réel.
-- Purge automatique des signalements expirés (`pg_cron`, commande
-  commentée en bas de `schema.sql`).
-- Reprise avec Claude Code : ouvrir ce dossier comme projet et pointer
-  vers ce README + `supabase/schema.sql` pour le contexte.
+- Pas de compte, pas de nom : signalements anonymes.
+- Photos : visages pixellisés, réduction à 1600 px et suppression des
+  métadonnées (GPS, modèle du téléphone) **sur le téléphone, avant l'envoi**
+  (`lib/face-blur.ts`).
+- Pas de module « incivilité » ni « véhicule volé » : uniquement des
+  informations d'infrastructure vérifiables.
+- Le RGPD s'applique en Nouvelle-Calédonie (CNIL compétente). Ceci n'est pas
+  un avis juridique.
+
+## Feuille de route
+
+- **Sprint 2 (cette version)** — fiabilité, doublons, zone 1-5 km, temps
+  réel, écrans des maquettes, historique.
+- **Ensuite** — notifications (Web Push) sur la zone et les trajets
+  habituels ; purge automatique (`pg_cron`, bloc commenté en bas du
+  schéma) ; modération des descriptions ; tableau de bord pro pour
+  collectivités et secours (V3).

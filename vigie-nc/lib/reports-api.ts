@@ -6,9 +6,9 @@
 
 import { supabase } from "./supabase";
 import { getDeviceId } from "./device-id";
-import { demoCreate, demoNearby, demoVote } from "./demo-store";
+import { demoCreate, demoDetail, demoNearby, demoStats, demoVote } from "./demo-store";
 import { LatLng } from "./geo";
-import { Report, ReportType, REPORT_TYPE_LABELS, Vote } from "./types";
+import { Report, ReportType, REPORT_TYPE_LABELS, RiskLevel, Vote } from "./types";
 
 export type CreateResult = "cree" | "fusionne" | "deja_signale";
 export type VoteResult = "confirme" | "en_baisse" | "resolu" | "deja_vote";
@@ -21,16 +21,33 @@ export interface VoteOutcome {
   resolu: boolean;
 }
 
+export interface ZoneStats {
+  total: number;
+  actifs: number;
+  parType: Partial<Record<ReportType, number>>;
+  parMois: { mois: string; total: number; inondations: number }[];
+  recents: {
+    id: string;
+    type: ReportType;
+    lieu: string | null;
+    createdAt: string;
+    confirmations: number;
+    actif: boolean;
+  }[];
+}
+
 const ERROR_MESSAGES: Record<string, string> = {
   rate_limit:
     "Un signalement vient d'être envoyé depuis ce téléphone — patiente une minute avant le suivant.",
   position_hors_nc:
-    "Ta position semble hors de Nouvelle-Calédonie : le signalement n'a pas été envoyé.",
+    "Cette position semble hors de Nouvelle-Calédonie : le signalement n'a pas été envoyé.",
   propre_signalement:
     "C'est ton propre signalement : tu peux seulement le déclarer terminé.",
   signalement_termine: "Ce signalement est déjà terminé ou a expiré.",
   signalement_introuvable: "Ce signalement n'existe plus.",
   photo_invalide: "La photo n'a pas pu être rattachée au signalement.",
+  description_trop_longue: "La description est trop longue (200 caractères maximum).",
+  niveau_invalide: "Niveau de risque non reconnu.",
   appareil_invalide: "Identifiant du téléphone invalide — recharge la page.",
   vote_invalide: "Vote non reconnu.",
 };
@@ -58,13 +75,17 @@ export function errorMessage(err: unknown, fallback: string): string {
   return ERROR_MESSAGES[code] ?? fallback;
 }
 
-// Ligne renvoyée par la fonction SQL signalements_proches()
-interface NearbyRow {
+// Ligne renvoyée par signalements_proches() et signalement_detail()
+export interface ReportRow {
   id: string;
   type: ReportType;
   lat: number;
   lng: number;
   photo_url: string | null;
+  description: string | null;
+  niveau_risque: RiskLevel | null;
+  lieu: string | null;
+  source_officielle: string | null;
   confirmations: number;
   infirmations: number;
   created_at: string;
@@ -73,13 +94,14 @@ interface NearbyRow {
   distance_m: number | null;
   est_auteur: boolean;
   mon_vote: Vote | null;
+  actif: boolean;
 }
 
-function mapRow(row: NearbyRow): Report {
+export function mapRow(row: ReportRow): Report {
   return {
     id: row.id,
     type: row.type,
-    label: REPORT_TYPE_LABELS[row.type],
+    label: REPORT_TYPE_LABELS[row.type] ?? "Signalement",
     lat: row.lat,
     lng: row.lng,
     createdAt: row.created_at,
@@ -91,13 +113,18 @@ function mapRow(row: NearbyRow): Report {
     isMine: row.est_auteur,
     myVote: row.mon_vote,
     photoUrl: row.photo_url,
+    description: row.description,
+    riskLevel: row.niveau_risque,
+    place: row.lieu,
+    officialSource: row.source_officielle,
+    active: row.actif,
   };
 }
 
 /** Signalements actifs dans le rayon (ou partout si `center` est nul). */
 export async function fetchNearby(center: LatLng | null, radiusM: number): Promise<Report[]> {
   const deviceId = getDeviceId();
-  if (!supabase) return demoNearby(center, radiusM, deviceId);
+  if (!supabase) return demoNearby(center, radiusM, deviceId).map(mapRow);
 
   const { data, error } = await supabase.rpc("signalements_proches", {
     p_lat: center?.lat ?? null,
@@ -106,25 +133,45 @@ export async function fetchNearby(center: LatLng | null, radiusM: number): Promi
     p_device_id: deviceId,
   });
   if (error) throw new ReportsApiError(codeFromMessage(error.message));
-  return ((data ?? []) as NearbyRow[]).map(mapRow);
+  return ((data ?? []) as ReportRow[]).map(mapRow);
+}
+
+/** Un signalement précis (lien partagé), même terminé. */
+export async function fetchReport(id: string): Promise<Report | null> {
+  const deviceId = getDeviceId();
+  if (!supabase) {
+    const row = demoDetail(id, deviceId);
+    return row ? mapRow(row) : null;
+  }
+  const { data, error } = await supabase.rpc("signalement_detail", {
+    p_id: id,
+    p_device_id: deviceId,
+  });
+  if (error) throw new ReportsApiError(codeFromMessage(error.message));
+  const rows = (data ?? []) as ReportRow[];
+  return rows[0] ? mapRow(rows[0]) : null;
+}
+
+export interface NewReport {
+  type: ReportType;
+  lat: number;
+  lng: number;
+  photoUrl?: string | null;
+  description?: string | null;
+  riskLevel?: RiskLevel | null;
+  place?: string | null;
 }
 
 /**
  * Crée un signalement. Si le même événement est déjà signalé à proximité,
  * le serveur le compte comme une confirmation (« fusionne »).
  */
-export async function createReport(input: {
-  type: ReportType;
-  lat: number;
-  lng: number;
-  photoUrl?: string | null;
-}): Promise<{ id: string; resultat: CreateResult }> {
+export async function createReport(input: NewReport): Promise<{ id: string; resultat: CreateResult }> {
   const deviceId = getDeviceId();
-  const photoUrl = input.photoUrl ?? null;
 
   if (!supabase) {
     try {
-      const r = demoCreate({ ...input, photoUrl, deviceId });
+      const r = demoCreate({ ...input, deviceId });
       return { id: r.id, resultat: r.resultat as CreateResult };
     } catch (e) {
       throw new ReportsApiError(e instanceof Error ? e.message : "inconnu");
@@ -136,7 +183,10 @@ export async function createReport(input: {
     p_lat: input.lat,
     p_lng: input.lng,
     p_device_id: deviceId,
-    p_photo_url: photoUrl,
+    p_photo_url: input.photoUrl ?? null,
+    p_description: input.description ?? null,
+    p_niveau_risque: input.riskLevel ?? null,
+    p_lieu: input.place ?? null,
   });
   if (error) throw new ReportsApiError(codeFromMessage(error.message));
   const result = data as { id: string; resultat: CreateResult };
@@ -177,6 +227,51 @@ export async function voteOnReport(reportId: string, vote: Vote): Promise<VoteOu
     infirmations: raw.infirmations,
     expiresAt: raw.expires_at,
     resolu: raw.resolu,
+  };
+}
+
+interface RawStats {
+  total: number;
+  actifs: number;
+  par_type: Partial<Record<ReportType, number>>;
+  par_mois: { mois: string; total: number; inondations: number }[];
+  recents: {
+    id: string;
+    type: ReportType;
+    lieu: string | null;
+    created_at: string;
+    confirmations: number;
+    actif: boolean;
+  }[];
+}
+
+/** Mémoire du territoire : 12 derniers mois autour d'une position. */
+export async function fetchZoneStats(center: LatLng | null, radiusM: number): Promise<ZoneStats> {
+  let raw: RawStats;
+  if (!supabase) {
+    raw = demoStats(center, radiusM) as RawStats;
+  } else {
+    const { data, error } = await supabase.rpc("statistiques_zone", {
+      p_lat: center?.lat ?? null,
+      p_lng: center?.lng ?? null,
+      p_rayon_m: Math.round(radiusM),
+    });
+    if (error) throw new ReportsApiError(codeFromMessage(error.message));
+    raw = data as RawStats;
+  }
+  return {
+    total: raw.total ?? 0,
+    actifs: raw.actifs ?? 0,
+    parType: raw.par_type ?? {},
+    parMois: raw.par_mois ?? [],
+    recents: (raw.recents ?? []).map((r) => ({
+      id: r.id,
+      type: r.type,
+      lieu: r.lieu,
+      createdAt: r.created_at,
+      confirmations: r.confirmations,
+      actif: r.actif,
+    })),
   };
 }
 

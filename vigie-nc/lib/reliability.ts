@@ -1,54 +1,61 @@
 import { Report } from "./types";
 
-export type ReliabilityLevel = "non_confirme" | "confirme" | "fiable" | "incertain";
+// Les 4 niveaux de fiabilité des maquettes. Le nombre de « personnes »
+// compte l'auteur du signalement + celles qui ont confirmé.
+export type ReliabilityLevel = "signalement" | "a_confirmer" | "confirme" | "verifie";
 
 export interface Reliability {
   level: ReliabilityLevel;
   label: string;
+  people: number;
   detail: string;
+  // Une ou plusieurs personnes disent que c'est terminé
+  contested: string | null;
 }
 
-/**
- * Niveau de fiabilité affiché à l'utilisateur, calculé à partir des votes
- * des autres usagers (l'auteur du signalement ne compte pas).
- */
-export function getReliability(
-  r: Pick<Report, "confirmations" | "infirmations">,
-): Reliability {
-  const c = r.confirmations;
-  const i = r.infirmations;
+export const RELIABILITY_LEVELS: {
+  level: ReliabilityLevel;
+  label: string;
+  rule: string;
+}[] = [
+  { level: "signalement", label: "Signalement", rule: "1 personne" },
+  { level: "a_confirmer", label: "À confirmer", rule: "2 à 3 personnes" },
+  { level: "confirme", label: "Confirmé", rule: "4 personnes et +" },
+  { level: "verifie", label: "Vérifié", rule: "Source officielle" },
+];
 
-  if (i > 0 && i >= c) {
-    return {
-      level: "incertain",
-      label: "Peut-être terminé",
-      detail:
-        i > 1
-          ? `${i} personnes disent que c'est terminé`
-          : "Une personne dit que c'est terminé",
-    };
-  }
-  if (c >= 3) {
-    return { level: "fiable", label: "Fiable", detail: `Confirmé par ${c} personnes` };
-  }
-  if (c >= 1) {
-    return {
-      level: "confirme",
-      label: "Confirmé",
-      detail: c > 1 ? `Confirmé par ${c} personnes` : "Confirmé par une autre personne",
-    };
-  }
-  return {
-    level: "non_confirme",
-    label: "Non confirmé",
-    detail: "Un seul signalement pour l'instant",
-  };
-}
-
-// Classes Tailwind du badge, par niveau.
-export const RELIABILITY_BADGE: Record<ReliabilityLevel, string> = {
-  fiable: "bg-lagoon/20 text-lagoon border-lagoon/40",
-  confirme: "bg-lagoon/10 text-lagoon-dim border-lagoon/25",
-  non_confirme: "bg-white/[0.04] text-mist-dim border-white/[0.12]",
-  incertain: "bg-ochre/10 text-ochre border-ochre/30",
+export const RELIABILITY_HEX: Record<ReliabilityLevel, string> = {
+  signalement: "#E5484D",
+  a_confirmer: "#F0912E",
+  confirme: "#2BB673",
+  verifie: "#3B82F6",
 };
+
+export function getReliability(
+  r: Pick<Report, "confirmations" | "infirmations" | "officialSource">,
+): Reliability {
+  const people = r.confirmations + 1;
+  const contested =
+    r.infirmations > 0 && r.infirmations >= r.confirmations
+      ? r.infirmations > 1
+        ? `${r.infirmations} personnes disent que c'est terminé`
+        : "Une personne dit que c'est terminé"
+      : null;
+
+  if (r.officialSource) {
+    return {
+      level: "verifie",
+      label: "Vérifié",
+      people,
+      detail: `Source officielle (${r.officialSource})`,
+      contested,
+    };
+  }
+  if (people >= 4) {
+    return { level: "confirme", label: "Confirmé", people, detail: `${people} personnes`, contested };
+  }
+  if (people >= 2) {
+    return { level: "a_confirmer", label: "À confirmer", people, detail: `${people} personnes`, contested };
+  }
+  return { level: "signalement", label: "Signalement", people, detail: "1 personne", contested };
+}
