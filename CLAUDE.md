@@ -40,6 +40,9 @@ vigie-nc/
     reliability.ts   4 niveaux : Signalement / À confirmer / Confirmé / Vérifié
     face-blur.ts     photo : réduction, floutage visages, suppression EXIF
     place.ts         nom du lieu via Nominatim
+    map-styles.ts    fonds de carte (OpenStreetMap / Esri, sans clé — pas CARTO,
+                     qui exige une clé depuis 2026) + emprise NC
+    cluster.ts       regroupement des signalements en pastilles chiffrées
   supabase/schema.sql  schéma complet, ré-exécutable
 ```
 

@@ -1,6 +1,7 @@
 import type { MapStyle } from "./preferences";
 
 // Fonds de carte gratuits, sans clé, utilisables avec Leaflet.
+// Tout est regroupé ici pour pouvoir changer de fournisseur facilement.
 
 export interface TileSpec {
   url: string;
@@ -12,34 +13,34 @@ export interface TileSpec {
   };
 }
 
-const CARTO_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+// ⚠️ Depuis 2026, les fonds CARTO (basemaps.cartocdn.com) affichent « KEY
+// REQUIRED » sans clé payante : ne plus les utiliser.
+//
+// OpenStreetMap : gratuit, sans clé, à condition d'afficher l'attribution et
+// de ne pas télécharger de tuiles en masse (règles :
+// https://operations.osmfoundation.org/policies/tiles/). Suffisant pour le
+// pilote ; si l'appli grandit beaucoup, passer à un fournisseur avec clé
+// (MapTiler, Stadia…) en changeant seulement ce fichier.
+const OSM_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const OSM_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">contributeurs OpenStreetMap</a>';
 
 export const MAP_STYLES: Record<MapStyle, { label: string; hint: string; layers: TileSpec[] }> = {
-  // Lisible de jour : routes, communes, relief des côtes bien visibles.
+  // Lisible de jour : routes, communes, rivières bien visibles.
   plan: {
     label: "Plan",
     hint: "Routes et communes bien lisibles",
-    layers: [
-      {
-        url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-        options: { attribution: CARTO_ATTRIBUTION, subdomains: "abcd", maxZoom: 19 },
-      },
-    ],
+    layers: [{ url: OSM_URL, options: { attribution: OSM_ATTRIBUTION, maxZoom: 19 } }],
   },
-  // Sombre : moins éblouissant la nuit, en voiture.
+  // Même plan, assombri par un filtre (voir .leaflet-container[data-fond="nuit"]
+  // dans globals.css) : moins éblouissant la nuit, en voiture.
   nuit: {
     label: "Nuit",
     hint: "Sombre, pour la conduite de nuit",
-    layers: [
-      {
-        url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-        options: { attribution: CARTO_ATTRIBUTION, subdomains: "abcd", maxZoom: 19 },
-      },
-    ],
+    layers: [{ url: OSM_URL, options: { attribution: OSM_ATTRIBUTION, maxZoom: 19 } }],
   },
-  // Vue aérienne + noms des lieux : utile pour reconnaître un radier, une
-  // rivière, une zone inondable.
+  // Vue aérienne + noms des lieux (Esri) : utile pour reconnaître un radier,
+  // une rivière, une zone inondable.
   satellite: {
     label: "Satellite",
     hint: "Vue aérienne avec les noms",
@@ -53,8 +54,8 @@ export const MAP_STYLES: Record<MapStyle, { label: string; hint: string; layers:
         },
       },
       {
-        url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
-        options: { attribution: CARTO_ATTRIBUTION, subdomains: "abcd", maxZoom: 19 },
+        url: "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+        options: { attribution: "Noms &copy; Esri", maxZoom: 19, maxNativeZoom: 18 },
       },
     ],
   },

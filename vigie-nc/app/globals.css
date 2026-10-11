@@ -20,7 +20,7 @@ body {
 
 /* Espace pour la barre de navigation du bas (+ encoche iPhone) */
 .pb-nav {
-  padding-bottom: calc(62px + env(safe-area-inset-bottom));
+  padding-bottom: calc(62px + min(env(safe-area-inset-bottom, 0px), 34px));
 }
 
 /* ---------- Marqueurs de la carte ---------- */
@@ -107,9 +107,14 @@ html .leaflet-container {
   background: #0b1d22;
   font-family: "Inter", sans-serif;
 }
-/* Fond « Plan » : couleur de la mer pendant le chargement des tuiles */
+/* Fond « Plan » : couleur de la mer OpenStreetMap pendant le chargement */
 html .leaflet-container[data-fond="plan"] {
-  background: #d4dadc;
+  background: #aad3df;
+}
+/* Fond « Nuit » : le plan OpenStreetMap inversé et assombri (seules les
+   tuiles sont filtrées, pas les marqueurs) */
+html .leaflet-container[data-fond="nuit"] .leaflet-tile-pane {
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%) saturate(70%);
 }
 html .leaflet-container .leaflet-control-attribution {
   font-size: 9px;

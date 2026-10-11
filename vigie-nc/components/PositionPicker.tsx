@@ -45,7 +45,9 @@ export function PositionPicker({
       const map = L.map(containerRef.current, { zoomControl: false, minZoom: 6 });
       map.fitBounds(NC_BOUNDS, { padding: [8, 8] });
       // Même fond que celui choisi sur la carte d'accueil
-      for (const spec of MAP_STYLES[readMapStyle()].layers) {
+      const style = readMapStyle();
+      containerRef.current.setAttribute("data-fond", style);
+      for (const spec of MAP_STYLES[style].layers) {
         L.tileLayer(spec.url, spec.options).addTo(map);
       }
       map.on("click", (e: Leaflet.LeafletMouseEvent) =>

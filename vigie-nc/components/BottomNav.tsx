@@ -65,7 +65,7 @@ export function BottomNav() {
     <nav
       aria-label="Navigation principale"
       className="fixed bottom-0 inset-x-0 z-[25] mx-auto max-w-md border-t border-line bg-panel/95 backdrop-blur"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      style={{ paddingBottom: "min(env(safe-area-inset-bottom, 0px), 34px)" }}
     >
       <div className="relative flex items-stretch h-[62px]">
         {LEFT.map((t) => (

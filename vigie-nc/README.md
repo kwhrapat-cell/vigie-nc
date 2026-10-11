@@ -7,7 +7,9 @@ travaux, météo…), avec une mémoire de ce qui revient trop souvent.
 ## Stack
 
 - Next.js 14 (App Router) + TypeScript + Tailwind CSS
-- Leaflet — fonds de carte sombres CARTO / OpenStreetMap
+- Leaflet — fonds de carte OpenStreetMap (Plan, Nuit) et Esri (Satellite),
+  sans clé ; tout est dans `lib/map-styles.ts`. Les fonds CARTO exigent
+  désormais une clé payante (« KEY REQUIRED ») : ne pas les réutiliser.
 - Supabase — Postgres + PostGIS, Storage (photos), Realtime (carte en direct)
 - MediaPipe (dans le navigateur) — floutage des visages sur les photos
 - Nominatim (OpenStreetMap) — nom du lieu (« RT1, Dumbéa ») à l'étape Localisation
