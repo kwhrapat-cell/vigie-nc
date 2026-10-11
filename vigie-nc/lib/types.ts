@@ -17,6 +17,30 @@ export const REPORT_TYPE_LABELS: Record<ReportType, string> = {
   autre: "Autre",
 };
 
+// Durée de vie d'un signalement sans nouvelle confirmation.
+// ⚠️ Doit rester alignée sur vigie_duree_vie() dans supabase/schema.sql.
+export const REPORT_TYPE_LIFETIME_MIN: Record<ReportType, number> = {
+  trafic_dense: 60,
+  accident: 120,
+  sos: 120,
+  route_coupee: 240,
+  inondation: 240,
+  chaussee_degradee: 3 * 24 * 60,
+  autre: 180,
+};
+
+// Rayon de regroupement des doublons (0 = jamais regroupé).
+// ⚠️ Doit rester aligné sur vigie_rayon_fusion_m() dans supabase/schema.sql.
+export const REPORT_TYPE_MERGE_RADIUS_M: Record<ReportType, number> = {
+  accident: 300,
+  trafic_dense: 500,
+  route_coupee: 800,
+  inondation: 1000,
+  chaussee_degradee: 150,
+  sos: 0,
+  autre: 0,
+};
+
 // Sévérité -> couleur de la maquette (rust = danger, ochre = ralentissement, lagoon = météo/eau)
 export type Severity = "rust" | "ochre" | "lagoon";
 
@@ -30,6 +54,14 @@ export const REPORT_TYPE_SEVERITY: Record<ReportType, Severity> = {
   autre: "ochre",
 };
 
+export const SEVERITY_HEX: Record<Severity, string> = {
+  rust: "#E8622F",
+  ochre: "#E8A33D",
+  lagoon: "#22B8B0",
+};
+
+export type Vote = "present" | "termine";
+
 export interface Report {
   id: string;
   type: ReportType;
@@ -37,13 +69,18 @@ export interface Report {
   lat: number;
   lng: number;
   createdAt: string; // ISO
-  expiresAt: string; // ISO — signalement anonyme, expire sauf confirmation
-  confirmations: number;
-  // Un SOS n'est pas rattaché à une zone/axe suivi — zoneId/zoneName restent
-  // vides dans ce cas (voir generateSosZoneLabel côté composant).
+  expiresAt: string; // ISO — disparaît à cette heure sauf nouvelle confirmation
+  confirmations: number; // votes « toujours là » (hors auteur)
+  infirmations: number; // votes « c'est terminé »
+  lastConfirmedAt?: string | null;
+  distanceM?: number | null; // distance à l'utilisateur, si position connue
+  isMine?: boolean; // signalé depuis ce téléphone
+  myVote?: Vote | null; // vote déjà donné depuis ce téléphone
+  photoUrl?: string | null;
+  // Un SOS n'est pas rattaché à une zone/axe suivi — zoneId/zoneName
+  // restent vides dans ce cas.
   zoneId?: string;
   zoneName?: string;
-  photoUrl?: string | null;
 }
 
 export interface EmergencyContact {

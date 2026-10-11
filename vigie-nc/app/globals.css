@@ -1,5 +1,4 @@
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
-@import "leaflet/dist/leaflet.css";
 
 @tailwind base;
 @tailwind components;
@@ -46,6 +45,34 @@ body {
     transform: scale(2.2);
     opacity: 0;
   }
+}
+
+/* Signalement non confirmé ou contesté : plus discret */
+.pulse-marker.is-faint .core {
+  opacity: 0.55;
+}
+/* Signalement ouvert dans la fiche */
+.pulse-marker.is-selected .core {
+  inset: 2px;
+  box-shadow:
+    0 0 0 2px #071b21,
+    0 0 0 4px #eaf6f4;
+}
+
+/* Position de l'utilisateur */
+.user-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #eaf6f4;
+  border: 4px solid #22b8b0;
+  box-shadow: 0 0 0 6px rgba(34, 184, 176, 0.25);
+}
+
+/* Fond de carte assorti au thème pendant le chargement des tuiles */
+.leaflet-container {
+  background: #0b2228;
+  font-family: "Inter", sans-serif;
 }
 
 @media (prefers-reduced-motion: reduce) {

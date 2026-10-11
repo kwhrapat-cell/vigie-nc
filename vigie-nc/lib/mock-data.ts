@@ -1,55 +1,6 @@
-import { Report, ZoneHistory } from "./types";
-
-export const MOCK_REPORTS: Report[] = [
-  {
-    id: "r0",
-    type: "sos",
-    label: "SOS — urgence",
-    lat: -22.238,
-    lng: 166.458,
-    createdAt: new Date(Date.now() - 2 * 60_000).toISOString(),
-    expiresAt: new Date(Date.now() + 2 * 60 * 60_000).toISOString(),
-    confirmations: 0,
-    zoneId: undefined,
-    zoneName: undefined,
-  },
-  {
-    id: "r1",
-    type: "route_coupee",
-    label: "route coupée",
-    lat: -22.15,
-    lng: 166.449,
-    createdAt: new Date(Date.now() - 4 * 60_000).toISOString(),
-    expiresAt: new Date(Date.now() + 4 * 60 * 60_000).toISOString(),
-    confirmations: 6,
-    zoneId: "rt1-dumbea",
-    zoneName: "RT1 — Dumbéa",
-  },
-  {
-    id: "r2",
-    type: "trafic_dense",
-    label: "ralentissement",
-    lat: -22.26,
-    lng: 166.442,
-    createdAt: new Date(Date.now() - 18 * 60_000).toISOString(),
-    expiresAt: new Date(Date.now() + 3.5 * 60 * 60_000).toISOString(),
-    confirmations: 2,
-    zoneId: "vallee-du-tir",
-    zoneName: "Vallée du Tir",
-  },
-  {
-    id: "r3",
-    type: "inondation",
-    label: "chaussée inondée",
-    lat: -22.283,
-    lng: 166.52,
-    createdAt: new Date(Date.now() - 51 * 60_000).toISOString(),
-    expiresAt: new Date(Date.now() + 3 * 60 * 60_000).toISOString(),
-    confirmations: 3,
-    zoneId: "riviere-sud",
-    zoneName: "Rivière Sud",
-  },
-];
+// Données de démonstration de l'écran Historique (branché sur la base au Sprint 3).
+// Les signalements de démo de la carte sont dans lib/demo-store.ts.
+import { ZoneHistory } from "./types";
 
 export const MOCK_ZONE_HISTORY: Record<string, ZoneHistory> = {
   "col-de-tonghoue": {

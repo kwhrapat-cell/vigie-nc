@@ -2,16 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useGeolocation } from "@/lib/useGeolocation";
 import { getEmergencyContacts } from "@/lib/emergency-contacts";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
-import { getDeviceHash } from "@/lib/device-id";
+import { createReport } from "@/lib/reports-api";
 
 type Step = "idle" | "confirm" | "locating" | "error";
 
 export function SosButton() {
-  const router = useRouter();
   const { locate, error: geoError } = useGeolocation();
   const [step, setStep] = useState<Step>("idle");
 
@@ -20,17 +17,12 @@ export function SosButton() {
     try {
       const pos = await locate();
 
-      if (isSupabaseConfigured && supabase) {
-        await supabase.from("reports").insert({
-          type: "sos",
-          lat: pos.lat,
-          lng: pos.lng,
-          confirmations: 0,
-          device_hash: getDeviceHash(),
-          // Un SOS reste visible plus longtemps qu'un signalement standard,
-          // sauf confirmation qu'il est résolu.
-          expires_at: new Date(Date.now() + 2 * 60 * 60_000).toISOString(),
-        });
+      // Le point SOS sur la carte ne doit jamais empêcher l'ouverture des
+      // SMS : en cas d'échec réseau, on continue quand même.
+      try {
+        await createReport({ type: "sos", lat: pos.lat, lng: pos.lng });
+      } catch {
+        // ignoré volontairement
       }
 
       const contacts = getEmergencyContacts();
@@ -45,7 +37,8 @@ export function SosButton() {
         window.location.href = `sms:${numbers}?body=${message}`;
       }
 
-      router.push("/");
+      // La carte se met à jour seule (temps réel).
+      setStep("idle");
     } catch {
       setStep("error");
     }
@@ -104,12 +97,12 @@ export function SosButton() {
   }
 
   return (
-    <div className="absolute left-3.5 bottom-[104px] z-[15] flex flex-col items-start gap-1.5">
+    <div className="absolute left-3.5 bottom-full mb-4 z-[15] flex flex-col items-start gap-1.5">
       <button
         type="button"
         onClick={() => setStep("confirm")}
         aria-label="Déclencher le SOS"
-        className="w-[50px] h-[50px] rounded-full flex items-center justify-center text-[13px] font-display font-bold text-void border-2 border-void shadow-[0_10px_22px_-6px_rgba(193,68,14,0.55)]"
+        className="w-[54px] h-[54px] rounded-full flex items-center justify-center text-[13px] font-display font-bold text-void border-2 border-void shadow-[0_10px_22px_-6px_rgba(193,68,14,0.55)]"
         style={{ background: "linear-gradient(160deg, #E8622F, #C1440E)" }}
       >
         SOS

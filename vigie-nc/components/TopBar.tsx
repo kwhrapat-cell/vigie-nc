@@ -1,16 +1,25 @@
 import Link from "next/link";
 
-export function TopBarLive() {
+export function TopBarLive({ demo = false }: { demo?: boolean }) {
   return (
     <div className="flex items-center justify-between px-3.5 pt-5 pb-2.5 shrink-0 z-10">
       <div className="flex items-center gap-1.5 font-display font-semibold text-sm">
         <BeaconIcon className="w-4 h-4 text-rust-bright" />
         Vigie NC
       </div>
-      <div className="flex items-center gap-1.5 font-mono text-[9.5px] tracking-wider text-lagoon-dim bg-lagoon/10 border border-lagoon/30 px-2 py-1 rounded-full">
-        <span className="w-1.5 h-1.5 rounded-full bg-lagoon animate-blink" />
-        EN DIRECT
-      </div>
+      {demo ? (
+        <div
+          className="flex items-center gap-1.5 font-mono text-[9.5px] tracking-wider text-ochre bg-ochre/10 border border-ochre/30 px-2 py-1 rounded-full"
+          title="Supabase n'est pas configuré : données de démonstration, rien n'est enregistré"
+        >
+          MODE DÉMO
+        </div>
+      ) : (
+        <div className="flex items-center gap-1.5 font-mono text-[9.5px] tracking-wider text-lagoon-dim bg-lagoon/10 border border-lagoon/30 px-2 py-1 rounded-full">
+          <span className="w-1.5 h-1.5 rounded-full bg-lagoon animate-blink" />
+          EN DIRECT
+        </div>
+      )}
     </div>
   );
 }
