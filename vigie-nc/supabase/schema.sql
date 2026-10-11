@@ -221,6 +221,7 @@ create or replace function vigie_rayon_fusion_m(p_type report_type)
 returns int
 language sql
 immutable
+set search_path = public
 as $$
   select case p_type::text
     when 'accident'          then 300
@@ -241,6 +242,7 @@ create or replace function vigie_duree_vie(p_type report_type)
 returns interval
 language sql
 immutable
+set search_path = public
 as $$
   select case p_type::text
     when 'trafic_dense'      then interval '1 hour'
@@ -261,6 +263,7 @@ create or replace function vigie_rang_risque(p_niveau text)
 returns int
 language sql
 immutable
+set search_path = public
 as $$
   select case p_niveau when 'faible' then 1 when 'moyen' then 2 when 'eleve' then 3 else 0 end;
 $$;
@@ -271,6 +274,7 @@ create or replace function vigie_dans_nc(p_lat double precision, p_lng double pr
 returns boolean
 language sql
 immutable
+set search_path = public
 as $$
   select p_lat between -23.2 and -19.0 and p_lng between 163.0 and 168.6;
 $$;
@@ -744,7 +748,8 @@ $$;
 -- Vue agrégée par zone nommée (Sprint 1 — remplacée par statistiques_zone,
 -- conservée pour d'éventuelles zones officielles plus tard)
 -- ---------------------------------------------------------------------
-create or replace view zone_history as
+create or replace view zone_history
+with (security_invoker = true) as
 select
   z.id as zone_id,
   z.name as zone_name,
@@ -776,7 +781,10 @@ create policy "reports lecture publique" on reports for select using (true);
 
 drop policy if exists "reports insertion anonyme" on reports;
 
+grant usage on schema public to anon, authenticated;
+grant select on reports, zones, zone_history to anon, authenticated;
 revoke insert, update, delete on reports from anon, authenticated;
+revoke insert, update, delete on zones from anon, authenticated;
 revoke all on report_authors from anon, authenticated;
 revoke all on report_votes from anon, authenticated;
 
