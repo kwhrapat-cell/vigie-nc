@@ -73,9 +73,12 @@ Mont-Dore`). La fiche affiche alors « Vérifié · Source officielle ».
 
 ## Mise en ligne (Vercel)
 
-Le code de l'appli est dans le dossier `vigie-nc/` du dépôt : dans Vercel,
-**Root Directory = `vigie-nc`**. Variables d'environnement :
-`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+Projet Vercel `vigie-nc`, relié au dépôt GitHub : chaque branche envoyée
+donne un aperçu, `main` donne la version principale. Le code de l'appli est
+dans le dossier `vigie-nc/` du dépôt (**Root Directory = `vigie-nc`**).
+Variables d'environnement (Settings → Environment Variables) :
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — sans elles,
+l'aperçu tourne en mode démo.
 
 ## Vie privée
 
