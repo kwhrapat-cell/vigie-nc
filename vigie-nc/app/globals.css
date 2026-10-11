@@ -71,6 +71,19 @@ body {
     0 0 0 4px #eaf6f4;
 }
 
+/* Pastille chiffrée : plusieurs signalements regroupés */
+.vigie-cluster {
+  border-radius: 9999px;
+  border: 3px solid #081317;
+  color: #fff;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Position de l'utilisateur */
 .user-dot {
   width: 18px;
@@ -93,6 +106,10 @@ body {
 html .leaflet-container {
   background: #0b1d22;
   font-family: "Inter", sans-serif;
+}
+/* Fond « Plan » : couleur de la mer pendant le chargement des tuiles */
+html .leaflet-container[data-fond="plan"] {
+  background: #d4dadc;
 }
 html .leaflet-container .leaflet-control-attribution {
   font-size: 9px;

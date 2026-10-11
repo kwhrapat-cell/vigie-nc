@@ -29,6 +29,7 @@ export function HomeSheet({
   updatedAt,
   geoStatus,
   radiusKm,
+  scope,
   hasCenter,
   filter,
   onFilter,
@@ -42,6 +43,7 @@ export function HomeSheet({
   updatedAt: Date | null;
   geoStatus: WatchStatus;
   radiusKm: number;
+  scope: "zone" | "nc";
   hasCenter: boolean;
   filter: Category | null;
   onFilter: (c: Category | null) => void;
@@ -60,7 +62,7 @@ export function HomeSheet({
 
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="font-display font-semibold text-[15px]">
-          {hasCenter ? "Autour de moi" : "En Calédonie"}
+          {scope === "nc" ? "Toute la Calédonie" : hasCenter ? "Autour de moi" : "En Calédonie"}
           {hasCenter && <span className="text-mist-dim font-normal text-[12px]"> · {radiusKm} km</span>}
         </h2>
         <span className="font-mono text-[10px] text-mist-dim">
@@ -95,7 +97,7 @@ export function HomeSheet({
         })}
       </div>
 
-      {!hasCenter && (geoStatus === "denied" || geoStatus === "unsupported" || geoStatus === "unavailable") && (
+      {!hasCenter && scope === "zone" && (geoStatus === "denied" || geoStatus === "unsupported" || geoStatus === "unavailable") && (
         <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-warn/30 bg-warn/10 px-3 py-2 text-[11.5px] text-mist">
           <span className="flex-1">
             {geoStatus === "denied"
@@ -123,7 +125,13 @@ export function HomeSheet({
       )}
 
       <h3 className="mt-3 mb-1 text-[12px] font-medium text-mist-dim">
-        {filter ? `${CATEGORY_LABELS[filter].many} à proximité` : "À proximité"}
+        {scope === "nc"
+          ? filter
+            ? `${CATEGORY_LABELS[filter].many} en cours`
+            : "En cours, du plus proche au plus loin"
+          : filter
+            ? `${CATEGORY_LABELS[filter].many} à proximité`
+            : "À proximité"}
       </h3>
 
       {status === "ready" && reports.length === 0 && (

@@ -7,10 +7,18 @@ import { HomeSheet } from "./HomeSheet";
 import { ReportDetail } from "./ReportDetail";
 import { BottomNav } from "./BottomNav";
 import { Logo } from "./ui";
-import { RadiusKm, RadiusSelector, RecenterButton } from "./MapControls";
+import { MapStyleSwitcher, RecenterButton, ZoneSelector } from "./MapControls";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { distanceM, LatLng } from "@/lib/geo";
-import { readRadiusKm, saveRadiusKm } from "@/lib/preferences";
+import {
+  MapStyle,
+  readMapStyle,
+  readRadiusKm,
+  readZoneChoice,
+  saveMapStyle,
+  saveZoneChoice,
+  ZoneChoice,
+} from "@/lib/preferences";
 import { fetchReport } from "@/lib/reports-api";
 import { useWatchPosition } from "@/lib/useWatchPosition";
 import { useLiveReports } from "@/lib/useLiveReports";
@@ -21,7 +29,8 @@ const REQUERY_DISTANCE_M = 250;
 
 export function CarteLive() {
   const { status: geoStatus, position, retry } = useWatchPosition();
-  const [radiusKm, setRadiusKm] = useState<RadiusKm>(5);
+  const [zone, setZone] = useState<ZoneChoice>(5);
+  const [mapStyle, setMapStyle] = useState<MapStyle>("plan");
   const [follow, setFollow] = useState(true);
   const [queryCenter, setQueryCenter] = useState<LatLng | null>(null);
   const [filter, setFilter] = useState<Category | null>(null);
@@ -30,12 +39,22 @@ export function CarteLive() {
   const [banner, setBanner] = useState<string | null>(null);
   const selectedSnapshot = useRef<Report | null>(null);
 
-  useEffect(() => setRadiusKm(readRadiusKm()), []);
-  const changeRadius = useCallback((km: RadiusKm) => {
-    setRadiusKm(km);
-    setFollow(true);
-    saveRadiusKm(km);
+  useEffect(() => {
+    setZone(readZoneChoice());
+    setMapStyle(readMapStyle());
   }, []);
+  const changeZone = useCallback((z: ZoneChoice) => {
+    setZone(z);
+    setFollow(true);
+    saveZoneChoice(z);
+  }, []);
+  const changeMapStyle = useCallback((s: MapStyle) => {
+    setMapStyle(s);
+    saveMapStyle(s);
+  }, []);
+
+  const isNc = zone === "nc";
+  const radiusKm = isNc ? readRadiusKm() : zone;
 
   // Lien partagé (?signalement=<id>) : ouvre directement la fiche.
   useEffect(() => {
@@ -69,7 +88,20 @@ export function CarteLive() {
   }, [position]);
 
   const radiusM = radiusKm * 1000;
-  const { reports, status, error, updatedAt, patchReport } = useLiveReports(queryCenter, radiusM);
+  const { reports: rawReports, status, error, updatedAt, patchReport } = useLiveReports(
+    isNc ? null : queryCenter,
+    radiusM,
+  );
+
+  // En vue Calédonie, la base ne calcule pas les distances : on les calcule
+  // ici depuis la position, et on trie du plus proche au plus loin.
+  const reports = useMemo(() => {
+    if (!position) return rawReports;
+    const withDistance = rawReports.map((r) =>
+      r.distanceM == null ? { ...r, distanceM: distanceM(position, r) } : r,
+    );
+    return isNc ? [...withDistance].sort((a, b) => (a.distanceM ?? 0) - (b.distanceM ?? 0)) : withDistance;
+  }, [rawReports, position, isNc]);
 
   const visible = useMemo(
     () => (filter ? reports.filter((r) => REPORT_TYPE_CATEGORY[r.type] === filter) : reports),
@@ -102,10 +134,15 @@ export function CarteLive() {
 
   const closeDetail = useCallback(() => setSelectedId(null), []);
 
+  // « Ma position » : revient sur la zone autour de soi (dernier rayon choisi)
   const recenter = useCallback(() => {
-    if (position) setFollow(true);
-    else retry();
-  }, [position, retry]);
+    if (!position) {
+      retry();
+      return;
+    }
+    if (isNc) changeZone(readRadiusKm());
+    else setFollow(true);
+  }, [position, retry, isNc, changeZone]);
 
   return (
     <div className="h-[100dvh] flex flex-col pb-nav">
@@ -144,7 +181,9 @@ export function CarteLive() {
         <LiveMap
           reports={mapReports}
           position={position}
+          scope={isNc ? "nc" : "zone"}
           radiusM={radiusM}
+          mapStyle={mapStyle}
           selectedId={selectedId}
           follow={follow}
           onSelect={setSelectedId}
@@ -152,14 +191,15 @@ export function CarteLive() {
         />
         <div className="absolute top-2.5 left-3 right-3 z-10 flex items-start justify-between gap-2 pointer-events-none">
           <div className="pointer-events-auto">
-            <RadiusSelector value={radiusKm} onChange={changeRadius} disabled={!position} />
+            <ZoneSelector value={zone} onChange={changeZone} hasPosition={Boolean(position)} />
           </div>
-          <div className="pointer-events-auto">
+          <div className="pointer-events-auto flex flex-col gap-2">
             <RecenterButton
-              active={follow && Boolean(position)}
+              active={!isNc && follow && Boolean(position)}
               onClick={recenter}
-              label={position ? "Recentrer sur ma position" : "Activer ma position"}
+              label={position ? "Revenir sur ma position" : "Activer ma position"}
             />
+            <MapStyleSwitcher value={mapStyle} onChange={changeMapStyle} />
           </div>
         </div>
         <Link
@@ -180,7 +220,8 @@ export function CarteLive() {
         updatedAt={updatedAt}
         geoStatus={geoStatus}
         radiusKm={radiusKm}
-        hasCenter={Boolean(queryCenter)}
+        scope={isNc ? "nc" : "zone"}
+        hasCenter={!isNc && Boolean(queryCenter)}
         filter={filter}
         onFilter={setFilter}
         onSelect={selectFromList}

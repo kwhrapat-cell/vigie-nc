@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
-import { GRAND_NOUMEA, LatLng } from "@/lib/geo";
+import { LatLng } from "@/lib/geo";
+import { MAP_STYLES, NC_BOUNDS } from "@/lib/map-styles";
+import { readMapStyle } from "@/lib/preferences";
 
 const PIN_SVG = `<svg class="pick-pin" viewBox="0 0 34 44" aria-hidden="true">
   <path d="M17 1.5A15.5 15.5 0 0 1 32.5 17c0 11-15.5 25.5-15.5 25.5S1.5 28 1.5 17A15.5 15.5 0 0 1 17 1.5z" fill="#E5484D" stroke="#081317" stroke-width="2"/>
@@ -40,15 +42,12 @@ export function PositionPicker({
       const L = ((mod as unknown as { default?: typeof Leaflet }).default ?? mod) as typeof Leaflet;
       if (cancelled || !containerRef.current || mapRef.current) return;
 
-      const map = L.map(containerRef.current, { zoomControl: false }).setView(
-        [GRAND_NOUMEA.lat, GRAND_NOUMEA.lng],
-        11,
-      );
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        attribution: "&copy; OpenStreetMap &copy; CARTO",
-        maxZoom: 19,
-        subdomains: "abcd",
-      }).addTo(map);
+      const map = L.map(containerRef.current, { zoomControl: false, minZoom: 6 });
+      map.fitBounds(NC_BOUNDS, { padding: [8, 8] });
+      // Même fond que celui choisi sur la carte d'accueil
+      for (const spec of MAP_STYLES[readMapStyle()].layers) {
+        L.tileLayer(spec.url, spec.options).addTo(map);
+      }
       map.on("click", (e: Leaflet.LeafletMouseEvent) =>
         onChangeRef.current({ lat: e.latlng.lat, lng: e.latlng.lng }),
       );
