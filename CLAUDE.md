@@ -38,7 +38,8 @@ Le code est dans `vigie-nc/` (Root Directory Vercel).
 vigie-nc/
   app/            écrans (/, /signaler, /relayer, /sos, /alertes, /historique, /profil, /contacts)
   components/     CarteLive (accueil), LiveMap, HomeSheet, ReportDetail,
-                  PositionPicker, BottomNav, ui.tsx (Logo, TypeTile, boutons…)
+                  PositionPicker, BottomNav, ui.tsx (Logo, TypeTile, boutons…),
+                  VigilanceMeteo (vignette officielle meteo.nc, sans clé)
   lib/
     types.ts         types de signalement, couleurs, icônes, durées, rayons
     reports-api.ts   SEUL point d'accès aux données (RPC Supabase ou démo)

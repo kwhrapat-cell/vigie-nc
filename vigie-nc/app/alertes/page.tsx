@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BottomNav } from "@/components/BottomNav";
 import { ReliabilityBadge, ScreenHeader, TypeTile } from "@/components/ui";
+import { VigilanceMeteo } from "@/components/VigilanceMeteo";
 import { formatAge, formatDistance, LatLng } from "@/lib/geo";
 import { readRadiusKm } from "@/lib/preferences";
 import { useLiveReports } from "@/lib/useLiveReports";
@@ -39,6 +40,8 @@ export default function AlertesPage() {
   return (
     <main className="min-h-[100dvh] pb-nav">
       <ScreenHeader title="Alertes" subtitle="Événements en cours" />
+
+      <VigilanceMeteo className="mx-4 mb-3" />
 
       <div className="mx-4 mb-3 grid grid-cols-2 gap-1 rounded-xl border border-line bg-panel p-1" role="tablist">
         {(
