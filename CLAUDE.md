@@ -39,7 +39,10 @@ vigie-nc/
   app/            écrans (/, /signaler, /relayer, /sos, /alertes, /historique, /profil, /contacts)
   components/     CarteLive (accueil), LiveMap, HomeSheet, ReportDetail,
                   PositionPicker, BottomNav, ui.tsx (Logo, TypeTile, boutons…),
-                  VigilanceMeteo (vignette officielle meteo.nc, sans clé)
+                  VigilanceMeteo (vignette officielle meteo.nc, sans clé),
+                  InstallApp (aide « écran d'accueil »), PwaSetup
+  public/         manifest.webmanifest, icons/ (générées depuis le logo),
+                  sw.js (service worker), offline.html (page « Pas de réseau »)
   lib/
     types.ts         types de signalement, couleurs, icônes, durées, rayons
     reports-api.ts   SEUL point d'accès aux données (RPC Supabase ou démo)
@@ -51,6 +54,7 @@ vigie-nc/
                      qui exige une clé depuis 2026) + emprise NC
     cluster.ts       regroupement des signalements en pastilles chiffrées
     relay-parser.ts  lecture d'un message collé → type + lieu (sur le téléphone)
+    pwa.ts           installation sur l'écran d'accueil + enregistrement du service worker
   supabase/schema.sql  schéma complet, ré-exécutable
 ```
 
@@ -64,6 +68,12 @@ vigie-nc/
 - Toute lecture/écriture de données passe par `lib/reports-api.ts`, qui gère
   aussi le mode démo. Ne jamais appeler `supabase.from(...).insert` depuis
   un écran.
+- Le service worker (`public/sw.js`) ne met **jamais** en cache l'appli ni
+  les signalements (l'info doit rester fraîche) : il sert seulement la page
+  « Pas de réseau ». Changer `CACHE` si `offline.html` change.
+- Le manifeste est déclaré à la main dans `app/layout.tsx` avec
+  `crossOrigin="use-credentials"` (sinon l'installation échoue tant que le
+  site est protégé par la connexion Vercel).
 - `lib/types.ts` (`REPORT_TYPE_LIFETIME_MIN`, `REPORT_TYPE_MERGE_RADIUS_M`)
   doit rester aligné sur `vigie_duree_vie()` / `vigie_rayon_fusion_m()` du
   SQL.
