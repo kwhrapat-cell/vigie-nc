@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { BottomNav } from "@/components/BottomNav";
+import { InstallApp } from "@/components/InstallApp";
 import { Logo, ScreenHeader } from "@/components/ui";
 import { getEmergencyContacts } from "@/lib/emergency-contacts";
 import { RADIUS_OPTIONS_KM, RadiusKm, readRadiusKm, saveRadiusKm } from "@/lib/preferences";
@@ -31,6 +32,10 @@ export default function ProfilPage() {
   return (
     <main className="min-h-[100dvh] pb-nav">
       <ScreenHeader title="Profil" subtitle="Sans compte · anonyme" />
+
+      <Card title="Vigie NC sur ton téléphone">
+        <InstallApp />
+      </Card>
 
       <Card title="Ma zone surveillée">
         <p className="text-[11.5px] text-mist-dim mb-2.5">

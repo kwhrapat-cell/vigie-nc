@@ -41,6 +41,19 @@ base (doublons, votes, expiration), rien n'est enregistré.
 
 Un lien `/?signalement=<id>` ouvre directement la fiche (bouton « Partager »).
 
+## Sur l'écran d'accueil du téléphone
+
+Vigie NC s'installe comme une appli, sans passer par un store (« PWA ») :
+`public/manifest.webmanifest`, icônes dans `public/icons/`, et une aide
+dans **Profil → Vigie NC sur ton téléphone** (bouton « Installer » sur
+Android, gestes à faire sur iPhone, message si le lien est ouvert dans
+Facebook/Messenger). Appui long sur l'icône (Android) : raccourcis
+Signaler, Alertes, SOS.
+
+Le service worker (`public/sw.js`) n'affiche qu'une page « Pas de réseau »
+avec les numéros 15 / 17 / 18 ; il ne garde rien en cache pour que les
+signalements soient toujours frais.
+
 ## Base de données (Supabase)
 
 1. Créer un projet Supabase.

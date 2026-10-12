@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "Vigie NC",
+  "short_name": "Vigie NC",
+  "description": "L'état des routes en Nouvelle-Calédonie, en direct et anonyme.",
+  "lang": "fr",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#081317",
+  "theme_color": "#081317",
+  "categories": ["navigation", "travel", "weather"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Signaler", "short_name": "Signaler", "url": "/signaler", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Alertes", "short_name": "Alertes", "url": "/alertes", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "SOS", "short_name": "SOS", "url": "/sos", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

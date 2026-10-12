@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#081317">
+<title>Vigie NC — pas de réseau</title>
+<style>
+  /* Page affichée par le service worker quand il n'y a pas de réseau.
+     Autonome : aucune ressource extérieure. */
+  :root { color-scheme: dark; }
+  body { margin: 0; min-height: 100dvh; display: flex; align-items: center; justify-content: center;
+         background: #081317; color: #EAF6F4; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 340px; padding: 24px 16px; text-align: center; }
+  h1 { font-size: 20px; margin: 14px 0 6px; }
+  p { margin: 0 0 14px; color: #93B0AD; font-size: 14px; }
+  .sos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0; }
+  .sos a { display: flex; flex-direction: column; justify-content: center; min-height: 56px; border-radius: 12px;
+           background: #E5484D; color: #fff; text-decoration: none; font-weight: 700; font-size: 20px; }
+  .sos small { font-weight: 500; font-size: 11px; }
+  button { min-height: 44px; width: 100%; border: 1px solid #1E363D; border-radius: 12px; background: #132830;
+           color: #EAF6F4; font: inherit; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <svg viewBox="0 0 32 36" width="48" height="54" aria-hidden="true">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22B8B0"/><stop offset=".6" stop-color="#1C9890"/><stop offset="1" stop-color="#E8892F"/>
+    </linearGradient></defs>
+    <path d="M16 1.5L29 6v10.2c0 8.3-5.5 14.6-13 18.3C8.5 30.8 3 24.5 3 16.2V6z" fill="none" stroke="url(#g)" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M16 9.5a6 6 0 0 1 6 6c0 4.3-6 10-6 10s-6-5.7-6-10a6 6 0 0 1 6-6z" fill="#EAF6F4"/>
+    <circle cx="16" cy="15.5" r="2.4" fill="#081317"/>
+  </svg>
+  <h1>Pas de réseau</h1>
+  <p>Vigie NC a besoin d'internet pour afficher la carte et les signalements.</p>
+  <p>En cas d'urgence, tu peux appeler :</p>
+  <div class="sos">
+    <a href="tel:15">15<small>SAMU</small></a>
+    <a href="tel:17">17<small>Gendarmerie</small></a>
+    <a href="tel:18">18<small>Pompiers</small></a>
+  </div>
+  <button type="button" onclick="location.reload()">Réessayer</button>
+</main>
+</body>
+</html>
