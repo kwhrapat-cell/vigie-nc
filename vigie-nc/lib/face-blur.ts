@@ -5,9 +5,16 @@ import { FilesetResolver, FaceDetector } from "@mediapipe/tasks-vision";
 // Modèle et runtime WASM chargés depuis les CDN officiels de MediaPipe au
 // premier usage — rien à télécharger manuellement, mais ça nécessite une
 // connexion internet la première fois (puis mis en cache par le navigateur).
-const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm";
+// La version du runtime WASM est figée sur celle du paquet npm.
+const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
 const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite";
+
+// Taille maximale de la photo envoyée (plus grand côté) : largement assez
+// pour voir une route inondée, et ~300 Ko au lieu de 3 à 5 Mo — compte pour
+// les forfaits mobiles et le stockage.
+const MAX_SIDE_PX = 1600;
+const JPEG_QUALITY = 0.82;
 
 let detectorPromise: Promise<FaceDetector> | null = null;
 
@@ -20,6 +27,10 @@ function getDetector(): Promise<FaceDetector> {
         runningMode: "IMAGE",
       });
     })();
+    // En cas d'échec (pas de réseau), on permet de réessayer plus tard.
+    detectorPromise.catch(() => {
+      detectorPromise = null;
+    });
   }
   return detectorPromise;
 }
@@ -44,36 +55,42 @@ function pixelateRegion(
   sctx.drawImage(source, x, y, w, h, 0, 0, small.width, small.height);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(small, 0, 0, small.width, small.height, x, y, w, h);
+  ctx.imageSmoothingEnabled = true;
+}
+
+export interface PreparedPhoto {
+  file: File;
+  facesBlurred: number;
 }
 
 /**
- * Détecte les visages dans la photo et les pixellise, entièrement dans le
- * navigateur. Retourne un nouveau fichier — l'original n'est jamais
- * uploadé si un visage est détecté.
+ * Prépare une photo avant l'envoi, entièrement sur le téléphone :
+ *  1. réduit sa taille (1600 px max) ;
+ *  2. détecte les visages et les pixellise ;
+ *  3. la ré-encode en JPEG, ce qui retire TOUTES les métadonnées EXIF
+ *     (coordonnées GPS précises, modèle du téléphone, date…).
  *
- * Si aucun visage n'est détecté, la photo est retournée inchangée.
- * En cas d'échec de la détection elle-même (modèle non chargé, erreur
- * réseau...), l'erreur remonte à l'appelant : mieux vaut bloquer l'envoi
- * de la photo que risquer d'envoyer un visage non traité.
+ * La photo d'origine ne quitte jamais l'appareil. Si la détection des
+ * visages échoue (modèle non chargé, pas de réseau…), l'erreur remonte :
+ * mieux vaut bloquer la photo que risquer d'envoyer un visage non traité.
  */
-export async function blurFacesInImage(file: File): Promise<File> {
+export async function preparePhoto(file: File): Promise<PreparedPhoto> {
   const detector = await getDetector();
 
-  const bitmap = await createImageBitmap(file);
+  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  const ratio = Math.min(1, MAX_SIDE_PX / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement("canvas");
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
+  canvas.width = Math.round(bitmap.width * ratio);
+  canvas.height = Math.round(bitmap.height * ratio);
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Contexte canvas indisponible");
-  ctx.drawImage(bitmap, 0, 0);
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
 
   const result = detector.detect(canvas);
+  let facesBlurred = 0;
 
-  if (!result.detections || result.detections.length === 0) {
-    return file;
-  }
-
-  for (const detection of result.detections) {
+  for (const detection of result.detections ?? []) {
     const box = detection.boundingBox;
     if (!box) continue;
     // Marge autour du visage détecté pour couvrir cheveux/oreilles/menton.
@@ -83,15 +100,19 @@ export async function blurFacesInImage(file: File): Promise<File> {
     const bw = Math.min(canvas.width - bx, box.width + pad * 2);
     const bh = Math.min(canvas.height - by, box.height + pad * 2);
     pixelateRegion(ctx, canvas, bx, by, bw, bh);
+    facesBlurred++;
   }
 
   const blob = await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error("Export de l'image échoué"))),
-      file.type || "image/jpeg",
-      0.9,
+      "image/jpeg",
+      JPEG_QUALITY,
     ),
   );
 
-  return new File([blob], file.name, { type: blob.type });
+  return {
+    file: new File([blob], "photo.jpg", { type: "image/jpeg" }),
+    facesBlurred,
+  };
 }
