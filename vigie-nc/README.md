@@ -104,6 +104,12 @@ Réglages à faire une fois :
   on conflict (cle) do update set valeur = excluded.valeur;`
   L'extension `pg_net` doit être active (le schéma l'active si possible).
 
+Chrome (Android) analyse le texte des notifications sur le téléphone et
+peut les marquer « spam possible » : textes factuels et précis, sans emoji
+ni « touche ici » (`alertPayload()` dans `lib/push-server.ts`). L'écran
+Alertes explique quoi faire (afficher, puis « Toujours autoriser »). Un nom
+de domaine à soi (plutôt que `*.vercel.app`) devrait aussi aider.
+
 iPhone : notifications seulement depuis l'appli ajoutée à l'écran
 d'accueil (iOS 16.4 ou plus récent). Le bouton « Tester » envoie une
 notification à ce téléphone seulement (`app/api/notif-test`).

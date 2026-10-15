@@ -339,6 +339,11 @@ export function AlertSettings() {
           ))}
         </div>
         {messages}
+        <Note>
+          Chrome parle de « spam » ? Choisis d&apos;afficher la notification, puis{" "}
+          <strong className="text-mist">Toujours autoriser</strong> : l&apos;avertissement ne reviendra plus. Ne te
+          désabonne pas, sinon les alertes s&apos;arrêtent.
+        </Note>
       </Card>
     );
   }

@@ -51,14 +51,6 @@ export async function sendPush(target: PushTarget, payload: PushPayload): Promis
   }
 }
 
-const EMOJI: Partial<Record<ReportType, string>> = {
-  accident: "🚗",
-  route_coupee: "⛔",
-  inondation: "🌊",
-  danger: "⚠️",
-  meteo: "🌧️",
-};
-
 function distanceText(m: number | null | undefined): string | null {
   if (m == null || !Number.isFinite(m)) return null;
   if (m < 1000) return `à ${Math.max(100, Math.round(m / 100) * 100)} m`;
@@ -79,20 +71,24 @@ export interface AlertTarget extends PushTarget {
   distance_m: number | null;
 }
 
-/** Texte de la notification d'un danger confirmé. */
+/**
+ * Texte de la notification d'un danger confirmé. Factuel, sans emoji ni
+ * « touche ici » : Chrome (Android) classe en « spam possible » les textes
+ * vagues, les emoji d'alarme et les formules d'appel.
+ * Ex. « Inondation · RT1, Païta » / « Signalement confirmé par 2 personnes,
+ * à 3,2 km de « Maison ». »
+ */
 export function alertPayload(report: AlertReport, target: AlertTarget): PushPayload {
-  const label = REPORT_TYPE_LABELS[report.type] ?? "Alerte";
-  const title = `${EMOJI[report.type] ?? "⚠️"} ${label}${report.lieu ? ` — ${report.lieu}` : ""}`;
-  const parts: string[] = [
-    report.source_officielle
-      ? `Vérifié · ${report.source_officielle}`
-      : `Confirmé par ${report.confirmations + 1} personnes`,
-  ];
+  const label = REPORT_TYPE_LABELS[report.type] ?? "Danger";
+  const title = report.lieu ? `${label} · ${report.lieu}` : label;
+  const qui = report.source_officielle
+    ? `Signalement vérifié par ${report.source_officielle}`
+    : `Signalement confirmé par ${report.confirmations + 1} personnes`;
   const d = distanceText(target.distance_m);
-  if (d) parts.push(`${d} ${target.nom ? `de « ${target.nom} »` : "de ton lieu d'alerte"}`);
+  const ou = d ? `, ${d} ${target.nom ? `de « ${target.nom} »` : "de ton lieu d'alerte"}` : "";
   return {
     title,
-    body: `${parts.join(" · ")}. Touche pour voir sur la carte.`,
+    body: `${qui}${ou}.`,
     url: `/?signalement=${report.id}`,
     tag: report.id,
   };
