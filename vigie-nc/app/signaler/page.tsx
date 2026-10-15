@@ -472,9 +472,15 @@ export default function SignalerPage() {
           </PrimaryButton>
         )}
         {s === 3 && (
-          <PrimaryButton disabled={submitting || processingPhoto} onClick={publish}>
-            {submitting ? "Publication…" : "Publier"}
-          </PrimaryButton>
+          <>
+            <PrimaryButton disabled={submitting || processingPhoto} onClick={publish}>
+              {submitting ? "Publication…" : "Publier"}
+            </PrimaryButton>
+            <p className="mt-2 text-center text-[10.5px] text-mist-dim">
+              En publiant, tu confirmes avoir vu cet événement sur place ·{" "}
+              <Link href="/conditions" className="text-lagoon underline">Conditions</Link>
+            </p>
+          </>
         )}
       </footer>
     </main>

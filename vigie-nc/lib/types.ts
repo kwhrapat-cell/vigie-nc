@@ -145,6 +145,21 @@ export const REPORT_TYPE_ICON: Record<ReportType, string> = {
 
 export type Vote = "present" | "termine";
 
+// Signalement d'un contenu (photo ou texte) qui pose problème. Une info
+// fausse ou finie se traite par le vote « C'est terminé », pas ici.
+export type FlagReason = "donnee_personnelle" | "inapproprie" | "hors_sujet";
+
+export const FLAG_REASON_LABELS: Record<FlagReason, string> = {
+  donnee_personnelle: "Visage, plaque, nom ou numéro visible",
+  inapproprie: "Insulte, accusation ou image choquante",
+  hors_sujet: "Rien à voir avec la route",
+};
+
+// Nombre de téléphones différents qui signalent un contenu avant que la
+// photo et le texte soient masqués automatiquement.
+// ⚠️ Doit rester aligné sur vigie_seuil_masquage() dans supabase/schema.sql.
+export const FLAG_HIDE_THRESHOLD = 2;
+
 // Info relayée par quelqu'un qui l'a vue ailleurs (pas forcément sur place)
 export type RelaySource = "facebook" | "radio" | "sms" | "autre";
 

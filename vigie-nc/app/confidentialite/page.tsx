@@ -1,0 +1,126 @@
+import type { Metadata } from "next";
+import { LegalList, LegalPage, LegalSection } from "@/components/LegalPage";
+import { CONTACT_MAILTO, LEGAL } from "@/lib/legal";
+
+export const metadata: Metadata = { title: "Confidentialité · Vigie NC" };
+
+export default function ConfidentialitePage() {
+  return (
+    <LegalPage
+      title="Confidentialité"
+      current="/confidentialite"
+      intro={
+        <LegalList>
+          <li>Pas de compte, pas de nom : personne ne sait qui a signalé quoi.</li>
+          <li>Visages floutés et position cachée des photos retirée, sur ton téléphone, avant l&apos;envoi.</li>
+          <li>Aucune publicité, aucune revente, aucune exploitation commerciale des données.</li>
+        </LegalList>
+      }
+    >
+      <LegalSection title="Qui est responsable ?">
+        <p>
+          {LEGAL.editeur} ({LEGAL.porteur}), {LEGAL.lieu}. Contact :{" "}
+          <a href={CONTACT_MAILTO}>{LEGAL.contact}</a>
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Ce qui est publié quand tu signales">
+        <LegalList>
+          <li>Le type d&apos;événement, la position du repère, le nom du lieu et l&apos;heure.</li>
+          <li>Si tu les ajoutes : la description, le niveau de risque et la photo (visages floutés, sans métadonnées).</li>
+          <li>
+            Pour une info relayée (Facebook, radio, SMS) : seulement le type, le lieu, l&apos;heure et la provenance.
+            Le texte que tu colles reste sur ton téléphone.
+          </li>
+          <li>
+            Pour un SOS : ta position, visible sur la carte pendant 2 heures au plus (ou jusqu&apos;à ce que tu
+            indiques ne plus avoir besoin d&apos;aide), sans ton nom.
+          </li>
+        </LegalList>
+        <p>Ces informations sont publiques : tout le monde peut les voir sur la carte. Jamais qui les a envoyées.</p>
+      </LegalSection>
+
+      <LegalSection title="L'identifiant de ton téléphone">
+        <p>
+          À la première utilisation, l&apos;appli crée sur ton téléphone un identifiant au hasard, sans lien avec ton
+          identité. La base n&apos;en garde qu&apos;une <strong>empreinte</strong> (impossible à retourner), dans des
+          tables que personne ne peut lire depuis l&apos;appli.
+        </p>
+        <p>
+          Elle sert uniquement à : limiter les abus (un signalement par minute), compter un seul vote par personne,
+          et reconnaître tes propres signalements pour que tu puisses les clore.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Ta position">
+        <p>
+          Pour afficher les signalements autour de toi, ta position est envoyée à la base au moment de la
+          recherche. Elle n&apos;est <strong>pas enregistrée</strong>. Seule la position d&apos;un signalement que tu
+          publies est conservée.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Ce qui reste sur ton téléphone">
+        <LegalList>
+          <li>Tes contacts d&apos;urgence (SOS) : jamais envoyés à Vigie NC.</li>
+          <li>Tes réglages (rayon, fond de carte) et le texte collé pour relayer une info.</li>
+        </LegalList>
+        <p>Pas de cookies publicitaires, pas de mesure d&apos;audience.</p>
+      </LegalSection>
+
+      <LegalSection title="Combien de temps ?">
+        <LegalList>
+          <li>
+            Un signalement disparaît de la carte quand il expire ou que la communauté le déclare terminé. Il est
+            ensuite gardé, anonyme, pour la « mémoire du territoire » (historique des zones à risque).
+          </li>
+          <li>
+            Le lien entre l&apos;empreinte de ton téléphone et tes signalements, votes et signalements de contenu est
+            effacé 30 jours après la fin du signalement.
+          </li>
+          <li>
+            Une photo ou un texte masqué par la modération n&apos;est plus affiché. Il est gardé à part 90 jours au
+            plus, au cas où le masquage serait une erreur.
+          </li>
+        </LegalList>
+      </LegalSection>
+
+      <LegalSection title="Où sont les données ?">
+        <p>
+          Signalements et photos : {LEGAL.base.nom}, serveurs à {LEGAL.base.lieu}. Site : {LEGAL.hebergeur.nom}{" "}
+          (États-Unis). Comme pour tout site web, ces hébergeurs voient techniquement ton adresse IP pour
+          t&apos;afficher les pages.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Services extérieurs utilisés par l'appli">
+        <LegalList>
+          <li>OpenStreetMap : fonds de carte, et nom du lieu à partir de la position du repère.</li>
+          <li>Esri : fond de carte satellite, si tu le choisis.</li>
+          <li>Météo-France Nouvelle-Calédonie : vignette de vigilance sur l&apos;écran Alertes.</li>
+          <li>
+            jsDelivr et Google : téléchargement de l&apos;outil de floutage des visages, la première fois que tu
+            ajoutes une photo. La photo, elle, est floutée sur ton téléphone et ne leur est pas envoyée.
+          </li>
+          <li>Google Maps : seulement si tu touches « Voir dans Maps ».</li>
+        </LegalList>
+      </LegalSection>
+
+      <LegalSection title="Tes droits">
+        <p>
+          Comme les signalements sont anonymes, nous ne pouvons pas retrouver « tes » données à partir de ton nom.
+          Pour faire retirer un signalement, une photo ou un texte, envoie son lien (bouton « Partager ») à{" "}
+          <a href={CONTACT_MAILTO}>{LEGAL.contact}</a>.
+        </p>
+        <p>
+          Cette politique suit la loi Informatique et Libertés, applicable en Nouvelle-Calédonie. En cas de
+          désaccord, tu peux saisir la CNIL (
+          <a href="https://www.cnil.fr" target="_blank" rel="noopener noreferrer">
+            cnil.fr
+          </a>
+          ).
+        </p>
+      </LegalSection>
+    </LegalPage>
+  );
+}

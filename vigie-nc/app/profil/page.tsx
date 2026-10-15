@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { BottomNav } from "@/components/BottomNav";
 import { Logo, ScreenHeader } from "@/components/ui";
 import { getEmergencyContacts } from "@/lib/emergency-contacts";
+import { CONTACT_MAILTO, LEGAL } from "@/lib/legal";
 import { RADIUS_OPTIONS_KM, RadiusKm, readRadiusKm, saveRadiusKm } from "@/lib/preferences";
 import { RELIABILITY_HEX, RELIABILITY_LEVELS } from "@/lib/reliability";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -92,17 +93,44 @@ export default function ProfilPage() {
       <Card title="Confidentialité">
         <ul className="flex flex-col gap-1.5 text-[11.5px] text-mist-dim leading-relaxed list-disc pl-4">
           <li>Pas de compte, pas de nom : les signalements sont anonymes.</li>
-          <li>Ta position reste sur ton téléphone. Elle n&apos;est envoyée que quand tu signales (et au service OpenStreetMap, pour trouver le nom du lieu).</li>
+          <li>Ta position sert à chercher les signalements autour de toi, sans être enregistrée. Seule celle d&apos;un signalement que tu publies est gardée.</li>
           <li>Les visages sont floutés et la position cachée dans les photos est retirée avant l&apos;envoi.</li>
           <li>L&apos;identifiant de ton téléphone n&apos;est jamais public : la base n&apos;en garde qu&apos;une empreinte.</li>
           <li>Aucune exploitation commerciale des données.</li>
         </ul>
+        <Link href="/confidentialite" className="mt-2.5 inline-block text-[12px] text-lagoon underline">
+          Lire la politique de confidentialité
+        </Link>
+      </Card>
+
+      <Card title="À savoir">
+        <p className="text-[11.5px] text-mist-dim leading-relaxed">
+          Les signalements viennent des usagers : ils sont indicatifs et ne remplacent pas les consignes
+          officielles. En cas d&apos;urgence, appelle le 15, le 17 ou le 18.
+        </p>
+        <nav aria-label="Informations légales" className="mt-2.5 flex flex-col divide-y divide-line border-y border-line">
+          {[
+            { href: "/conditions", label: "Conditions d'utilisation" },
+            { href: "/confidentialite", label: "Confidentialité" },
+            { href: "/mentions-legales", label: "Mentions légales" },
+          ].map((l) => (
+            <Link key={l.href} href={l.href} className="flex items-center justify-between py-3 text-[13px]">
+              {l.label}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-mist-dim" aria-hidden="true">
+                <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </Link>
+          ))}
+        </nav>
+        <p className="mt-2.5 text-[11px] text-mist-dim">
+          Contact : <a href={CONTACT_MAILTO} className="text-lagoon underline">{LEGAL.contact}</a>
+        </p>
       </Card>
 
       <section className="mx-4 mt-5 mb-4 flex flex-col items-center text-center">
         <Logo withTagline />
         <p className="mt-2 text-[10.5px] text-mist-dim">
-          Gratuit pour tous · développé en Nouvelle-Calédonie
+          Gratuit pour tous · développé en Nouvelle-Calédonie par {LEGAL.editeur}
           <br />
           {isSupabaseConfigured ? "Données en direct" : "Mode démo : rien n'est enregistré"}
         </p>

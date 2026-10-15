@@ -38,6 +38,11 @@ base (doublons, votes, expiration), rien n'est enregistré.
 | `/historique` | Mémoire du territoire : 12 derniers mois, évolution mensuelle, événements |
 | `/profil` | Rayon par défaut, contacts d'urgence, niveaux de fiabilité, confidentialité |
 | `/contacts` | Contacts d'urgence (gardés sur le téléphone uniquement) |
+| `/conditions` · `/confidentialite` · `/mentions-legales` | Pages légales (textes et coordonnées dans `lib/legal.ts`) |
+
+À la première ouverture, un écran rappelle que l'info est citoyenne et
+indicative, qu'on ne touche pas son téléphone au volant et qu'en urgence on
+appelle le 15 / 17 / 18 (`components/WelcomeNotice.tsx`).
 
 Un lien `/?signalement=<id>` ouvre directement la fiche (bouton « Partager »).
 
@@ -67,6 +72,36 @@ Ce que fait le schéma :
   d'empreinte, dans des tables illisibles depuis l'appli.
 - **Anti-spam** : 1 signalement par minute et par téléphone (le SOS n'est
   jamais bloqué), positions hors Nouvelle-Calédonie refusées.
+
+### Modération
+
+Sur la fiche d'un signalement qui a une photo ou un texte, le bouton
+**« Signaler un contenu »** propose 3 motifs (visage / plaque / nom, insulte
+ou image choquante, hors sujet). À partir de **2 téléphones différents**, la
+photo et le texte sont masqués automatiquement ; le fait (type, lieu, heure)
+reste sur la carte. Une info fausse ou finie se traite avec « C'est terminé ».
+
+Dans **SQL Editor** :
+
+- voir ce qui a été signalé : `select * from report_flags order by created_at desc;`
+- masquer à la main : `select vigie_masquer_contenu('<id du signalement>');`
+- annuler un masquage : `select vigie_retablir_contenu('<id du signalement>');`
+- retirer tout le signalement de la carte :
+  `update reports set resolved_at = now(), expires_at = now() where id = '<id>';`
+
+Le contenu masqué est gardé 90 jours dans `report_contenu_masque` (au cas
+où). Pour effacer définitivement une photo : **Storage → report-photos**,
+supprimer le fichier dont le nom figure dans l'adresse de la photo.
+
+L'id d'un signalement est à la fin du lien « Partager » (`?signalement=<id>`).
+
+### Purge automatique
+
+Le schéma active `pg_cron` et programme `vigie_purger_donnees_appareil()`
+chaque nuit (3 h 15 à Nouméa) : 30 jours après la fin d'un signalement, le
+lien entre l'empreinte du téléphone et ce signalement est effacé (auteur,
+votes, signalements de contenu) ; le contenu masqué est effacé après 90
+jours. Les tâches sont visibles dans **Integrations → Cron**.
 
 ### Marquer un signalement « Vérifié »
 
@@ -108,14 +143,15 @@ permettra d'aller plus loin : zones colorées sur la carte, notifications.
   (`lib/face-blur.ts`).
 - Pas de module « incivilité » ni « véhicule volé » : uniquement des
   informations d'infrastructure vérifiables.
-- Le RGPD s'applique en Nouvelle-Calédonie (CNIL compétente). Ceci n'est pas
-  un avis juridique.
+- Pages légales : `/conditions`, `/confidentialite`, `/mentions-legales`.
+  Éditeur, contact, hébergeurs et date de mise à jour sont dans
+  `lib/legal.ts` (ajouter le numéro RIDET quand il existe).
+- La loi Informatique et Libertés s'applique en Nouvelle-Calédonie (CNIL
+  compétente). Ceci n'est pas un avis juridique.
 
 ## Feuille de route
 
 - **Sprint 2 (cette version)** — fiabilité, doublons, zone 1-5 km, temps
   réel, écrans des maquettes, historique.
 - **Ensuite** — notifications (Web Push) sur la zone et les trajets
-  habituels ; purge automatique (`pg_cron`, bloc commenté en bas du
-  schéma) ; modération des descriptions ; tableau de bord pro pour
-  collectivités et secours (V3).
+  habituels ; tableau de bord pro pour collectivités et secours (V3).

@@ -9,6 +9,8 @@
 import { distanceM, GRAND_NOUMEA, LatLng, offsetKm } from "./geo";
 import type { ReportRow } from "./reports-api";
 import {
+  FlagReason,
+  FLAG_HIDE_THRESHOLD,
   RelaySource,
   ReportType,
   REPORT_TYPE_LIFETIME_MIN,
@@ -34,6 +36,8 @@ interface DemoReport {
   lastConfirmedAt: number | null;
   author: string | null; // id appareil
   votes: Map<string, Vote>;
+  flags: Map<string, FlagReason>; // signalements de contenu, par appareil
+  contentHiddenAt: number | null; // photo + texte masqués par la modération
 }
 
 const MIN = 60_000;
@@ -116,6 +120,8 @@ function seed(center: LatLng | null) {
       lastConfirmedAt: present > 0 ? now - Math.min(ageMin, 5) * MIN : null,
       author: "demo-auteur",
       votes: fakeVotes(present, 0),
+      flags: new Map(),
+      contentHiddenAt: null,
       ...extra,
     });
   };
@@ -125,7 +131,10 @@ function seed(center: LatLng | null) {
     officialSource: "Mairie",
   });
   add("accident", 0.3, 2.1, 12, 6, { riskLevel: "eleve" });
-  add("route_coupee", -2.4, -2.3, 25, 1, { description: "Arbre en travers de la route." });
+  add("route_coupee", -2.4, -2.3, 25, 1, {
+    description: "Arbre en travers de la route.",
+    flags: new Map<string, FlagReason>([["demo-f-0", "hors_sujet"]]),
+  });
   add("travaux", -3.9, 0.6, 60, 0, { riskLevel: "faible" });
   add("meteo", 3.2, -3.5, 40, 2, { description: "Fortes pluies, visibilité réduite." });
   add("trafic_dense", 1.8, 1.4, 8, 0);
@@ -255,8 +264,10 @@ export function demoCreate(input: {
           return { id: existing.id, resultat: "deja_signale" };
         }
         applyVote(existing, input.deviceId, "present");
-        existing.photoUrl ??= input.photoUrl ?? null;
-        existing.description ??= description;
+        if (existing.contentHiddenAt === null) {
+          existing.photoUrl ??= input.photoUrl ?? null;
+          existing.description ??= description;
+        }
         existing.place ??= input.place ?? null;
         if (input.riskLevel && (RISK_RANK[input.riskLevel] ?? 0) > (RISK_RANK[existing.riskLevel ?? ""] ?? 0)) {
           existing.riskLevel = input.riskLevel;
@@ -285,6 +296,8 @@ export function demoCreate(input: {
     lastConfirmedAt: null,
     author: input.deviceId,
     votes: new Map(),
+    flags: new Map(),
+    contentHiddenAt: null,
   });
   lastReportByDevice.set(input.deviceId, now);
   notify();
@@ -331,6 +344,8 @@ export function demoRelay(input: {
     lastConfirmedAt: null,
     author: input.deviceId,
     votes: new Map(),
+    flags: new Map(),
+    contentHiddenAt: null,
   });
   lastReportByDevice.set(input.deviceId, now);
   notify();
@@ -396,4 +411,26 @@ export function demoStats(center: LatLng | null, radiusM: number) {
         actif: isActive(r, Date.now()),
       })),
   };
+}
+
+// Même règles que signaler_contenu() dans supabase/schema.sql.
+export function demoFlag(reportId: string, deviceId: string, reason: FlagReason) {
+  const r = store.find((x) => x.id === reportId);
+  if (!r) throw new DemoError("signalement_introuvable");
+  if (r.type === "sos") throw new DemoError("type_invalide");
+  if (r.author === deviceId) throw new DemoError("propre_signalement");
+
+  if (r.flags.has(deviceId)) {
+    return { resultat: "deja_signale", masque: r.contentHiddenAt !== null };
+  }
+  r.flags.set(deviceId, reason);
+
+  if (r.contentHiddenAt === null && r.flags.size >= FLAG_HIDE_THRESHOLD) {
+    r.photoUrl = null;
+    r.description = null;
+    r.contentHiddenAt = Date.now();
+    notify();
+    return { resultat: "masque", masque: true };
+  }
+  return { resultat: "enregistre", masque: r.contentHiddenAt !== null };
 }
