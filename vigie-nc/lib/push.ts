@@ -95,14 +95,36 @@ export async function unsubscribePush(): Promise<void> {
 }
 
 /** Envoie une notification de test à ce téléphone seulement. */
-export async function sendTestPush(keys: SubscriptionKeys): Promise<boolean> {
+export async function sendTestPush(keys: SubscriptionKeys, kind?: "securite"): Promise<boolean> {
   try {
     const res = await fetch("/api/notif-test", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(keys),
+      body: JSON.stringify(kind ? { ...keys, kind } : keys),
     });
     return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// L'alarme de sécurité (écran de modération) utilise le même abonnement que
+// les alertes routières. Ce repère évite que couper les alertes routières
+// coupe aussi l'alarme sur ce téléphone.
+const SECURITY_ALARM_KEY = "vigie-nc:alarme-securite";
+
+export function setSecurityAlarmFlag(on: boolean): void {
+  try {
+    if (on) window.localStorage.setItem(SECURITY_ALARM_KEY, "1");
+    else window.localStorage.removeItem(SECURITY_ALARM_KEY);
+  } catch {
+    // stockage indisponible : sans conséquence grave
+  }
+}
+
+export function hasSecurityAlarmFlag(): boolean {
+  try {
+    return window.localStorage.getItem(SECURITY_ALARM_KEY) === "1";
   } catch {
     return false;
   }

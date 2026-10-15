@@ -463,6 +463,25 @@ export async function modAct(code: string, reportId: string, action: ModAction, 
   });
 }
 
+/** Alarme de sécurité (liste des modérateurs modifiée) active sur ce téléphone ? */
+export async function modAlarmState(code: string, endpoint: string): Promise<boolean> {
+  const out = await liveRpc<{ active: boolean }>("moderation_alertes_etat", { p_code: code, p_endpoint: endpoint });
+  return Boolean(out?.active);
+}
+
+export async function modAlarmEnable(code: string, keys: PushKeys): Promise<void> {
+  await liveRpc("moderation_alertes_activer", {
+    p_code: code,
+    p_endpoint: keys.endpoint,
+    p_p256dh: keys.p256dh,
+    p_auth: keys.auth,
+  });
+}
+
+export async function modAlarmDisable(code: string, endpoint: string): Promise<void> {
+  await liveRpc("moderation_alertes_desactiver", { p_code: code, p_endpoint: endpoint });
+}
+
 // ---------------------------------------------------------------------
 // Alertes sur le téléphone (notifications) : un lieu arrondi à ~1 km,
 // une distance (3, 5 ou 10 km) et un nom facultatif (« Maison »).

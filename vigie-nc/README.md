@@ -157,6 +157,12 @@ clair, seulement son empreinte) :
 - ajouter ou changer un code : `select vigie_ajouter_moderateur('Nom', '<code de 16 caractères ou plus>');`
 - retirer l'accès : `select vigie_retirer_moderateur('Nom');`
 
+**Alarme de sécurité** : dans l'écran de modération, « Recevoir l'alarme sur
+ce téléphone ». Une notification arrive dès que la liste des modérateurs
+change (ajout, code changé, accès retiré ou rétabli, suppression), et le
+changement est noté dans `moderation_journal`. Arrêter l'alarme d'un ancien
+modérateur : `delete from moderation_alertes where moderateur = 'Nom';`
+
 
 Sur la fiche d'un signalement qui a une photo ou un texte, le bouton
 **« Signaler un contenu »** propose 3 motifs (visage / plaque / nom, insulte

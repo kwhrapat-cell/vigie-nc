@@ -37,12 +37,16 @@ export interface PushPayload {
 }
 
 /** « gone » : l'abonnement n'existe plus (à supprimer de la base). */
-export async function sendPush(target: PushTarget, payload: PushPayload): Promise<"ok" | "gone" | "error"> {
+export async function sendPush(
+  target: PushTarget,
+  payload: PushPayload,
+  ttlSeconds = 3 * 3600,
+): Promise<"ok" | "gone" | "error"> {
   try {
     await webpush.sendNotification(
       { endpoint: target.endpoint, keys: { p256dh: target.p256dh, auth: target.auth } },
       JSON.stringify(payload),
-      { TTL: 3 * 3600, urgency: "high" },
+      { TTL: ttlSeconds, urgency: "high" },
     );
     return "ok";
   } catch (e) {
@@ -91,5 +95,42 @@ export function alertPayload(report: AlertReport, target: AlertTarget): PushPayl
     body: `${qui}${ou}.`,
     url: `/?signalement=${report.id}`,
     tag: report.id,
+  };
+}
+
+// ---------------------------------------------------------------------
+// Alarme de sécurité (liste des modérateurs modifiée) : envoyée par
+// /api/alerte-securite aux téléphones inscrits depuis l'écran /moderation.
+// Texte factuel, sans emoji (voir alertPayload).
+// ---------------------------------------------------------------------
+
+export type SecurityEvent = "ajout" | "code" | "retrait" | "retabli" | "renomme" | "suppression" | "vidage";
+
+const SECURITY_TEXT: Record<SecurityEvent, (nom: string) => string> = {
+  ajout: (n) => `Nouveau modérateur ajouté : ${n}.`,
+  code: (n) => `Le code de modération de ${n} a été changé.`,
+  retrait: (n) => `Accès de modération retiré : ${n}.`,
+  retabli: (n) => `Accès de modération rétabli : ${n}.`,
+  renomme: (n) => `Modérateur renommé : ${n}.`,
+  suppression: (n) => `Modérateur supprimé : ${n}.`,
+  vidage: () => "La liste des modérateurs a été entièrement effacée.",
+};
+
+export function isSecurityEvent(e: unknown): e is SecurityEvent {
+  return typeof e === "string" && e in SECURITY_TEXT;
+}
+
+/** Ex. « Vigie NC · Modération modifiée » / « Nouveau modérateur ajouté : Paul. Si ce n'est pas toi… » */
+export function securityPayload(evenement: SecurityEvent, nom: unknown): PushPayload {
+  const n =
+    typeof nom === "string" && nom.trim()
+      ? nom.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 85)
+      : "nom inconnu";
+  return {
+    title: "Vigie NC · Modération modifiée",
+    body: `${SECURITY_TEXT[evenement](n)} Si ce n'est pas toi, vérifie ton compte Supabase.`,
+    url: "/moderation",
+    // un tag différent à chaque fois : plusieurs changements = plusieurs notifications
+    tag: `securite-${Date.now()}`,
   };
 }
