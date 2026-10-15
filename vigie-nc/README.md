@@ -38,6 +38,7 @@ base (doublons, votes, expiration), rien n'est enregistré.
 | `/historique` | Mémoire du territoire : 12 derniers mois, évolution mensuelle, événements |
 | `/profil` | Rayon par défaut, contacts d'urgence, niveaux de fiabilité, **partager l'appli** (WhatsApp ou autre), confidentialité |
 | `/contacts` | Contacts d'urgence (gardés sur le téléphone uniquement) |
+| `/affiche` | L'affiche de Vigie NC à envoyer par lien : ouvrir l'appli, enregistrer l'image, partager le lien (`public/affiche/`) |
 | `/conditions` · `/confidentialite` · `/mentions-legales` | Pages légales (textes et coordonnées dans `lib/legal.ts`) |
 
 À la première ouverture, un écran rappelle que l'info est citoyenne et
