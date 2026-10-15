@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { BottomNav } from "@/components/BottomNav";
+import { ShareApp } from "@/components/ShareApp";
 import { Logo, ScreenHeader } from "@/components/ui";
 import { getEmergencyContacts } from "@/lib/emergency-contacts";
 import { CONTACT_MAILTO, LEGAL } from "@/lib/legal";
@@ -88,6 +89,14 @@ export default function ProfilPage() {
           ))}
         </ul>
         <p className="mt-2 text-[11px] text-mist-dim">Plus c&apos;est confirmé, plus c&apos;est mis en avant.</p>
+      </Card>
+
+      <Card title="Fais connaître Vigie NC">
+        <p className="text-[11.5px] text-mist-dim mb-2.5">
+          Plus on est nombreux à signaler, plus la carte est fiable. Envoie l&apos;appli à ta famille, tes collègues,
+          ton quartier.
+        </p>
+        <ShareApp />
       </Card>
 
       <Card title="Confidentialité">
