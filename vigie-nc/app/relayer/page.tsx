@@ -310,9 +310,15 @@ export default function RelayerPage() {
           </PrimaryButton>
         )}
         {step === 2 && (
-          <PrimaryButton disabled={!pin || submitting} onClick={publish}>
-            {submitting ? "Publication…" : "Publier l'info relayée"}
-          </PrimaryButton>
+          <>
+            <PrimaryButton disabled={!pin || submitting} onClick={publish}>
+              {submitting ? "Publication…" : "Publier l'info relayée"}
+            </PrimaryButton>
+            <p className="mt-2 text-center text-[10.5px] text-mist-dim">
+              Relaie seulement une info sérieuse, sans nom ni accusation ·{" "}
+              <Link href="/conditions" className="text-lagoon underline">Conditions</Link>
+            </p>
+          </>
         )}
         {step === 1 && (
           <p className="mt-2 text-center text-[10.5px] text-mist-dim">

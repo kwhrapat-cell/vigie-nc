@@ -6,13 +6,14 @@
 
 import { supabase } from "./supabase";
 import { getDeviceId } from "./device-id";
-import { demoCreate, demoDetail, demoNearby, demoRelay, demoStats, demoVote } from "./demo-store";
+import { demoCreate, demoDetail, demoFlag, demoNearby, demoRelay, demoStats, demoVote } from "./demo-store";
 import { LatLng } from "./geo";
-import { RelaySource, Report, ReportType, REPORT_TYPE_LABELS, RiskLevel, Vote } from "./types";
+import { FlagReason, RelaySource, Report, ReportType, REPORT_TYPE_LABELS, RiskLevel, Vote } from "./types";
 
 export type CreateResult = "cree" | "fusionne" | "deja_signale";
 export type RelayResult = "relaye" | "existe_deja";
 export type VoteResult = "confirme" | "en_baisse" | "resolu" | "deja_vote";
+export type FlagResult = "enregistre" | "deja_signale" | "masque";
 
 export interface VoteOutcome {
   resultat: VoteResult;
@@ -53,6 +54,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   source_invalide: "Indique où tu as vu l'info.",
   appareil_invalide: "Identifiant du téléphone invalide — recharge la page.",
   vote_invalide: "Vote non reconnu.",
+  motif_invalide: "Choisis ce qui pose problème.",
+  trop_de_signalements:
+    "Beaucoup de contenus signalés depuis ce téléphone : réessaie dans une heure ou écris-nous.",
 };
 
 export class ReportsApiError extends Error {
@@ -268,6 +272,33 @@ export async function voteOnReport(reportId: string, vote: Vote): Promise<VoteOu
     expiresAt: raw.expires_at,
     resolu: raw.resolu,
   };
+}
+
+/**
+ * Signale une photo ou un texte qui pose problème. Après plusieurs
+ * signalements (FLAG_HIDE_THRESHOLD), le serveur masque le contenu.
+ */
+export async function flagReport(
+  reportId: string,
+  reason: FlagReason,
+): Promise<{ resultat: FlagResult; masque: boolean }> {
+  const deviceId = getDeviceId();
+
+  if (!supabase) {
+    try {
+      return demoFlag(reportId, deviceId, reason) as { resultat: FlagResult; masque: boolean };
+    } catch (e) {
+      throw new ReportsApiError(e instanceof Error ? e.message : "inconnu");
+    }
+  }
+
+  const { data, error } = await supabase.rpc("signaler_contenu", {
+    p_report_id: reportId,
+    p_device_id: deviceId,
+    p_motif: reason,
+  });
+  if (error) throw new ReportsApiError(codeFromMessage(error.message));
+  return data as { resultat: FlagResult; masque: boolean };
 }
 
 interface RawStats {

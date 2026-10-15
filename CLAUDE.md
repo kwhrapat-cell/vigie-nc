@@ -37,9 +37,11 @@ Le code est dans `vigie-nc/` (Root Directory Vercel).
 ```
 vigie-nc/
   app/            écrans (/, /signaler, /relayer, /sos, /alertes, /historique, /profil, /contacts)
+                  + pages légales (/conditions, /confidentialite, /mentions-legales)
   components/     CarteLive (accueil), LiveMap, HomeSheet, ReportDetail,
                   PositionPicker, BottomNav, ui.tsx (Logo, TypeTile, boutons…),
-                  VigilanceMeteo (vignette officielle meteo.nc, sans clé)
+                  VigilanceMeteo (vignette officielle meteo.nc, sans clé),
+                  WelcomeNotice (avertissement à la 1re ouverture), LegalPage
   lib/
     types.ts         types de signalement, couleurs, icônes, durées, rayons
     reports-api.ts   SEUL point d'accès aux données (RPC Supabase ou démo)
@@ -51,6 +53,7 @@ vigie-nc/
                      qui exige une clé depuis 2026) + emprise NC
     cluster.ts       regroupement des signalements en pastilles chiffrées
     relay-parser.ts  lecture d'un message collé → type + lieu (sur le téléphone)
+    legal.ts         éditeur (Tramea Solutions), contact, hébergeurs, date des textes légaux
   supabase/schema.sql  schéma complet, ré-exécutable
 ```
 
@@ -73,6 +76,12 @@ vigie-nc/
 - Écritures **uniquement via les RPC** `security definer` ; les tables
   `report_authors` et `report_votes` ne sont jamais lisibles depuis l'appli.
 - L'identifiant d'appareil n'est stocké qu'en empreinte (`vigie_device_key`).
+- Modération : `signaler_contenu` (2 téléphones → photo + texte masqués,
+  seuil `vigie_seuil_masquage()` = `FLAG_HIDE_THRESHOLD` de `lib/types.ts`),
+  `vigie_masquer_contenu` / `vigie_retablir_contenu` à la main.
+- Les pages `/confidentialite` et `/conditions` décrivent ce que fait
+  vraiment le code (données envoyées, durées, purge `pg_cron`) : les mettre
+  à jour (et `miseAJour` dans `lib/legal.ts`) si ça change.
 - `schema.sql` doit rester **ré-exécutable d'un bloc** dans l'éditeur SQL
   Supabase (une seule transaction) : `if not exists`, `create or replace`,
   `drop ... if exists` avant de changer un type de retour, et toute

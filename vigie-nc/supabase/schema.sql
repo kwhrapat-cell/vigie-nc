@@ -104,6 +104,10 @@ alter table reports add column if not exists source_officielle text;
 -- Info relayée (vue sur Facebook, à la radio, par SMS…) par quelqu'un qui
 -- n'est pas forcément sur place ; nul = signalement fait sur le terrain.
 alter table reports add column if not exists relais_source text;
+-- Rempli quand la modération a masqué la photo et la description (après
+-- signalements de contenu ou à la main). Le contenu retiré est gardé à
+-- part dans report_contenu_masque, illisible depuis l'appli.
+alter table reports add column if not exists contenu_masque_at timestamptz;
 
 do $$
 begin
@@ -162,6 +166,29 @@ create table if not exists report_votes (
 );
 create index if not exists report_votes_device_idx
   on report_votes (device_key, updated_at desc);
+
+-- Signalements de contenu (photo ou texte qui pose problème) — un par
+-- appareil et par signalement. Table privée.
+create table if not exists report_flags (
+  report_id uuid not null references reports(id) on delete cascade,
+  device_key text not null,
+  motif text not null check (motif in ('donnee_personnelle', 'inapproprie', 'hors_sujet')),
+  created_at timestamptz not null default now(),
+  primary key (report_id, device_key)
+);
+create index if not exists report_flags_device_idx
+  on report_flags (device_key, created_at desc);
+
+-- Photo et description retirées par la modération, gardées à part pour
+-- pouvoir les rétablir en cas d'erreur (effacées après 90 jours par la
+-- purge). Table privée.
+create table if not exists report_contenu_masque (
+  report_id uuid primary key references reports(id) on delete cascade,
+  photo_url text,
+  description text,
+  raison text not null check (raison in ('signalements', 'moderation')),
+  masque_at timestamptz not null default now()
+);
 
 -- ---------------------------------------------------------------------
 -- Migration depuis le Sprint 1 (sans effet sur une base neuve)
@@ -460,10 +487,13 @@ begin
 
         perform vigie_appliquer_vote(v_existant.id, v_key, 'present');
 
-        -- Complète l'événement existant avec ce qui lui manquait.
+        -- Complète l'événement existant avec ce qui lui manquait (sauf si la
+        -- modération a masqué son contenu : on ne le remplace pas).
         update reports
-        set photo_url = coalesce(photo_url, p_photo_url),
-            description = coalesce(description, v_description),
+        set photo_url = case when contenu_masque_at is null
+                             then coalesce(photo_url, p_photo_url) else photo_url end,
+            description = case when contenu_masque_at is null
+                               then coalesce(description, v_description) else description end,
             lieu = coalesce(lieu, v_lieu),
             niveau_risque = case
               when vigie_rang_risque(v_niveau) > vigie_rang_risque(niveau_risque) then v_niveau
@@ -833,6 +863,190 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------
+-- Modération
+--   - n'importe qui peut signaler un contenu (photo ou texte) ;
+--   - à partir de vigie_seuil_masquage() téléphones différents, la photo
+--     et la description sont masquées automatiquement (le fait — type,
+--     lieu, heure — reste : une info fausse ou finie se traite par le vote
+--     « C'est terminé ») ;
+--   - à la main, dans l'éditeur SQL :
+--       select vigie_masquer_contenu('<uuid>');   -- masquer
+--       select vigie_retablir_contenu('<uuid>');  -- annuler une erreur
+--     et pour retirer tout un signalement de la carte :
+--       update reports set resolved_at = now(), expires_at = now() where id = '<uuid>';
+-- ---------------------------------------------------------------------
+
+-- ⚠️ Doit rester aligné sur FLAG_HIDE_THRESHOLD dans lib/types.ts.
+create or replace function vigie_seuil_masquage()
+returns int
+language sql
+immutable
+set search_path = public
+as $$
+  select 2;
+$$;
+
+create or replace function vigie_masquer_contenu(
+  p_report_id uuid,
+  p_raison text default 'moderation'
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_report reports%rowtype;
+begin
+  select * into v_report from reports where id = p_report_id for update;
+  if not found then
+    raise exception 'signalement_introuvable';
+  end if;
+
+  if v_report.photo_url is not null or v_report.description is not null then
+    insert into report_contenu_masque (report_id, photo_url, description, raison)
+    values (p_report_id, v_report.photo_url, v_report.description, p_raison)
+    on conflict (report_id) do update
+      set photo_url = coalesce(excluded.photo_url, report_contenu_masque.photo_url),
+          description = coalesce(excluded.description, report_contenu_masque.description),
+          raison = excluded.raison,
+          masque_at = now();
+  end if;
+
+  -- Même sans contenu à retirer, la décision est notée : un doublon
+  -- fusionné plus tard ne pourra pas rajouter de photo ni de texte.
+  update reports
+  set photo_url = null,
+      description = null,
+      contenu_masque_at = coalesce(contenu_masque_at, now())
+  where id = p_report_id;
+
+  return v_report.photo_url is not null or v_report.description is not null;
+end;
+$$;
+
+create or replace function vigie_retablir_contenu(p_report_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_masque report_contenu_masque%rowtype;
+begin
+  select * into v_masque from report_contenu_masque where report_id = p_report_id;
+
+  update reports
+  set photo_url = coalesce(photo_url, v_masque.photo_url),
+      description = coalesce(description, v_masque.description),
+      contenu_masque_at = null
+  where id = p_report_id;
+  if not found then
+    return false;
+  end if;
+
+  delete from report_contenu_masque where report_id = p_report_id;
+  delete from report_flags where report_id = p_report_id;
+  return true;
+end;
+$$;
+
+-- ---------------------------------------------------------------------
+-- RPC : signaler un contenu qui pose problème
+--   select signaler_contenu('<uuid>', '<id appareil>', 'donnee_personnelle');
+-- Motifs : donnee_personnelle (visage, plaque, nom, téléphone…),
+-- inapproprie (insulte, accusation, image choquante), hors_sujet (pas une
+-- info sur la route).
+-- Retour : {"resultat": "enregistre" | "deja_signale" | "masque", "masque": bool}
+-- ---------------------------------------------------------------------
+create or replace function signaler_contenu(
+  p_report_id uuid,
+  p_device_id text,
+  p_motif text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_key text;
+  v_report reports%rowtype;
+  v_auteur text;
+  v_nb int;
+begin
+  if p_device_id is null or length(p_device_id) not between 16 and 128 then
+    raise exception 'appareil_invalide';
+  end if;
+  if p_motif is null or p_motif not in ('donnee_personnelle', 'inapproprie', 'hors_sujet') then
+    raise exception 'motif_invalide';
+  end if;
+
+  v_key := vigie_device_key(p_device_id);
+
+  -- Garde-fou : 10 signalements de contenu par heure et par téléphone.
+  if (
+    select count(*) from report_flags
+    where device_key = v_key and created_at > now() - interval '1 hour'
+  ) >= 10 then
+    raise exception 'trop_de_signalements';
+  end if;
+
+  select * into v_report from reports where id = p_report_id for update;
+  if not found then
+    raise exception 'signalement_introuvable';
+  end if;
+  if v_report.type::text = 'sos' then
+    raise exception 'type_invalide';
+  end if;
+
+  select device_key into v_auteur from report_authors where report_id = p_report_id;
+  if v_auteur = v_key then
+    raise exception 'propre_signalement';
+  end if;
+
+  insert into report_flags (report_id, device_key, motif)
+  values (p_report_id, v_key, p_motif)
+  on conflict (report_id, device_key) do nothing;
+  if not found then
+    return jsonb_build_object('resultat', 'deja_signale', 'masque', v_report.contenu_masque_at is not null);
+  end if;
+
+  select count(*) into v_nb from report_flags where report_id = p_report_id;
+  if v_report.contenu_masque_at is null and v_nb >= vigie_seuil_masquage() then
+    perform vigie_masquer_contenu(p_report_id, 'signalements');
+    return jsonb_build_object('resultat', 'masque', 'masque', true);
+  end if;
+
+  return jsonb_build_object('resultat', 'enregistre', 'masque', v_report.contenu_masque_at is not null);
+end;
+$$;
+
+-- ---------------------------------------------------------------------
+-- Purge (lancée chaque nuit, voir en bas du fichier) :
+--   - 30 jours après la fin d'un signalement, le lien entre l'empreinte du
+--     téléphone et ce signalement est effacé (auteur, votes, signalements
+--     de contenu) ;
+--   - le contenu masqué par la modération est effacé après 90 jours.
+-- Les signalements eux-mêmes restent, anonymes, pour l'historique.
+-- ---------------------------------------------------------------------
+create or replace function vigie_purger_donnees_appareil()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  delete from report_votes v using reports r
+   where v.report_id = r.id and r.expires_at < now() - interval '30 days';
+  delete from report_authors a using reports r
+   where a.report_id = r.id and r.expires_at < now() - interval '30 days';
+  delete from report_flags f using reports r
+   where f.report_id = r.id and r.expires_at < now() - interval '30 days';
+  delete from report_contenu_masque m
+   where m.masque_at < now() - interval '90 days';
+$$;
+
+-- ---------------------------------------------------------------------
 -- Versions 2 des lectures : mêmes colonnes + relais_source.
 -- (Les versions 1 restent pour les anciennes versions de l'appli.)
 -- ---------------------------------------------------------------------
@@ -978,6 +1192,8 @@ alter table zones enable row level security;
 alter table reports enable row level security;
 alter table report_authors enable row level security;
 alter table report_votes enable row level security;
+alter table report_flags enable row level security;
+alter table report_contenu_masque enable row level security;
 
 drop policy if exists "zones lecture publique" on zones;
 create policy "zones lecture publique" on zones for select using (true);
@@ -993,8 +1209,13 @@ revoke insert, update, delete on reports from anon, authenticated;
 revoke insert, update, delete on zones from anon, authenticated;
 revoke all on report_authors from anon, authenticated;
 revoke all on report_votes from anon, authenticated;
+revoke all on report_flags from anon, authenticated;
+revoke all on report_contenu_masque from anon, authenticated;
 
 revoke execute on function vigie_appliquer_vote(uuid, text, text) from public, anon, authenticated;
+revoke execute on function vigie_masquer_contenu(uuid, text) from public, anon, authenticated;
+revoke execute on function vigie_retablir_contenu(uuid) from public, anon, authenticated;
+revoke execute on function vigie_purger_donnees_appareil() from public, anon, authenticated;
 
 grant execute on function creer_signalement(report_type, double precision, double precision, text, text, text, text, text) to anon, authenticated;
 grant execute on function voter_signalement(uuid, text, text) to anon, authenticated;
@@ -1004,6 +1225,7 @@ grant execute on function statistiques_zone(double precision, double precision, 
 grant execute on function relayer_signalement(report_type, double precision, double precision, text, text, text) to anon, authenticated;
 grant execute on function signalements_proches_v2(double precision, double precision, integer, text) to anon, authenticated;
 grant execute on function signalement_detail_v2(uuid, text) to anon, authenticated;
+grant execute on function signaler_contenu(uuid, text, text) to anon, authenticated;
 
 -- ---------------------------------------------------------------------
 -- Photos : bucket public en lecture, upload anonyme limité aux images
@@ -1041,13 +1263,24 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------
--- À activer plus tard (Database > Extensions > pg_cron) : purge des
--- votes et des liens auteur une fois les signalements expirés depuis
--- 30 jours. Les signalements eux-mêmes sont gardés pour l'historique.
+-- Purge automatique chaque nuit (3 h 15 à Nouméa = 16 h 15 UTC) avec
+-- pg_cron, activé ici s'il est disponible (c'est le cas sur Supabase).
+-- Sinon : Integrations > Cron dans Supabase, ou lancer à la main
+--   select vigie_purger_donnees_appareil();
+-- (cron.schedule remplace la tâche du même nom : ré-exécutable.)
 -- ---------------------------------------------------------------------
--- select cron.schedule('vigie-purge-donnees-appareil', '15 3 * * *', $$
---   delete from report_votes v using reports r
---    where v.report_id = r.id and r.expires_at < now() - interval '30 days';
---   delete from report_authors a using reports r
---    where a.report_id = r.id and r.expires_at < now() - interval '30 days';
--- $$);
+do $$
+begin
+  if exists (select 1 from pg_available_extensions where name = 'pg_cron') then
+    create extension if not exists pg_cron with schema pg_catalog;
+    perform cron.schedule(
+      'vigie-purge-donnees-appareil',
+      '15 16 * * *',
+      'select public.vigie_purger_donnees_appareil()'
+    );
+  else
+    raise notice 'pg_cron indisponible : purge automatique non programmée.';
+  end if;
+exception when others then
+  raise notice 'Purge automatique non programmée (%) : l''activer dans Integrations > Cron.', sqlerrm;
+end $$;

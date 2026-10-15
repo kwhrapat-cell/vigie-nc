@@ -6,6 +6,7 @@ import { LiveMap } from "./LiveMap";
 import { HomeSheet } from "./HomeSheet";
 import { ReportDetail } from "./ReportDetail";
 import { BottomNav } from "./BottomNav";
+import { WelcomeNotice } from "./WelcomeNotice";
 import { Logo } from "./ui";
 import { MapStyleSwitcher, RecenterButton, ZoneSelector } from "./MapControls";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -245,6 +246,8 @@ export function CarteLive() {
           }}
         />
       )}
+
+      <WelcomeNotice />
     </div>
   );
 }

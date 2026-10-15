@@ -1,11 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
-import { errorMessage, voteOnReport, VoteResult } from "@/lib/reports-api";
+import { errorMessage, flagReport, FlagResult, voteOnReport, VoteResult } from "@/lib/reports-api";
 import { formatAge, formatDistance, formatDuration } from "@/lib/geo";
 import { getReliability, RELIABILITY_HEX } from "@/lib/reliability";
-import { RELAY_SOURCE_LABELS, Report, RISK_LABELS, Vote } from "@/lib/types";
+import { FlagReason, FLAG_REASON_LABELS, RELAY_SOURCE_LABELS, Report, RISK_LABELS, Vote } from "@/lib/types";
 import { ReliabilityBadge, TypeTile } from "./ui";
+
+const FLAG_MESSAGES: Record<FlagResult, string> = {
+  enregistre: "Merci, c'est noté. Si d'autres personnes le signalent aussi, la photo et le texte seront masqués.",
+  masque: "Merci. La photo et le texte sont maintenant masqués.",
+  deja_signale: "Tu as déjà signalé ce contenu.",
+};
 
 const RESULT_MESSAGES: Record<VoteResult, string> = {
   confirme: "Merci ! Ta confirmation garde le signalement visible.",
@@ -45,6 +52,11 @@ export function ReportDetail({
   const [busy, setBusy] = useState<Vote | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [flagOpen, setFlagOpen] = useState(false);
+  const [flagReason, setFlagReason] = useState<FlagReason | null>(null);
+  const [flagBusy, setFlagBusy] = useState(false);
+  const [flagMessage, setFlagMessage] = useState<string | null>(null);
+  const [flagError, setFlagError] = useState<string | null>(null);
   const [, setTick] = useState(0);
 
   // Rafraîchit « il y a… » / « disparaît dans… » chaque minute.
@@ -92,6 +104,26 @@ export function ReportDetail({
       setBusy(null);
     }
   }
+
+  async function sendFlag() {
+    if (!flagReason || flagBusy) return;
+    setFlagBusy(true);
+    setFlagError(null);
+    try {
+      const out = await flagReport(report.id, flagReason);
+      setFlagMessage(FLAG_MESSAGES[out.resultat]);
+      setFlagOpen(false);
+      if (out.masque) onUpdated({ photoUrl: null, description: null });
+    } catch (e) {
+      setFlagError(errorMessage(e, "Le signalement n'a pas pu être envoyé — vérifie ta connexion."));
+    } finally {
+      setFlagBusy(false);
+    }
+  }
+
+  // On ne signale que ce qu'une personne a écrit ou photographié : le
+  // type et le lieu, eux, se corrigent avec « C'est terminé ».
+  const canFlag = !isSos && !report.isMine && Boolean(report.photoUrl || report.description);
 
   async function share() {
     const url = `${window.location.origin}/?signalement=${report.id}`;
@@ -320,6 +352,83 @@ export function ReportDetail({
               Voir dans Maps
             </a>
           </div>
+        )}
+
+        {!isSos && (
+          <p className="mt-4 text-[10.5px] text-mist-dim leading-relaxed">
+            Info citoyenne, à vérifier sur place : elle ne remplace pas les consignes officielles.{" "}
+            <Link href="/conditions" className="underline">
+              En savoir plus
+            </Link>
+          </p>
+        )}
+
+        {canFlag && !flagOpen && !flagMessage && (
+          <button
+            type="button"
+            onClick={() => {
+              setFlagOpen(true);
+              setFlagError(null);
+            }}
+            className="mt-2 -ml-1 px-1 py-2 text-[12px] text-mist-dim underline"
+          >
+            Signaler un contenu
+          </button>
+        )}
+
+        {flagOpen && (
+          <div className="mt-3 rounded-xl border border-line bg-panel-2 px-3 py-3">
+            <p className="text-[12.5px] font-semibold">Qu&apos;est-ce qui pose problème ?</p>
+            <div className="mt-2 flex flex-col gap-2" role="radiogroup" aria-label="Motif du signalement">
+              {(Object.keys(FLAG_REASON_LABELS) as FlagReason[]).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  role="radio"
+                  aria-checked={flagReason === r}
+                  onClick={() => setFlagReason(r)}
+                  className={`rounded-lg border px-3 py-2.5 text-left text-[12.5px] ${
+                    flagReason === r ? "border-lagoon bg-lagoon/10 text-mist" : "border-line bg-panel text-mist-dim"
+                  }`}
+                >
+                  {FLAG_REASON_LABELS[r]}
+                </button>
+              ))}
+            </div>
+            {active && (
+              <p className="mt-2 text-[11px] text-mist-dim">
+                L&apos;événement est fini ou faux ? Réponds plutôt « C&apos;est terminé » plus haut.
+              </p>
+            )}
+            {flagError && (
+              <p className="mt-2 text-[12px] text-danger" role="alert">
+                {flagError}
+              </p>
+            )}
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setFlagOpen(false)}
+                className="rounded-lg border border-line bg-panel py-2.5 text-[12.5px] font-medium"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={!flagReason || flagBusy}
+                onClick={sendFlag}
+                className="rounded-lg bg-danger py-2.5 text-[12.5px] font-semibold text-white disabled:opacity-40"
+              >
+                {flagBusy ? "Envoi…" : "Envoyer"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {flagMessage && (
+          <p className="mt-3 text-[12px] text-lagoon" role="status">
+            {flagMessage}
+          </p>
         )}
       </div>
     </div>
