@@ -55,6 +55,15 @@ sont dans `lib/site.ts` (à changer le jour d'un nom de domaine à soi).
 WhatsApp garde l'aperçu en mémoire un moment : un changement d'image peut
 mettre du temps à apparaître sur un lien déjà envoyé.
 
+## Installer l'appli sur le téléphone
+
+`app/manifest.ts` rend Vigie NC installable. Sur Android, Profil →
+« Installer l'appli » ouvre directement la fenêtre d'installation de
+Chrome (et Chrome propose « Installer l'application » dans son menu) ;
+sur iPhone, le bouton affiche les étapes (Safari → Partager → « Sur
+l'écran d'accueil »). Le mode `minimal-ui` garde les données partagées
+avec le navigateur (contacts SOS, réglages).
+
 ## Base de données (Supabase)
 
 1. Créer un projet Supabase.
