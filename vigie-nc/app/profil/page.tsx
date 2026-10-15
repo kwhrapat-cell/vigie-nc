@@ -37,8 +37,8 @@ export default function ProfilPage() {
 
       <Card title="Ma zone surveillée">
         <p className="text-[11.5px] text-mist-dim mb-2.5">
-          Rayon autour de toi pour la carte et les alertes. Pour la route, 3 à 5 km permettent de savoir si les
-          prochains kilomètres sont dégagés.
+          Rayon autour de toi pour la carte et les alertes. Pour la route, 3 à 5 km permettent de voir ce qui est
+          signalé sur les prochains kilomètres.
         </p>
         <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Rayon par défaut">
           {RADIUS_OPTIONS_KM.map((km) => (
