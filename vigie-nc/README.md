@@ -52,7 +52,9 @@ Un lien `/?signalement=<id>` ouvre directement la fiche (bouton « Partager »).
 Quand on envoie le lien de l'appli (WhatsApp, Messenger, SMS…), l'aperçu
 affiche `app/opengraph-image.png` (1200×630) avec le titre et la description
 définis dans `app/layout.tsx`. L'adresse publique et le texte d'invitation
-sont dans `lib/site.ts` (à changer le jour d'un nom de domaine à soi).
+sont dans `lib/site.ts` : **https://vigie-nc.com**. L'ancienne adresse
+`vigie-nc.vercel.app` renvoie vers le nom de domaine (`next.config.mjs`),
+sauf `/sw.js` et `/api` pour que les alertes déjà activées continuent.
 WhatsApp garde l'aperçu en mémoire un moment : un changement d'image peut
 mettre du temps à apparaître sur un lien déjà envoyé.
 
@@ -100,7 +102,7 @@ Réglages à faire une fois :
   generate-vapid-keys`) et `NOTIF_SECRET` (un long mot de passe au hasard).
 - **Supabase** (SQL Editor), avec le même secret :
   `insert into vigie_config (cle, valeur) values ('notif_url',
-  'https://vigie-nc.vercel.app/api/notifier'), ('notif_secret', '<secret>')
+  'https://vigie-nc.com/api/notifier'), ('notif_secret', '<secret>')
   on conflict (cle) do update set valeur = excluded.valeur;`
   L'extension `pg_net` doit être active (le schéma l'active si possible).
 

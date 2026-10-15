@@ -1,7 +1,7 @@
-// Adresse publique de l'appli et texte d'invitation. Un seul endroit à
-// changer le jour où Vigie NC aura son propre nom de domaine.
+// Adresse publique de l'appli et texte d'invitation. L'ancienne adresse
+// vigie-nc.vercel.app renvoie ici (voir next.config.mjs).
 
-export const SITE_URL = "https://vigie-nc.vercel.app";
+export const SITE_URL = "https://vigie-nc.com";
 
 export const SITE_NAME = "Vigie NC";
 

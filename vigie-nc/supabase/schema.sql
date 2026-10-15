@@ -1246,7 +1246,7 @@ $$;
 --   - au plus 5 alertes par heure et par téléphone.
 -- Configuration (une fois, dans l'éditeur SQL) :
 --   insert into vigie_config (cle, valeur) values
---     ('notif_url', 'https://vigie-nc.vercel.app/api/notifier'),
+--     ('notif_url', 'https://vigie-nc.com/api/notifier'),
 --     ('notif_secret', '<même valeur que NOTIF_SECRET sur Vercel>')
 --   on conflict (cle) do update set valeur = excluded.valeur;
 -- ---------------------------------------------------------------------
