@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/site";
 
 // Rend Vigie NC installable (Android : « Installer l'application »).
-// display « minimal-ui » : sur Android, l'appli installée s'ouvre dans sa
-// propre fenêtre et partage ses données avec Chrome (contacts SOS,
-// réglages). L'iPhone ne connaît pas ce mode : il continue d'ouvrir
-// l'icône dans Safari, avec les mêmes données que Safari.
+// display « standalone » : l'appli installée s'ouvre dans sa propre
+// fenêtre. Sur Android, elle partage ses données avec Chrome (contacts
+// SOS, réglages). Sur iPhone, c'est indispensable pour les alertes, mais
+// l'appli de l'écran d'accueil a ses propres données, à part de Safari.
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
@@ -15,7 +15,7 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "fr",
     start_url: "/",
     scope: "/",
-    display: "minimal-ui",
+    display: "standalone",
     orientation: "portrait",
     background_color: "#081317",
     theme_color: "#081317",

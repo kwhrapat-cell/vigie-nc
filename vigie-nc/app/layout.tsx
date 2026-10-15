@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
+import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 
 // L'image d'aperçu (app/opengraph-image.png) et les icônes (app/icon.png,
@@ -23,12 +24,14 @@ export const metadata: Metadata = {
     title: `${SITE_NAME} — l'état des routes en direct`,
     description: SITE_DESCRIPTION,
   },
-  // Nom affiché sous l'icône quand on l'ajoute à l'écran d'accueil (iPhone).
-  // Pas de mode « plein écran » : l'iPhone y garderait des données à part
-  // (contacts SOS, réglages) de celles enregistrées dans Safari.
+  // iPhone : ajoutée à l'écran d'accueil, Vigie NC s'ouvre comme une appli
+  // (sans barre Safari). C'est la condition pour recevoir les alertes.
+  // Cette appli garde ses propres données (contacts SOS, réglages), à part
+  // de celles de Safari.
   appleWebApp: {
-    capable: false,
+    capable: true,
     title: SITE_NAME,
+    statusBarStyle: "black",
   },
 };
 
@@ -46,6 +49,7 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body>
+        <ServiceWorkerRegister />
         <div className="max-w-md mx-auto min-h-screen flex flex-col bg-void">
           {children}
         </div>

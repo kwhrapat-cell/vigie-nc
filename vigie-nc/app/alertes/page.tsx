@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { AlertSettings } from "@/components/AlertSettings";
 import { BottomNav } from "@/components/BottomNav";
 import { ReliabilityBadge, ScreenHeader, TypeTile } from "@/components/ui";
 import { VigilanceMeteo } from "@/components/VigilanceMeteo";
@@ -42,6 +43,8 @@ export default function AlertesPage() {
       <ScreenHeader title="Alertes" subtitle="Événements en cours" />
 
       <VigilanceMeteo className="mx-4 mb-3" />
+
+      <AlertSettings />
 
       <div className="mx-4 mb-3 grid grid-cols-2 gap-1 rounded-xl border border-line bg-panel p-1" role="tablist">
         {(
@@ -120,14 +123,6 @@ export default function AlertesPage() {
           })}
         </ul>
       )}
-
-      <div className="mx-4 mt-5 rounded-xl border border-dashed border-line px-4 py-3">
-        <p className="text-[12.5px] font-medium">Notifications sur ton téléphone</p>
-        <p className="mt-1 text-[11.5px] text-mist-dim leading-relaxed">
-          Bientôt : être prévenu des nouveaux événements dans ta zone ou sur tes trajets habituels, même
-          l&apos;appli fermée.
-        </p>
-      </div>
 
       <BottomNav />
     </main>
