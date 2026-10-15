@@ -37,6 +37,7 @@ Le code est dans `vigie-nc/` (Root Directory Vercel).
 ```
 vigie-nc/
   app/            écrans (/, /signaler, /relayer, /sos, /alertes, /historique, /profil, /contacts)
+                  + /api/notifier (appelé par la base : envoie les alertes) et /api/notif-test
                   + pages légales (/conditions, /confidentialite, /mentions-legales)
                   + /affiche (l'affiche à envoyer par lien ; images dans public/affiche/)
                   + /moderation (écran des modérateurs, code personnel ; lien discret en bas du Profil)
@@ -46,7 +47,9 @@ vigie-nc/
                   WelcomeNotice (avertissement à la 1re ouverture), LegalPage,
                   ShareApp (partager l'appli : WhatsApp ou menu du téléphone),
                   InstallApp (installer l'appli : bouton Android, étapes iPhone),
-                  ShareAffiche (partager le lien de l'affiche)
+                  ShareAffiche (partager le lien de l'affiche),
+                  AlertSettings (écran Alertes : activer les notifications),
+                  ServiceWorkerRegister (enregistre public/sw.js)
   lib/
     types.ts         types de signalement, couleurs, icônes, durées, rayons
     reports-api.ts   SEUL point d'accès aux données (RPC Supabase ou démo)
@@ -60,10 +63,14 @@ vigie-nc/
     relay-parser.ts  lecture d'un message collé → type + lieu (sur le téléphone)
     legal.ts         éditeur (Tramea Solutions), contact, hébergeurs, date des textes légaux
     site.ts          adresse publique (SITE_URL), texte de partage de l'appli
+    push.ts          notifications côté téléphone (service worker, abonnement)
+    push-server.ts   envoi des notifications (web-push, clés VAPID), texte des alertes
   app/opengraph-image.png  aperçu du lien (WhatsApp, Facebook…), app/icon.png +
                        app/apple-icon.png : icônes (écran d'accueil, onglet)
-  app/manifest.ts  rend l'appli installable (display minimal-ui : sur iPhone
-                   l'icône reste dans Safari) ; icônes dans public/icons/
+  app/manifest.ts  rend l'appli installable (display standalone, nécessaire aux
+                   notifications sur iPhone ; là, l'appli de l'écran d'accueil a
+                   ses propres données, à part de Safari) ; icônes dans public/icons/
+  public/sw.js     service worker : uniquement les notifications, pas de cache
   supabase/schema.sql  schéma complet, ré-exécutable
 ```
 
@@ -94,6 +101,15 @@ vigie-nc/
   (`vigie_moderateur`, empreinte dans la table privée `moderateurs`) et
   note l'action dans `moderation_journal`. Les codes ne vont jamais dans le
   dépôt : `select vigie_ajouter_moderateur('Nom', '<code>')` dans l'éditeur SQL.
+- Notifications : RPC `notif_abonner` / `notif_mon_abonnement` /
+  `notif_desabonner` (table privée `push_abonnements`, lieu arrondi à
+  ~1 km, rayon 3/5/10 km). Le déclencheur `trg_vigie_notification` appelle
+  `/api/notifier` par `pg_net` quand un danger devient confirmé (2e
+  personne ou source officielle) ; adresse et secret dans la table privée
+  `vigie_config` (le secret = `NOTIF_SECRET` de Vercel, jamais dans le
+  dépôt). `notif_destinataires` note les envois (`push_envois`, 7 jours,
+  5 alertes/heure max). Clés VAPID : variables Vercel
+  `NEXT_PUBLIC_VAPID_PUBLIC_KEY` et `VAPID_PRIVATE_KEY`.
 - Les pages `/confidentialite` et `/conditions` décrivent ce que fait
   vraiment le code (données envoyées, durées, purge `pg_cron`) : les mettre
   à jour (et `miseAJour` dans `lib/legal.ts`) si ça change.

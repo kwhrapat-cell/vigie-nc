@@ -58,7 +58,11 @@ const ERROR_MESSAGES: Record<string, string> = {
   code_invalide: "Code de modération incorrect.",
   source_manquante: "Indique la source (ex. Mairie du Mont-Dore).",
   action_invalide: "Action non reconnue.",
-  mode_demo: "La modération n'est disponible qu'avec la base en direct.",
+  mode_demo: "Cette fonction n'est disponible qu'avec la base en direct.",
+  abonnement_invalide: "Ce téléphone n'a pas pu être inscrit aux alertes. Réessaie.",
+  rayon_invalide: "Choisis une distance : 3, 5 ou 10 km.",
+  permission_refusee:
+    "Notifications refusées : autorise-les pour ce site dans les réglages du navigateur, puis réessaie.",
   trop_de_signalements:
     "Beaucoup de contenus signalés depuis ce téléphone : réessaie dans une heure ou écris-nous.",
 };
@@ -414,7 +418,8 @@ interface ModRow {
   motifs: Partial<Record<FlagReason, number>> | null;
 }
 
-async function modRpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
+// Appel direct à la base (modération, alertes) : pas de mode démo.
+async function liveRpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
   if (!supabase) throw new ReportsApiError("mode_demo");
   const { data, error } = await supabase.rpc(fn, args);
   if (error) throw new ReportsApiError(codeFromMessage(error.message));
@@ -423,12 +428,12 @@ async function modRpc<T>(fn: string, args: Record<string, unknown>): Promise<T> 
 
 /** Vérifie un code de modération ; renvoie le nom du modérateur. */
 export async function modVerify(code: string): Promise<string> {
-  const out = await modRpc<{ nom: string }>("moderation_verifier", { p_code: code });
+  const out = await liveRpc<{ nom: string }>("moderation_verifier", { p_code: code });
   return out.nom;
 }
 
 export async function modList(code: string, filter: ModFilter): Promise<ModItem[]> {
-  const rows = await modRpc<ModRow[]>("moderation_liste", { p_code: code, p_filtre: filter });
+  const rows = await liveRpc<ModRow[]>("moderation_liste", { p_code: code, p_filtre: filter });
   return (rows ?? []).map((r) => ({
     id: r.id,
     type: r.type,
@@ -450,10 +455,64 @@ export async function modList(code: string, filter: ModFilter): Promise<ModItem[
 }
 
 export async function modAct(code: string, reportId: string, action: ModAction, valeur?: string): Promise<void> {
-  await modRpc("moderation_action", {
+  await liveRpc("moderation_action", {
     p_code: code,
     p_report_id: reportId,
     p_action: action,
     p_valeur: valeur ?? null,
   });
 }
+
+// ---------------------------------------------------------------------
+// Alertes sur le téléphone (notifications) : un lieu arrondi à ~1 km,
+// une distance (3, 5 ou 10 km) et un nom facultatif (« Maison »).
+// L'adresse d'envoi vient du navigateur (Google, Apple, Mozilla…).
+// ---------------------------------------------------------------------
+
+export type AlertRadiusKm = 3 | 5 | 10;
+export const ALERT_RADII_KM: AlertRadiusKm[] = [3, 5, 10];
+
+export interface AlertZone {
+  lat: number;
+  lng: number;
+  rayonKm: AlertRadiusKm;
+  nom: string | null;
+}
+
+export interface PushKeys {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}
+
+/** Zone d'alerte enregistrée pour ce téléphone (null si aucune). */
+export async function notifGetZone(endpoint: string): Promise<AlertZone | null> {
+  const out = await liveRpc<{ lat: number; lng: number; rayon_km: number; nom: string | null } | null>(
+    "notif_mon_abonnement",
+    { p_endpoint: endpoint },
+  );
+  if (!out) return null;
+  const rayon = ALERT_RADII_KM.includes(out.rayon_km as AlertRadiusKm) ? (out.rayon_km as AlertRadiusKm) : 5;
+  return { lat: out.lat, lng: out.lng, rayonKm: rayon, nom: out.nom };
+}
+
+/** Enregistre (ou met à jour) la zone d'alerte de ce téléphone. */
+export async function notifSaveZone(keys: PushKeys, zone: AlertZone): Promise<void> {
+  await liveRpc("notif_abonner", {
+    p_endpoint: keys.endpoint,
+    p_p256dh: keys.p256dh,
+    p_auth: keys.auth,
+    p_lat: zone.lat,
+    p_lng: zone.lng,
+    p_rayon_km: zone.rayonKm,
+    p_nom: zone.nom?.trim() || null,
+  });
+}
+
+/** Supprime la zone d'alerte de ce téléphone. */
+export async function notifRemove(endpoint: string): Promise<void> {
+  await liveRpc("notif_desabonner", { p_endpoint: endpoint });
+}
+
+/** Les alertes ont besoin de la base en direct (pas de mode démo). */
+export const notifAvailable = Boolean(supabase);

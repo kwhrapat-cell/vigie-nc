@@ -60,10 +60,36 @@ export default function ConfidentialitePage() {
         </p>
       </LegalSection>
 
+      <LegalSection title="Les alertes (si tu les actives)">
+        <LegalList>
+          <li>
+            Sont enregistrés : le lieu choisi, <strong>arrondi à environ 1 km</strong>, la distance (3, 5 ou 10 km),
+            le nom que tu lui donnes si tu en mets un, et l&apos;adresse d&apos;envoi créée par ton navigateur. Rien
+            qui dise qui tu es.
+          </li>
+          <li>
+            Les alertes passent par le service de notifications de ton téléphone : Google (Android), Apple (iPhone)
+            ou Mozilla (Firefox). Leur contenu est chiffré : ces services le transmettent sans pouvoir le lire.
+          </li>
+          <li>
+            Pour ne jamais envoyer deux fois la même alerte, la base note quelle alerte est partie vers quelle
+            adresse. Cette trace est effacée au bout de 7 jours.
+          </li>
+          <li>
+            Tout est effacé dès que tu touches « Désactiver », ou quand ton téléphone n&apos;accepte plus les
+            notifications.
+          </li>
+        </LegalList>
+      </LegalSection>
+
       <LegalSection title="Ce qui reste sur ton téléphone">
         <LegalList>
           <li>Tes contacts d&apos;urgence (SOS) : jamais envoyés à Vigie NC.</li>
           <li>Tes réglages (rayon, fond de carte) et le texte collé pour relayer une info.</li>
+          <li>
+            Sur iPhone, l&apos;appli ajoutée à l&apos;écran d&apos;accueil garde ses propres réglages et contacts, à
+            part de ceux de Safari.
+          </li>
         </LegalList>
         <p>Pas de cookies publicitaires, pas de mesure d&apos;audience.</p>
       </LegalSection>
@@ -78,6 +104,7 @@ export default function ConfidentialitePage() {
             Le lien entre l&apos;empreinte de ton téléphone et tes signalements, votes et signalements de contenu est
             effacé 30 jours après la fin du signalement.
           </li>
+          <li>Ton lieu d&apos;alerte : jusqu&apos;à ce que tu désactives les alertes.</li>
           <li>
             Une photo ou un texte masqué par la modération n&apos;est plus affiché. Il est gardé à part 90 jours au
             plus, au cas où le masquage serait une erreur.
@@ -104,6 +131,7 @@ export default function ConfidentialitePage() {
           </li>
           <li>Google Maps : seulement si tu touches « Voir dans Maps ».</li>
           <li>WhatsApp : seulement si tu touches « WhatsApp » pour partager l&apos;appli.</li>
+          <li>Google, Apple ou Mozilla : acheminent les alertes jusqu&apos;à ton téléphone, si tu les actives.</li>
         </LegalList>
       </LegalSection>
 

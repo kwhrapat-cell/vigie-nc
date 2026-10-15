@@ -27,6 +27,10 @@ export default function ConditionsPage() {
           Nouvelle-Calédonie, gendarmerie, police, communes). En cas de doute, ne t&apos;engage pas : adapte ta
           conduite et respecte le code de la route.
         </p>
+        <p>
+          Les alertes sur le téléphone peuvent arriver en retard ou pas du tout (téléphone éteint, économie de
+          batterie, pas de réseau). Ne compte pas uniquement sur elles.
+        </p>
       </LegalSection>
 
       <LegalSection title="2. Pas de téléphone en conduisant">

@@ -108,6 +108,9 @@ alter table reports add column if not exists relais_source text;
 -- signalements de contenu ou à la main). Le contenu retiré est gardé à
 -- part dans report_contenu_masque, illisible depuis l'appli.
 alter table reports add column if not exists contenu_masque_at timestamptz;
+-- Rempli quand l'alerte (notification) de ce signalement est partie :
+-- un signalement ne déclenche qu'une seule fois.
+alter table reports add column if not exists notifie_at timestamptz;
 
 do $$
 begin
@@ -1230,12 +1233,293 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------
+-- Alertes (notifications sur le téléphone)
+--   - chaque téléphone abonné choisit UN lieu (arrondi à ~1 km : seul ce
+--     point est gardé, sans lien avec l'empreinte du téléphone) et un
+--     rayon de 3, 5 ou 10 km ;
+--   - un danger (accident, route coupée, inondation, danger, météo)
+--     déclenche une alerte quand une 2e personne le confirme ou qu'il est
+--     vérifié par une source officielle, une seule fois ;
+--   - la base prévient le serveur d'envoi (/api/notifier sur Vercel) via
+--     pg_net ; le serveur demande la liste des destinataires avec un
+--     secret partagé, puis envoie les notifications ;
+--   - au plus 5 alertes par heure et par téléphone.
+-- Configuration (une fois, dans l'éditeur SQL) :
+--   insert into vigie_config (cle, valeur) values
+--     ('notif_url', 'https://vigie-nc.vercel.app/api/notifier'),
+--     ('notif_secret', '<même valeur que NOTIF_SECRET sur Vercel>')
+--   on conflict (cle) do update set valeur = excluded.valeur;
+-- ---------------------------------------------------------------------
+create table if not exists vigie_config (
+  cle text primary key,
+  valeur text not null
+);
+
+create table if not exists push_abonnements (
+  id uuid primary key default gen_random_uuid(),
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  lat double precision not null,
+  lng double precision not null,
+  rayon_km int not null check (rayon_km in (3, 5, 10)),
+  nom text check (nom is null or char_length(nom) <= 30),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists push_envois (
+  report_id uuid not null references reports(id) on delete cascade,
+  abonnement_id uuid not null references push_abonnements(id) on delete cascade,
+  sent_at timestamptz not null default now(),
+  primary key (report_id, abonnement_id)
+);
+create index if not exists push_envois_abonnement_idx on push_envois (abonnement_id, sent_at desc);
+
+-- Services d'envoi des navigateurs acceptés (Google, Mozilla, Apple,
+-- Microsoft) : on n'envoie jamais rien vers une autre adresse.
+create or replace function vigie_endpoint_valide(p_endpoint text)
+returns boolean
+language sql
+immutable
+set search_path = public
+as $$
+  select p_endpoint is not null
+     and char_length(p_endpoint) <= 1000
+     and p_endpoint ~ '^https://(fcm\.googleapis\.com|([a-z0-9-]+\.)*push\.services\.mozilla\.com|web\.push\.apple\.com|([a-z0-9-]+\.)*notify\.windows\.com)/';
+$$;
+
+-- RPC : s'abonner (ou changer de lieu / rayon) depuis ce téléphone
+create or replace function notif_abonner(
+  p_endpoint text,
+  p_p256dh text,
+  p_auth text,
+  p_lat double precision,
+  p_lng double precision,
+  p_rayon_km int,
+  p_nom text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+begin
+  if not vigie_endpoint_valide(p_endpoint)
+     or p_p256dh is null or char_length(p_p256dh) > 200
+     or p_auth is null or char_length(p_auth) > 100 then
+    raise exception 'abonnement_invalide';
+  end if;
+  if p_lat is null or p_lng is null or not vigie_dans_nc(p_lat, p_lng) then
+    raise exception 'position_hors_nc';
+  end if;
+  if p_rayon_km is null or p_rayon_km not in (3, 5, 10) then
+    raise exception 'rayon_invalide';
+  end if;
+
+  insert into push_abonnements (endpoint, p256dh, auth, lat, lng, rayon_km, nom)
+  values (
+    p_endpoint, p_p256dh, p_auth,
+    round(p_lat::numeric, 2)::double precision,
+    round(p_lng::numeric, 2)::double precision,
+    p_rayon_km,
+    left(nullif(btrim(p_nom), ''), 30)
+  )
+  on conflict (endpoint) do update
+    set p256dh = excluded.p256dh,
+        auth = excluded.auth,
+        lat = excluded.lat,
+        lng = excluded.lng,
+        rayon_km = excluded.rayon_km,
+        nom = excluded.nom,
+        updated_at = now();
+
+  return jsonb_build_object('ok', true);
+end;
+$$;
+
+-- RPC : réglage actuel de ce téléphone (nul s'il n'est pas abonné)
+create or replace function notif_mon_abonnement(p_endpoint text)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select jsonb_build_object('lat', lat, 'lng', lng, 'rayon_km', rayon_km, 'nom', nom)
+  from push_abonnements
+  where endpoint = p_endpoint;
+$$;
+
+-- RPC : se désabonner
+create or replace function notif_desabonner(p_endpoint text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from push_abonnements where endpoint = p_endpoint;
+  return jsonb_build_object('ok', true);
+end;
+$$;
+
+-- Vérifie le secret partagé avec le serveur d'envoi (fonction interne)
+create or replace function vigie_secret_notif_ok(p_secret text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_secret text;
+begin
+  select valeur into v_secret from vigie_config where cle = 'notif_secret';
+  if v_secret is null or p_secret is null or p_secret <> v_secret then
+    perform pg_sleep(0.5);
+    return false;
+  end if;
+  return true;
+end;
+$$;
+
+-- RPC (serveur d'envoi) : destinataires d'une alerte. Les envois sont
+-- notés tout de suite : une même alerte n'est jamais envoyée deux fois.
+create or replace function notif_destinataires(p_secret text, p_report_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_report reports%rowtype;
+  v_res jsonb;
+begin
+  if not vigie_secret_notif_ok(p_secret) then
+    raise exception 'secret_invalide';
+  end if;
+  select * into v_report from reports where id = p_report_id;
+  if not found then
+    raise exception 'signalement_introuvable';
+  end if;
+
+  with cibles as (
+    select a.id, a.endpoint, a.p256dh, a.auth, a.nom,
+           st_distance(st_setsrid(st_makepoint(a.lng, a.lat), 4326)::geography, v_report.geom) as distance_m
+    from push_abonnements a
+    where st_dwithin(st_setsrid(st_makepoint(a.lng, a.lat), 4326)::geography, v_report.geom, a.rayon_km * 1000)
+      and not exists (
+        select 1 from push_envois e where e.abonnement_id = a.id and e.report_id = p_report_id
+      )
+      and (
+        select count(*) from push_envois e
+        where e.abonnement_id = a.id and e.sent_at > now() - interval '1 hour'
+      ) < 5
+  ),
+  notes as (
+    insert into push_envois (report_id, abonnement_id)
+    select p_report_id, id from cibles
+    returning abonnement_id
+  )
+  select jsonb_build_object(
+    'report', jsonb_build_object(
+      'id', v_report.id,
+      'type', v_report.type,
+      'lieu', v_report.lieu,
+      'confirmations', v_report.confirmations,
+      'source_officielle', v_report.source_officielle,
+      'niveau_risque', v_report.niveau_risque,
+      'actif', (v_report.resolved_at is null and v_report.expires_at > now())
+    ),
+    'abonnements', coalesce(
+      (select jsonb_agg(jsonb_build_object(
+         'endpoint', c.endpoint, 'p256dh', c.p256dh, 'auth', c.auth,
+         'nom', c.nom, 'distance_m', round(c.distance_m)
+       )) from cibles c),
+      '[]'::jsonb)
+  ) into v_res;
+
+  return v_res;
+end;
+$$;
+
+-- RPC (serveur d'envoi) : abonnements qui ne marchent plus (téléphone
+-- changé, notifications coupées…) → supprimés.
+create or replace function notif_echecs(p_secret text, p_endpoints text[])
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_nb int;
+begin
+  if not vigie_secret_notif_ok(p_secret) then
+    raise exception 'secret_invalide';
+  end if;
+  delete from push_abonnements where endpoint = any(p_endpoints);
+  get diagnostics v_nb = row_count;
+  return jsonb_build_object('supprimes', v_nb);
+end;
+$$;
+
+-- Déclencheur : un danger confirmé (2e personne) ou vérifié prévient le
+-- serveur d'envoi, une seule fois. Sans configuration ou sans pg_net, il
+-- ne fait rien (et réessaiera au prochain changement du signalement).
+create or replace function vigie_signal_notification()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_url text;
+  v_secret text;
+begin
+  if new.notifie_at is not null
+     or new.type::text not in ('accident', 'route_coupee', 'inondation', 'danger', 'meteo')
+     or new.resolved_at is not null
+     or new.expires_at <= now()
+     or new.created_at < now() - interval '6 hours'
+     or not (new.confirmations >= 1 or new.source_officielle is not null) then
+    return new;
+  end if;
+
+  select valeur into v_url from vigie_config where cle = 'notif_url';
+  select valeur into v_secret from vigie_config where cle = 'notif_secret';
+  if v_url is null or v_secret is null then
+    return new;
+  end if;
+
+  begin
+    perform net.http_post(
+      url := v_url,
+      body := jsonb_build_object('report_id', new.id),
+      headers := jsonb_build_object('Content-Type', 'application/json', 'x-vigie-secret', v_secret),
+      timeout_milliseconds := 15000
+    );
+    new.notifie_at := now();
+  exception when others then
+    -- pg_net absent ou en panne : pas d'alerte cette fois, rien ne bloque.
+    null;
+  end;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_vigie_notification on reports;
+create trigger trg_vigie_notification
+before insert or update on reports
+for each row execute function vigie_signal_notification();
+
+-- ---------------------------------------------------------------------
 -- Purge (lancée chaque nuit, voir en bas du fichier) :
 --   - 30 jours après la fin d'un signalement, le lien entre l'empreinte du
 --     téléphone et ce signalement est effacé (auteur, votes, signalements
 --     de contenu) ;
 --   - le contenu masqué par la modération est effacé après 90 jours ;
---   - le journal de modération est gardé un an.
+--   - le journal de modération est gardé un an ;
+--   - la trace des alertes envoyées (anti-doublon) est gardée 7 jours.
 -- Les signalements eux-mêmes restent, anonymes, pour l'historique.
 -- ---------------------------------------------------------------------
 create or replace function vigie_purger_donnees_appareil()
@@ -1254,6 +1538,8 @@ as $$
    where m.masque_at < now() - interval '90 days';
   delete from moderation_journal j
    where j.created_at < now() - interval '1 year';
+  delete from push_envois p
+   where p.sent_at < now() - interval '7 days';
 $$;
 
 -- ---------------------------------------------------------------------
@@ -1406,6 +1692,9 @@ alter table report_flags enable row level security;
 alter table report_contenu_masque enable row level security;
 alter table moderateurs enable row level security;
 alter table moderation_journal enable row level security;
+alter table vigie_config enable row level security;
+alter table push_abonnements enable row level security;
+alter table push_envois enable row level security;
 
 drop policy if exists "zones lecture publique" on zones;
 create policy "zones lecture publique" on zones for select using (true);
@@ -1425,6 +1714,9 @@ revoke all on report_flags from anon, authenticated;
 revoke all on report_contenu_masque from anon, authenticated;
 revoke all on moderateurs from anon, authenticated;
 revoke all on moderation_journal from anon, authenticated;
+revoke all on vigie_config from anon, authenticated;
+revoke all on push_abonnements from anon, authenticated;
+revoke all on push_envois from anon, authenticated;
 
 revoke execute on function vigie_appliquer_vote(uuid, text, text) from public, anon, authenticated;
 revoke execute on function vigie_masquer_contenu(uuid, text) from public, anon, authenticated;
@@ -1434,6 +1726,8 @@ revoke execute on function vigie_code_moderation(text) from public, anon, authen
 revoke execute on function vigie_ajouter_moderateur(text, text) from public, anon, authenticated;
 revoke execute on function vigie_retirer_moderateur(text) from public, anon, authenticated;
 revoke execute on function vigie_moderateur(text) from public, anon, authenticated;
+revoke execute on function vigie_secret_notif_ok(text) from public, anon, authenticated;
+revoke execute on function vigie_signal_notification() from public, anon, authenticated;
 
 grant execute on function creer_signalement(report_type, double precision, double precision, text, text, text, text, text) to anon, authenticated;
 grant execute on function voter_signalement(uuid, text, text) to anon, authenticated;
@@ -1447,6 +1741,11 @@ grant execute on function signaler_contenu(uuid, text, text) to anon, authentica
 grant execute on function moderation_verifier(text) to anon, authenticated;
 grant execute on function moderation_liste(text, text) to anon, authenticated;
 grant execute on function moderation_action(text, uuid, text, text) to anon, authenticated;
+grant execute on function notif_abonner(text, text, text, double precision, double precision, integer, text) to anon, authenticated;
+grant execute on function notif_mon_abonnement(text) to anon, authenticated;
+grant execute on function notif_desabonner(text) to anon, authenticated;
+grant execute on function notif_destinataires(text, uuid) to anon, authenticated;
+grant execute on function notif_echecs(text, text[]) to anon, authenticated;
 
 -- ---------------------------------------------------------------------
 -- Photos : bucket public en lecture, upload anonyme limité aux images
@@ -1481,6 +1780,21 @@ begin
      ) then
     alter publication supabase_realtime add table reports;
   end if;
+end $$;
+
+-- ---------------------------------------------------------------------
+-- pg_net : permet à la base de prévenir le serveur d'envoi des alertes.
+-- Activé s'il est disponible (c'est le cas sur Supabase).
+-- ---------------------------------------------------------------------
+do $$
+begin
+  if exists (select 1 from pg_available_extensions where name = 'pg_net') then
+    create extension if not exists pg_net;
+  else
+    raise notice 'pg_net indisponible : les alertes ne partiront pas.';
+  end if;
+exception when others then
+  raise notice 'pg_net non activé (%) : l''activer dans Database > Extensions.', sqlerrm;
 end $$;
 
 -- ---------------------------------------------------------------------

@@ -34,7 +34,7 @@ base (doublons, votes, expiration), rien n'est enregistré.
 | `/signaler` | Signalement en 3 étapes : type → localisation (repère déplaçable) → détails (photo, description, niveau de risque) → « Merci ! » |
 | `/relayer` | Relayer une info vue sur Facebook, à la radio, par SMS : on colle le message, l'appli repère le type et le lieu sur le téléphone, seul le fait est publié (« Relayé » jusqu'à confirmation sur place) |
 | `/sos` | SOS « Je suis en danger » : appui long 3 s, position sur la carte, SMS préparé pour les contacts, appel 15 / 17 / 18 |
-| `/alertes` | Vigilance météo officielle (Météo-France NC), puis alertes en cours, ma zone ou toute la Calédonie |
+| `/alertes` | Vigilance météo officielle (Météo-France NC), **notifications sur le téléphone** (lieu choisi, 3/5/10 km), puis alertes en cours, ma zone ou toute la Calédonie |
 | `/historique` | Mémoire du territoire : 12 derniers mois, évolution mensuelle, événements |
 | `/profil` | Rayon par défaut, contacts d'urgence, niveaux de fiabilité, **partager l'appli** (WhatsApp ou autre), confidentialité |
 | `/contacts` | Contacts d'urgence (gardés sur le téléphone uniquement) |
@@ -62,8 +62,51 @@ mettre du temps à apparaître sur un lien déjà envoyé.
 « Installer l'appli » ouvre directement la fenêtre d'installation de
 Chrome (et Chrome propose « Installer l'application » dans son menu) ;
 sur iPhone, le bouton affiche les étapes (Safari → Partager → « Sur
-l'écran d'accueil »). Le mode `minimal-ui` garde les données partagées
-avec le navigateur (contacts SOS, réglages).
+l'écran d'accueil », puis ouvrir l'icône). Le mode `standalone` est
+indispensable aux notifications sur iPhone ; sur iPhone, l'appli de
+l'écran d'accueil garde ses propres données (contacts SOS, réglages), à
+part de Safari. Sur Android, elles restent partagées avec Chrome.
+
+## Notifications (alertes sur le téléphone)
+
+Écran Alertes → « Activer » : on choisit un lieu (arrondi à ~1 km), une
+distance (3, 5 ou 10 km) et un nom facultatif (« Maison »). Le téléphone
+reçoit une notification quand un **danger est confirmé** dans cette zone :
+accident, route coupée, inondation, danger ou météo, dès qu'une 2e personne
+confirme (« Toujours là ») ou qu'une source officielle vérifie. Au plus 5
+alertes par heure par téléphone, jamais deux fois la même.
+
+Comment ça marche :
+
+1. `public/sw.js` (service worker, enregistré par
+   `components/ServiceWorkerRegister.tsx`) affiche les notifications ;
+   `lib/push.ts` gère l'abonnement côté téléphone,
+   `components/AlertSettings.tsx` l'écran.
+2. L'abonnement est enregistré par la RPC `notif_abonner` (table privée
+   `push_abonnements`).
+3. Quand un signalement devient « confirmé », le déclencheur
+   `trg_vigie_notification` appelle `https://…/api/notifier` via `pg_net`
+   (adresse et secret dans la table privée `vigie_config`).
+4. `app/api/notifier/route.ts` demande les destinataires à la base
+   (`notif_destinataires`, qui note les envois dans `push_envois`, effacés
+   après 7 jours) et envoie avec `web-push` (`lib/push-server.ts`).
+   Les abonnements refusés (téléphone désinscrit) sont effacés
+   (`notif_echecs`).
+
+Réglages à faire une fois :
+
+- **Vercel** (Production et Preview) : `NEXT_PUBLIC_VAPID_PUBLIC_KEY`,
+  `VAPID_PRIVATE_KEY` (paire de clés VAPID, `npx web-push
+  generate-vapid-keys`) et `NOTIF_SECRET` (un long mot de passe au hasard).
+- **Supabase** (SQL Editor), avec le même secret :
+  `insert into vigie_config (cle, valeur) values ('notif_url',
+  'https://vigie-nc.vercel.app/api/notifier'), ('notif_secret', '<secret>')
+  on conflict (cle) do update set valeur = excluded.valeur;`
+  L'extension `pg_net` doit être active (le schéma l'active si possible).
+
+iPhone : notifications seulement depuis l'appli ajoutée à l'écran
+d'accueil (iOS 16.4 ou plus récent). Le bouton « Tester » envoie une
+notification à ce téléphone seulement (`app/api/notif-test`).
 
 ## Base de données (Supabase)
 
@@ -148,7 +191,9 @@ donne un aperçu, `main` donne la version principale. Le code de l'appli est
 dans le dossier `vigie-nc/` du dépôt (**Root Directory = `vigie-nc`**).
 Variables d'environnement (Settings → Environment Variables) :
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — sans elles,
-l'aperçu tourne en mode démo.
+l'aperçu tourne en mode démo. Pour les notifications :
+`NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `NOTIF_SECRET` (voir
+plus haut).
 
 ## Facebook et autres sources
 
@@ -185,5 +230,7 @@ permettra d'aller plus loin : zones colorées sur la carte, notifications.
 
 - **Sprint 2 (cette version)** — fiabilité, doublons, zone 1-5 km, temps
   réel, écrans des maquettes, historique.
-- **Ensuite** — notifications (Web Push) sur la zone et les trajets
-  habituels ; tableau de bord pro pour collectivités et secours (V3).
+- **Fait ensuite** — pages légales, modération, partage, affiche,
+  installation, notifications « danger confirmé » autour d'un lieu choisi.
+- **Ensuite** — alertes sur les trajets habituels ; tableau de bord pro
+  pour collectivités et secours (V3).

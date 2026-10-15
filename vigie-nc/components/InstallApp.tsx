@@ -98,6 +98,10 @@ export function InstallApp() {
                 Choisis <strong className="text-mist">« Sur l&apos;écran d&apos;accueil »</strong>, puis{" "}
                 <strong className="text-mist">Ajouter</strong>.
               </li>
+              <li>
+                Ouvre ensuite Vigie NC depuis sa nouvelle icône. Elle garde ses propres réglages : ajoute aussi
+                tes contacts SOS dedans.
+              </li>
             </>
           ) : (
             <>
