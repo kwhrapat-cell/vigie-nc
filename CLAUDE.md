@@ -38,12 +38,14 @@ Le code est dans `vigie-nc/` (Root Directory Vercel).
 vigie-nc/
   app/            écrans (/, /signaler, /relayer, /sos, /alertes, /historique, /profil, /contacts)
                   + pages légales (/conditions, /confidentialite, /mentions-legales)
+                  + /affiche (l'affiche à envoyer par lien ; images dans public/affiche/)
   components/     CarteLive (accueil), LiveMap, HomeSheet, ReportDetail,
                   PositionPicker, BottomNav, ui.tsx (Logo, TypeTile, boutons…),
                   VigilanceMeteo (vignette officielle meteo.nc, sans clé),
                   WelcomeNotice (avertissement à la 1re ouverture), LegalPage,
                   ShareApp (partager l'appli : WhatsApp ou menu du téléphone),
-                  InstallApp (installer l'appli : bouton Android, étapes iPhone)
+                  InstallApp (installer l'appli : bouton Android, étapes iPhone),
+                  ShareAffiche (partager le lien de l'affiche)
   lib/
     types.ts         types de signalement, couleurs, icônes, durées, rayons
     reports-api.ts   SEUL point d'accès aux données (RPC Supabase ou démo)

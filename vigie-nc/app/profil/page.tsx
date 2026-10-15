@@ -106,6 +106,9 @@ export default function ProfilPage() {
           ton quartier.
         </p>
         <ShareApp />
+        <Link href="/affiche" className="mt-2.5 inline-block text-[12px] text-lagoon underline">
+          Voir et partager l&apos;affiche
+        </Link>
       </Card>
 
       <Card title="Confidentialité">
