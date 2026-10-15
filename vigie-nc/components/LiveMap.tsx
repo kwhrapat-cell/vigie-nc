@@ -79,9 +79,15 @@ export function LiveMap({
   dataRef.current = { reports, selectedId };
   const drawRef = useRef<() => void>(() => undefined);
 
+  // Cadrage voulu, lu quand la taille de la carte change (voir plus bas)
+  const frameRef = useRef({ follow, scope, hasPosition: Boolean(position) });
+  frameRef.current = { follow, scope, hasPosition: Boolean(position) };
+
   // 1. Création de la carte (une seule fois) — cadrée sur toute la Calédonie
   useEffect(() => {
     let cancelled = false;
+    let observer: ResizeObserver | null = null;
+    let frame = 0;
 
     (async () => {
       // Leaflet touche à `window` : chargé uniquement dans le navigateur.
@@ -106,10 +112,37 @@ export function LiveMap({
       markersRef.current = L.layerGroup().addTo(map);
       setReady(true);
       setTimeout(() => map.invalidateSize(), 250);
+
+      // La hauteur de la carte change sans que la fenêtre change : bandeau
+      // « Position refusée », liste qui se remplit, barre de Safari… Sans
+      // ça, Leaflet garde l'ancien cadrage et on ne voit plus que le haut
+      // de l'ancienne vue (ex. le nord du Vanuatu au lieu de la Calédonie).
+      if (typeof ResizeObserver !== "undefined" && containerRef.current) {
+        observer = new ResizeObserver(() => {
+          cancelAnimationFrame(frame);
+          frame = requestAnimationFrame(() => {
+            const m = mapRef.current;
+            if (!m) return;
+            const { follow: suivi, scope: vue, hasPosition } = frameRef.current;
+            // Garde le même centre ; si la carte a été déplacée à la main,
+            // on s'arrête là, sinon on recadre sur la vue voulue.
+            m.invalidateSize();
+            if (!suivi) return;
+            if (vue === "nc" || !hasPosition) {
+              m.fitBounds(NC_BOUNDS, { padding: [8, 8], animate: false });
+            } else if (circleRef.current) {
+              m.fitBounds(circleRef.current.getBounds(), { padding: [12, 12], animate: false });
+            }
+          });
+        });
+        observer.observe(containerRef.current);
+      }
     })();
 
     return () => {
       cancelled = true;
+      observer?.disconnect();
+      cancelAnimationFrame(frame);
       mapRef.current?.remove();
       mapRef.current = null;
       markersRef.current = null;
