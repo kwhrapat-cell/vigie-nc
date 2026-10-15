@@ -25,8 +25,9 @@ export async function POST(req: Request) {
   const r = await sendPush(
     { endpoint, p256dh, auth },
     {
-      title: "🔔 Vigie NC",
-      body: "Les alertes fonctionnent sur ce téléphone.",
+      // Texte clair et précis (pas d'emoji) : voir alertPayload() dans lib/push-server.ts
+      title: "Vigie NC : notifications activées",
+      body: "Tu recevras ici les dangers confirmés près de ton lieu d'alerte : accident, route coupée, inondation, danger, météo.",
       url: "/alertes",
       tag: "test",
     },
