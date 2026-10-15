@@ -23,8 +23,11 @@ export const metadata: Metadata = {
     title: `${SITE_NAME} — l'état des routes en direct`,
     description: SITE_DESCRIPTION,
   },
-  // Nom affiché sous l'icône quand on l'ajoute à l'écran d'accueil (iPhone)
+  // Nom affiché sous l'icône quand on l'ajoute à l'écran d'accueil (iPhone).
+  // Pas de mode « plein écran » : l'iPhone y garderait des données à part
+  // (contacts SOS, réglages) de celles enregistrées dans Safari.
   appleWebApp: {
+    capable: false,
     title: SITE_NAME,
   },
 };
