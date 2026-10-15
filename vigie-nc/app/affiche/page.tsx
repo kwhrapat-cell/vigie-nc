@@ -35,7 +35,7 @@ export default function AffichePage() {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={AFFICHE_URL}
-        alt="Affiche Vigie NC : informé en direct, serein sur la route ! Accidents, routes bloquées, inondations, trafic dense. Une innovation 100 % calédonienne. Scanne le QR code ou ouvre vigie-nc.vercel.app."
+        alt="Affiche Vigie NC : informé en direct, serein sur la route ! Accidents, routes bloquées, inondations, trafic dense. Une innovation 100 % calédonienne. Scanne le QR code ou ouvre vigie-nc.com."
         width={1440}
         height={2160}
         className="w-full h-auto"
