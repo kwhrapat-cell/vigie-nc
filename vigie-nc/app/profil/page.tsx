@@ -155,6 +155,9 @@ export default function ProfilPage() {
           <br />
           {isSupabaseConfigured ? "Données en direct" : "Mode démo : rien n'est enregistré"}
         </p>
+        <Link href="/moderation" className="mt-3 px-3 py-2 text-[11px] text-mist-dim/70 underline">
+          Espace modérateur
+        </Link>
       </section>
 
       <BottomNav />

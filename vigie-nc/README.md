@@ -94,13 +94,26 @@ Ce que fait le schéma :
 
 ### Modération
 
+**Écran de modération** : Profil → « Espace modérateur » (ou `/moderation`),
+avec un code personnel. Onglets « Signalés » (contenus signalés ou masqués,
+30 jours) et « Récents 48 h ». Actions : masquer / rétablir photo et texte,
+« C'est OK », retirer de la carte, marquer « Vérifié » avec la source. Chaque
+action est notée dans `moderation_journal` (gardé un an).
+
+Gérer les modérateurs, dans **SQL Editor** (le code n'est jamais stocké en
+clair, seulement son empreinte) :
+
+- ajouter ou changer un code : `select vigie_ajouter_moderateur('Nom', '<code de 16 caractères ou plus>');`
+- retirer l'accès : `select vigie_retirer_moderateur('Nom');`
+
+
 Sur la fiche d'un signalement qui a une photo ou un texte, le bouton
 **« Signaler un contenu »** propose 3 motifs (visage / plaque / nom, insulte
 ou image choquante, hors sujet). À partir de **2 téléphones différents**, la
 photo et le texte sont masqués automatiquement ; le fait (type, lieu, heure)
 reste sur la carte. Une info fausse ou finie se traite avec « C'est terminé ».
 
-Dans **SQL Editor** :
+Sans l'écran, les mêmes actions restent possibles dans **SQL Editor** :
 
 - voir ce qui a été signalé : `select * from report_flags order by created_at desc;`
 - masquer à la main : `select vigie_masquer_contenu('<id du signalement>');`

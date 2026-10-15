@@ -39,6 +39,7 @@ vigie-nc/
   app/            écrans (/, /signaler, /relayer, /sos, /alertes, /historique, /profil, /contacts)
                   + pages légales (/conditions, /confidentialite, /mentions-legales)
                   + /affiche (l'affiche à envoyer par lien ; images dans public/affiche/)
+                  + /moderation (écran des modérateurs, code personnel ; lien discret en bas du Profil)
   components/     CarteLive (accueil), LiveMap, HomeSheet, ReportDetail,
                   PositionPicker, BottomNav, ui.tsx (Logo, TypeTile, boutons…),
                   VigilanceMeteo (vignette officielle meteo.nc, sans clé),
@@ -88,6 +89,11 @@ vigie-nc/
 - Modération : `signaler_contenu` (2 téléphones → photo + texte masqués,
   seuil `vigie_seuil_masquage()` = `FLAG_HIDE_THRESHOLD` de `lib/types.ts`),
   `vigie_masquer_contenu` / `vigie_retablir_contenu` à la main.
+- Écran /moderation : RPC `moderation_verifier` / `moderation_liste` /
+  `moderation_action`, chacune vérifie le code du modérateur
+  (`vigie_moderateur`, empreinte dans la table privée `moderateurs`) et
+  note l'action dans `moderation_journal`. Les codes ne vont jamais dans le
+  dépôt : `select vigie_ajouter_moderateur('Nom', '<code>')` dans l'éditeur SQL.
 - Les pages `/confidentialite` et `/conditions` décrivent ce que fait
   vraiment le code (données envoyées, durées, purge `pg_cron`) : les mettre
   à jour (et `miseAJour` dans `lib/legal.ts`) si ça change.

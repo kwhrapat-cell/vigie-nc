@@ -1023,11 +1023,219 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------
+-- Écran de modération (/moderation dans l'appli)
+-- Chaque modérateur a un code personnel (16 caractères au moins) ; la
+-- base n'en garde que l'empreinte. Dans l'éditeur SQL :
+--   select vigie_ajouter_moderateur('Patrice', '<code>');   -- ajouter / changer le code
+--   select vigie_retirer_moderateur('Patrice');             -- retirer l'accès
+--   select * from moderation_journal order by created_at desc;  -- qui a fait quoi
+-- ---------------------------------------------------------------------
+create table if not exists moderateurs (
+  nom text primary key check (char_length(nom) between 1 and 40),
+  code_hash text not null unique,
+  actif boolean not null default true,
+  created_at timestamptz not null default now(),
+  derniere_utilisation timestamptz
+);
+
+create table if not exists moderation_journal (
+  id bigint generated always as identity primary key,
+  moderateur text not null,
+  report_id uuid,
+  action text not null,
+  detail text,
+  created_at timestamptz not null default now()
+);
+create index if not exists moderation_journal_created_idx
+  on moderation_journal (created_at desc);
+
+create or replace function vigie_code_moderation(p_code text)
+returns text
+language sql
+immutable
+set search_path = public, extensions
+as $$
+  select encode(digest('vigie-mod:' || p_code, 'sha256'), 'hex');
+$$;
+
+create or replace function vigie_ajouter_moderateur(p_nom text, p_code text)
+returns text
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+begin
+  if p_code is null or char_length(p_code) < 16 then
+    raise exception 'code_trop_court';
+  end if;
+  insert into moderateurs (nom, code_hash)
+  values (btrim(p_nom), vigie_code_moderation(p_code))
+  on conflict (nom) do update set code_hash = excluded.code_hash, actif = true;
+  return 'ok';
+end;
+$$;
+
+create or replace function vigie_retirer_moderateur(p_nom text)
+returns text
+language sql
+security definer
+set search_path = public
+as $$
+  update moderateurs set actif = false where nom = p_nom returning 'ok';
+$$;
+
+-- Vérifie le code et renvoie le nom du modérateur (fonction interne).
+create or replace function vigie_moderateur(p_code text)
+returns text
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_nom text;
+begin
+  if p_code is not null and char_length(p_code) >= 16 then
+    update moderateurs
+    set derniere_utilisation = now()
+    where code_hash = vigie_code_moderation(p_code) and actif
+    returning nom into v_nom;
+  end if;
+  if v_nom is null then
+    perform pg_sleep(0.5);  -- freine les essais au hasard
+    raise exception 'code_invalide';
+  end if;
+  return v_nom;
+end;
+$$;
+
+-- RPC : vérifier un code (connexion à l'écran de modération)
+create or replace function moderation_verifier(p_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+begin
+  return jsonb_build_object('nom', vigie_moderateur(p_code));
+end;
+$$;
+
+-- RPC : liste à modérer
+--   'signales' : signalés ou masqués, 30 derniers jours
+--   'recents'  : tous les signalements des dernières 48 h (sauf SOS)
+-- Le contenu masqué reste visible ici (et seulement ici) pour juger.
+create or replace function moderation_liste(p_code text, p_filtre text default 'signales')
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_res jsonb;
+begin
+  perform vigie_moderateur(p_code);
+
+  select coalesce(jsonb_agg(to_jsonb(t) - 'tri' order by t.tri desc), '[]'::jsonb)
+  into v_res
+  from (
+    select
+      r.id, r.type, r.lieu, r.created_at, r.expires_at, r.resolved_at,
+      (r.resolved_at is null and r.expires_at > now()) as actif,
+      r.description, r.photo_url,
+      r.contenu_masque_at as masque_at,
+      m.description as description_masquee,
+      m.photo_url as photo_masquee,
+      r.source_officielle, r.relais_source, r.confirmations, r.infirmations,
+      coalesce(f.nb, 0) as nb_signalements,
+      coalesce(f.motifs, '{}'::jsonb) as motifs,
+      coalesce(f.dernier, r.contenu_masque_at, r.created_at) as tri
+    from reports r
+    left join report_contenu_masque m on m.report_id = r.id
+    left join lateral (
+      select sum(g.n)::int as nb, max(g.dernier) as dernier, jsonb_object_agg(g.motif, g.n) as motifs
+      from (
+        select motif, count(*)::int as n, max(created_at) as dernier
+        from report_flags
+        where report_id = r.id
+        group by motif
+      ) g
+    ) f on true
+    where case
+      when p_filtre = 'recents' then
+        r.created_at > now() - interval '48 hours' and r.type::text <> 'sos'
+      else
+        (coalesce(f.nb, 0) > 0 or r.contenu_masque_at is not null)
+        and r.created_at > now() - interval '30 days'
+    end
+    order by tri desc
+    limit 100
+  ) t;
+
+  return v_res;
+end;
+$$;
+
+-- RPC : agir sur un signalement
+--   masquer / retablir : photo et texte
+--   ignorer            : « c'est OK », efface les signalements de contenu
+--   retirer            : enlève le signalement de la carte
+--   verifier / deverifier : niveau « Vérifié » (p_valeur = la source)
+create or replace function moderation_action(
+  p_code text,
+  p_report_id uuid,
+  p_action text,
+  p_valeur text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_nom text;
+  v_source text := left(nullif(btrim(p_valeur), ''), 60);
+begin
+  v_nom := vigie_moderateur(p_code);
+  if not exists (select 1 from reports where id = p_report_id) then
+    raise exception 'signalement_introuvable';
+  end if;
+
+  if p_action = 'masquer' then
+    perform vigie_masquer_contenu(p_report_id, 'moderation');
+  elsif p_action = 'retablir' then
+    perform vigie_retablir_contenu(p_report_id);
+  elsif p_action = 'ignorer' then
+    delete from report_flags where report_id = p_report_id;
+  elsif p_action = 'retirer' then
+    update reports
+    set resolved_at = coalesce(resolved_at, now()),
+        expires_at = least(expires_at, now())
+    where id = p_report_id;
+  elsif p_action = 'verifier' then
+    if v_source is null then
+      raise exception 'source_manquante';
+    end if;
+    update reports set source_officielle = v_source where id = p_report_id;
+  elsif p_action = 'deverifier' then
+    update reports set source_officielle = null where id = p_report_id;
+  else
+    raise exception 'action_invalide';
+  end if;
+
+  insert into moderation_journal (moderateur, report_id, action, detail)
+  values (v_nom, p_report_id, p_action, v_source);
+
+  return jsonb_build_object('ok', true);
+end;
+$$;
+
+-- ---------------------------------------------------------------------
 -- Purge (lancée chaque nuit, voir en bas du fichier) :
 --   - 30 jours après la fin d'un signalement, le lien entre l'empreinte du
 --     téléphone et ce signalement est effacé (auteur, votes, signalements
 --     de contenu) ;
---   - le contenu masqué par la modération est effacé après 90 jours.
+--   - le contenu masqué par la modération est effacé après 90 jours ;
+--   - le journal de modération est gardé un an.
 -- Les signalements eux-mêmes restent, anonymes, pour l'historique.
 -- ---------------------------------------------------------------------
 create or replace function vigie_purger_donnees_appareil()
@@ -1044,6 +1252,8 @@ as $$
    where f.report_id = r.id and r.expires_at < now() - interval '30 days';
   delete from report_contenu_masque m
    where m.masque_at < now() - interval '90 days';
+  delete from moderation_journal j
+   where j.created_at < now() - interval '1 year';
 $$;
 
 -- ---------------------------------------------------------------------
@@ -1194,6 +1404,8 @@ alter table report_authors enable row level security;
 alter table report_votes enable row level security;
 alter table report_flags enable row level security;
 alter table report_contenu_masque enable row level security;
+alter table moderateurs enable row level security;
+alter table moderation_journal enable row level security;
 
 drop policy if exists "zones lecture publique" on zones;
 create policy "zones lecture publique" on zones for select using (true);
@@ -1211,11 +1423,17 @@ revoke all on report_authors from anon, authenticated;
 revoke all on report_votes from anon, authenticated;
 revoke all on report_flags from anon, authenticated;
 revoke all on report_contenu_masque from anon, authenticated;
+revoke all on moderateurs from anon, authenticated;
+revoke all on moderation_journal from anon, authenticated;
 
 revoke execute on function vigie_appliquer_vote(uuid, text, text) from public, anon, authenticated;
 revoke execute on function vigie_masquer_contenu(uuid, text) from public, anon, authenticated;
 revoke execute on function vigie_retablir_contenu(uuid) from public, anon, authenticated;
 revoke execute on function vigie_purger_donnees_appareil() from public, anon, authenticated;
+revoke execute on function vigie_code_moderation(text) from public, anon, authenticated;
+revoke execute on function vigie_ajouter_moderateur(text, text) from public, anon, authenticated;
+revoke execute on function vigie_retirer_moderateur(text) from public, anon, authenticated;
+revoke execute on function vigie_moderateur(text) from public, anon, authenticated;
 
 grant execute on function creer_signalement(report_type, double precision, double precision, text, text, text, text, text) to anon, authenticated;
 grant execute on function voter_signalement(uuid, text, text) to anon, authenticated;
@@ -1226,6 +1444,9 @@ grant execute on function relayer_signalement(report_type, double precision, dou
 grant execute on function signalements_proches_v2(double precision, double precision, integer, text) to anon, authenticated;
 grant execute on function signalement_detail_v2(uuid, text) to anon, authenticated;
 grant execute on function signaler_contenu(uuid, text, text) to anon, authenticated;
+grant execute on function moderation_verifier(text) to anon, authenticated;
+grant execute on function moderation_liste(text, text) to anon, authenticated;
+grant execute on function moderation_action(text, uuid, text, text) to anon, authenticated;
 
 -- ---------------------------------------------------------------------
 -- Photos : bucket public en lecture, upload anonyme limité aux images
