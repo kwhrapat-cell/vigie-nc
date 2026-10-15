@@ -42,7 +42,8 @@ vigie-nc/
                   PositionPicker, BottomNav, ui.tsx (Logo, TypeTile, boutons…),
                   VigilanceMeteo (vignette officielle meteo.nc, sans clé),
                   WelcomeNotice (avertissement à la 1re ouverture), LegalPage,
-                  ShareApp (partager l'appli : WhatsApp ou menu du téléphone)
+                  ShareApp (partager l'appli : WhatsApp ou menu du téléphone),
+                  InstallApp (installer l'appli : bouton Android, étapes iPhone)
   lib/
     types.ts         types de signalement, couleurs, icônes, durées, rayons
     reports-api.ts   SEUL point d'accès aux données (RPC Supabase ou démo)
@@ -58,6 +59,8 @@ vigie-nc/
     site.ts          adresse publique (SITE_URL), texte de partage de l'appli
   app/opengraph-image.png  aperçu du lien (WhatsApp, Facebook…), app/icon.png +
                        app/apple-icon.png : icônes (écran d'accueil, onglet)
+  app/manifest.ts  rend l'appli installable (display minimal-ui : sur iPhone
+                   l'icône reste dans Safari) ; icônes dans public/icons/
   supabase/schema.sql  schéma complet, ré-exécutable
 ```
 
