@@ -36,7 +36,7 @@ base (doublons, votes, expiration), rien n'est enregistré.
 | `/sos` | SOS « Je suis en danger » : appui long 3 s, position sur la carte, SMS préparé pour les contacts, appel 15 / 17 / 18 |
 | `/alertes` | Vigilance météo officielle (Météo-France NC), puis alertes en cours, ma zone ou toute la Calédonie |
 | `/historique` | Mémoire du territoire : 12 derniers mois, évolution mensuelle, événements |
-| `/profil` | Rayon par défaut, contacts d'urgence, niveaux de fiabilité, confidentialité |
+| `/profil` | Rayon par défaut, contacts d'urgence, niveaux de fiabilité, **partager l'appli** (WhatsApp ou autre), confidentialité |
 | `/contacts` | Contacts d'urgence (gardés sur le téléphone uniquement) |
 | `/conditions` · `/confidentialite` · `/mentions-legales` | Pages légales (textes et coordonnées dans `lib/legal.ts`) |
 
@@ -45,6 +45,15 @@ indicative, qu'on ne touche pas son téléphone au volant et qu'en urgence on
 appelle le 15 / 17 / 18 (`components/WelcomeNotice.tsx`).
 
 Un lien `/?signalement=<id>` ouvre directement la fiche (bouton « Partager »).
+
+## Partage et aperçu du lien
+
+Quand on envoie le lien de l'appli (WhatsApp, Messenger, SMS…), l'aperçu
+affiche `app/opengraph-image.png` (1200×630) avec le titre et la description
+définis dans `app/layout.tsx`. L'adresse publique et le texte d'invitation
+sont dans `lib/site.ts` (à changer le jour d'un nom de domaine à soi).
+WhatsApp garde l'aperçu en mémoire un moment : un changement d'image peut
+mettre du temps à apparaître sur un lien déjà envoyé.
 
 ## Base de données (Supabase)
 

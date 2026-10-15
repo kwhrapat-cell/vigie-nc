@@ -41,7 +41,8 @@ vigie-nc/
   components/     CarteLive (accueil), LiveMap, HomeSheet, ReportDetail,
                   PositionPicker, BottomNav, ui.tsx (Logo, TypeTile, boutons…),
                   VigilanceMeteo (vignette officielle meteo.nc, sans clé),
-                  WelcomeNotice (avertissement à la 1re ouverture), LegalPage
+                  WelcomeNotice (avertissement à la 1re ouverture), LegalPage,
+                  ShareApp (partager l'appli : WhatsApp ou menu du téléphone)
   lib/
     types.ts         types de signalement, couleurs, icônes, durées, rayons
     reports-api.ts   SEUL point d'accès aux données (RPC Supabase ou démo)
@@ -54,6 +55,9 @@ vigie-nc/
     cluster.ts       regroupement des signalements en pastilles chiffrées
     relay-parser.ts  lecture d'un message collé → type + lieu (sur le téléphone)
     legal.ts         éditeur (Tramea Solutions), contact, hébergeurs, date des textes légaux
+    site.ts          adresse publique (SITE_URL), texte de partage de l'appli
+  app/opengraph-image.png  aperçu du lien (WhatsApp, Facebook…), app/icon.png +
+                       app/apple-icon.png : icônes (écran d'accueil, onglet)
   supabase/schema.sql  schéma complet, ré-exécutable
 ```
 

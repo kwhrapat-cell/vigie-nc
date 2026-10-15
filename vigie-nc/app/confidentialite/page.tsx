@@ -103,6 +103,7 @@ export default function ConfidentialitePage() {
             ajoutes une photo. La photo, elle, est floutée sur ton téléphone et ne leur est pas envoyée.
           </li>
           <li>Google Maps : seulement si tu touches « Voir dans Maps ».</li>
+          <li>WhatsApp : seulement si tu touches « WhatsApp » pour partager l&apos;appli.</li>
         </LegalList>
       </LegalSection>
 
