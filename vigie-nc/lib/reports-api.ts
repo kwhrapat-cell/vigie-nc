@@ -55,6 +55,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   appareil_invalide: "Identifiant du téléphone invalide — recharge la page.",
   vote_invalide: "Vote non reconnu.",
   motif_invalide: "Choisis ce qui pose problème.",
+  code_invalide: "Code de modération incorrect.",
+  source_manquante: "Indique la source (ex. Mairie du Mont-Dore).",
+  action_invalide: "Action non reconnue.",
+  mode_demo: "La modération n'est disponible qu'avec la base en direct.",
   trop_de_signalements:
     "Beaucoup de contenus signalés depuis ce téléphone : réessaie dans une heure ou écris-nous.",
 };
@@ -362,4 +366,94 @@ export async function uploadReportPhoto(file: File): Promise<string> {
   });
   if (error) throw new ReportsApiError("photo_invalide");
   return supabase.storage.from("report-photos").getPublicUrl(path).data.publicUrl;
+}
+
+// ---------------------------------------------------------------------
+// Modération (écran /moderation) — chaque appel envoie le code personnel
+// du modérateur ; le serveur le vérifie (voir moderation_* dans le SQL).
+// ---------------------------------------------------------------------
+
+export type ModFilter = "signales" | "recents";
+export type ModAction = "masquer" | "retablir" | "ignorer" | "retirer" | "verifier" | "deverifier";
+
+export interface ModItem {
+  id: string;
+  type: ReportType;
+  lieu: string | null;
+  createdAt: string;
+  actif: boolean;
+  description: string | null;
+  photoUrl: string | null;
+  masqueAt: string | null;
+  descriptionMasquee: string | null;
+  photoMasquee: string | null;
+  sourceOfficielle: string | null;
+  relaisSource: RelaySource | null;
+  confirmations: number;
+  infirmations: number;
+  nbSignalements: number;
+  motifs: Partial<Record<FlagReason, number>>;
+}
+
+interface ModRow {
+  id: string;
+  type: ReportType;
+  lieu: string | null;
+  created_at: string;
+  actif: boolean;
+  description: string | null;
+  photo_url: string | null;
+  masque_at: string | null;
+  description_masquee: string | null;
+  photo_masquee: string | null;
+  source_officielle: string | null;
+  relais_source: RelaySource | null;
+  confirmations: number;
+  infirmations: number;
+  nb_signalements: number;
+  motifs: Partial<Record<FlagReason, number>> | null;
+}
+
+async function modRpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
+  if (!supabase) throw new ReportsApiError("mode_demo");
+  const { data, error } = await supabase.rpc(fn, args);
+  if (error) throw new ReportsApiError(codeFromMessage(error.message));
+  return data as T;
+}
+
+/** Vérifie un code de modération ; renvoie le nom du modérateur. */
+export async function modVerify(code: string): Promise<string> {
+  const out = await modRpc<{ nom: string }>("moderation_verifier", { p_code: code });
+  return out.nom;
+}
+
+export async function modList(code: string, filter: ModFilter): Promise<ModItem[]> {
+  const rows = await modRpc<ModRow[]>("moderation_liste", { p_code: code, p_filtre: filter });
+  return (rows ?? []).map((r) => ({
+    id: r.id,
+    type: r.type,
+    lieu: r.lieu,
+    createdAt: r.created_at,
+    actif: r.actif,
+    description: r.description,
+    photoUrl: r.photo_url,
+    masqueAt: r.masque_at,
+    descriptionMasquee: r.description_masquee,
+    photoMasquee: r.photo_masquee,
+    sourceOfficielle: r.source_officielle,
+    relaisSource: r.relais_source,
+    confirmations: r.confirmations,
+    infirmations: r.infirmations,
+    nbSignalements: r.nb_signalements,
+    motifs: r.motifs ?? {},
+  }));
+}
+
+export async function modAct(code: string, reportId: string, action: ModAction, valeur?: string): Promise<void> {
+  await modRpc("moderation_action", {
+    p_code: code,
+    p_report_id: reportId,
+    p_action: action,
+    p_valeur: valeur ?? null,
+  });
 }
