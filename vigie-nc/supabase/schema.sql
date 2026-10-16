@@ -1513,6 +1513,229 @@ before insert or update on reports
 for each row execute function vigie_signal_notification();
 
 -- ---------------------------------------------------------------------
+-- Alarme de sécurité : les téléphones des modérateurs qui l'ont activée
+-- (écran /moderation) sont prévenus dès que la liste des modérateurs
+-- change : ajout, code changé, accès retiré ou rétabli, renommage,
+-- suppression, liste vidée. Les connexions (derniere_utilisation) ne
+-- comptent pas.
+--   - l'inscription d'un téléphone ne dépend pas de l'état du modérateur :
+--     si quelqu'un retire l'accès de Patrice, Patrice est quand même prévenu ;
+--   - chaque changement est aussi noté dans moderation_journal ;
+--   - envoi par /api/alerte-securite (même secret que les alertes routières ;
+--     adresse = notif_url avec /api/alerte-securite au bout, ou la clé
+--     'securite_url' de vigie_config si elle existe).
+-- Limite : quelqu'un qui a la main sur le compte Supabase peut aussi couper
+-- l'alarme. Elle sert à être prévenu tout de suite, pas à bloquer.
+-- Arrêter l'alarme d'un ancien modérateur (éditeur SQL) :
+--   delete from moderation_alertes where moderateur = 'Nom';
+-- ---------------------------------------------------------------------
+create table if not exists moderation_alertes (
+  id uuid primary key default gen_random_uuid(),
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  moderateur text not null,
+  created_at timestamptz not null default now()
+);
+
+-- RPC : activer l'alarme sur ce téléphone (5 téléphones par modérateur au plus)
+create or replace function moderation_alertes_activer(
+  p_code text,
+  p_endpoint text,
+  p_p256dh text,
+  p_auth text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_nom text;
+begin
+  v_nom := vigie_moderateur(p_code);
+  if not vigie_endpoint_valide(p_endpoint)
+     or p_p256dh is null or char_length(p_p256dh) > 200
+     or p_auth is null or char_length(p_auth) > 100 then
+    raise exception 'abonnement_invalide';
+  end if;
+
+  insert into moderation_alertes (endpoint, p256dh, auth, moderateur)
+  values (p_endpoint, p_p256dh, p_auth, v_nom)
+  on conflict (endpoint) do update
+    set p256dh = excluded.p256dh,
+        auth = excluded.auth,
+        moderateur = excluded.moderateur,
+        created_at = now();
+
+  delete from moderation_alertes
+  where moderateur = v_nom
+    and id not in (
+      select id from moderation_alertes
+      where moderateur = v_nom
+      order by created_at desc
+      limit 5
+    );
+
+  return jsonb_build_object('ok', true);
+end;
+$$;
+
+-- RPC : l'alarme est-elle active sur ce téléphone ?
+create or replace function moderation_alertes_etat(p_code text, p_endpoint text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+begin
+  perform vigie_moderateur(p_code);
+  return jsonb_build_object(
+    'active', exists (select 1 from moderation_alertes where endpoint = p_endpoint)
+  );
+end;
+$$;
+
+-- RPC : couper l'alarme sur ce téléphone
+create or replace function moderation_alertes_desactiver(p_code text, p_endpoint text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+begin
+  perform vigie_moderateur(p_code);
+  delete from moderation_alertes where endpoint = p_endpoint;
+  return jsonb_build_object('ok', true);
+end;
+$$;
+
+-- RPC (serveur d'envoi) : téléphones à prévenir
+create or replace function moderation_alertes_destinataires(p_secret text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not vigie_secret_notif_ok(p_secret) then
+    raise exception 'secret_invalide';
+  end if;
+  return coalesce(
+    (select jsonb_agg(jsonb_build_object('endpoint', endpoint, 'p256dh', p256dh, 'auth', auth))
+     from moderation_alertes),
+    '[]'::jsonb);
+end;
+$$;
+
+-- RPC (serveur d'envoi) : téléphones qui ne répondent plus → retirés
+create or replace function moderation_alertes_echecs(p_secret text, p_endpoints text[])
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_nb int;
+begin
+  if not vigie_secret_notif_ok(p_secret) then
+    raise exception 'secret_invalide';
+  end if;
+  delete from moderation_alertes where endpoint = any(p_endpoints);
+  get diagnostics v_nb = row_count;
+  return jsonb_build_object('supprimes', v_nb);
+end;
+$$;
+
+-- Déclencheur : note le changement dans le journal et prévient le serveur
+-- d'envoi. Sans configuration ou sans pg_net, il note seulement.
+create or replace function vigie_alarme_moderateurs()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_evenement text;
+  v_nom text;
+  v_url text;
+  v_secret text;
+begin
+  if tg_op = 'TRUNCATE' then
+    v_evenement := 'vidage';
+  elsif tg_op = 'INSERT' then
+    v_evenement := 'ajout';
+    v_nom := new.nom;
+  elsif tg_op = 'DELETE' then
+    v_evenement := 'suppression';
+    v_nom := old.nom;
+  elsif old.nom is distinct from new.nom then
+    v_evenement := 'renomme';
+    v_nom := old.nom || ' → ' || new.nom;
+  elsif old.actif and not new.actif then
+    v_evenement := 'retrait';
+    v_nom := new.nom;
+  elsif new.actif and not old.actif then
+    v_evenement := 'retabli';
+    v_nom := new.nom;
+  elsif old.code_hash is distinct from new.code_hash then
+    v_evenement := 'code';
+    v_nom := new.nom;
+  else
+    return null;
+  end if;
+
+  insert into moderation_journal (moderateur, report_id, action, detail)
+  values ('Supabase', null, 'moderateurs_' || v_evenement, left(v_nom, 85));
+
+  select valeur into v_url from vigie_config where cle = 'securite_url';
+  if v_url is null then
+    select regexp_replace(valeur, '/api/notifier/?$', '/api/alerte-securite')
+    into v_url from vigie_config where cle = 'notif_url';
+    if v_url !~ '/api/alerte-securite$' then
+      v_url := null;
+    end if;
+  end if;
+  select valeur into v_secret from vigie_config where cle = 'notif_secret';
+  if v_url is null or v_secret is null then
+    return null;
+  end if;
+
+  begin
+    perform net.http_post(
+      url := v_url,
+      body := jsonb_build_object('evenement', v_evenement, 'nom', v_nom),
+      headers := jsonb_build_object('Content-Type', 'application/json', 'x-vigie-secret', v_secret),
+      timeout_milliseconds := 15000
+    );
+  exception when others then
+    -- pg_net absent ou en panne : le changement reste noté dans le journal.
+    null;
+  end;
+  return null;
+end;
+$$;
+
+drop trigger if exists trg_vigie_alarme_moderateurs on moderateurs;
+create trigger trg_vigie_alarme_moderateurs
+after insert or delete on moderateurs
+for each row execute function vigie_alarme_moderateurs();
+
+drop trigger if exists trg_vigie_alarme_moderateurs_maj on moderateurs;
+create trigger trg_vigie_alarme_moderateurs_maj
+after update of nom, code_hash, actif on moderateurs
+for each row
+when (old.nom is distinct from new.nom
+      or old.code_hash is distinct from new.code_hash
+      or old.actif is distinct from new.actif)
+execute function vigie_alarme_moderateurs();
+
+drop trigger if exists trg_vigie_alarme_moderateurs_vidage on moderateurs;
+create trigger trg_vigie_alarme_moderateurs_vidage
+after truncate on moderateurs
+for each statement execute function vigie_alarme_moderateurs();
+
+-- ---------------------------------------------------------------------
 -- Purge (lancée chaque nuit, voir en bas du fichier) :
 --   - 30 jours après la fin d'un signalement, le lien entre l'empreinte du
 --     téléphone et ce signalement est effacé (auteur, votes, signalements
@@ -1695,6 +1918,7 @@ alter table moderation_journal enable row level security;
 alter table vigie_config enable row level security;
 alter table push_abonnements enable row level security;
 alter table push_envois enable row level security;
+alter table moderation_alertes enable row level security;
 
 drop policy if exists "zones lecture publique" on zones;
 create policy "zones lecture publique" on zones for select using (true);
@@ -1717,6 +1941,7 @@ revoke all on moderation_journal from anon, authenticated;
 revoke all on vigie_config from anon, authenticated;
 revoke all on push_abonnements from anon, authenticated;
 revoke all on push_envois from anon, authenticated;
+revoke all on moderation_alertes from anon, authenticated;
 
 revoke execute on function vigie_appliquer_vote(uuid, text, text) from public, anon, authenticated;
 revoke execute on function vigie_masquer_contenu(uuid, text) from public, anon, authenticated;
@@ -1728,6 +1953,7 @@ revoke execute on function vigie_retirer_moderateur(text) from public, anon, aut
 revoke execute on function vigie_moderateur(text) from public, anon, authenticated;
 revoke execute on function vigie_secret_notif_ok(text) from public, anon, authenticated;
 revoke execute on function vigie_signal_notification() from public, anon, authenticated;
+revoke execute on function vigie_alarme_moderateurs() from public, anon, authenticated;
 
 grant execute on function creer_signalement(report_type, double precision, double precision, text, text, text, text, text) to anon, authenticated;
 grant execute on function voter_signalement(uuid, text, text) to anon, authenticated;
@@ -1746,6 +1972,11 @@ grant execute on function notif_mon_abonnement(text) to anon, authenticated;
 grant execute on function notif_desabonner(text) to anon, authenticated;
 grant execute on function notif_destinataires(text, uuid) to anon, authenticated;
 grant execute on function notif_echecs(text, text[]) to anon, authenticated;
+grant execute on function moderation_alertes_activer(text, text, text, text) to anon, authenticated;
+grant execute on function moderation_alertes_etat(text, text) to anon, authenticated;
+grant execute on function moderation_alertes_desactiver(text, text) to anon, authenticated;
+grant execute on function moderation_alertes_destinataires(text) to anon, authenticated;
+grant execute on function moderation_alertes_echecs(text, text[]) to anon, authenticated;
 
 -- ---------------------------------------------------------------------
 -- Photos : bucket public en lecture, upload anonyme limité aux images

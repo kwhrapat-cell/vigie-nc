@@ -38,6 +38,7 @@ Le code est dans `vigie-nc/` (Root Directory Vercel).
 vigie-nc/
   app/            écrans (/, /signaler, /relayer, /sos, /alertes, /historique, /profil, /contacts)
                   + /api/notifier (appelé par la base : envoie les alertes) et /api/notif-test
+                  + /api/alerte-securite (appelé par la base : liste des modérateurs modifiée)
                   + pages légales (/conditions, /confidentialite, /mentions-legales)
                   + /affiche (l'affiche à envoyer par lien ; images dans public/affiche/)
                   + /moderation (écran des modérateurs, code personnel ; lien discret en bas du Profil)
@@ -101,6 +102,14 @@ vigie-nc/
   (`vigie_moderateur`, empreinte dans la table privée `moderateurs`) et
   note l'action dans `moderation_journal`. Les codes ne vont jamais dans le
   dépôt : `select vigie_ajouter_moderateur('Nom', '<code>')` dans l'éditeur SQL.
+- Alarme de sécurité : tout changement de la table `moderateurs` (ajout,
+  code, accès retiré/rétabli, renommage, suppression, vidage ; pas les
+  connexions) est noté dans `moderation_journal` et envoyé par `pg_net` à
+  `/api/alerte-securite` (déclencheurs `trg_vigie_alarme_moderateurs*`). Les
+  téléphones s'inscrivent depuis /moderation (`moderation_alertes_activer`,
+  table privée `moderation_alertes`, indépendante de l'état du modérateur).
+  Le repère `vigie-nc:alarme-securite` (localStorage) empêche l'écran
+  Alertes de couper l'abonnement partagé.
 - Notifications : RPC `notif_abonner` / `notif_mon_abonnement` /
   `notif_desabonner` (table privée `push_abonnements`, lieu arrondi à
   ~1 km, rayon 3/5/10 km). Le déclencheur `trg_vigie_notification` appelle

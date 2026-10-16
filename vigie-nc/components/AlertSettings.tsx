@@ -7,6 +7,7 @@ import { PrimaryButton, SecondaryButton } from "@/components/ui";
 import { LatLng } from "@/lib/geo";
 import {
   currentSubscription,
+  hasSecurityAlarmFlag,
   pushSupport,
   PushSupport,
   sendTestPush,
@@ -208,7 +209,9 @@ export function AlertSettings() {
       // sans réseau : l'adresse sera effacée au premier envoi refusé
     }
     try {
-      await unsubscribePush();
+      // L'alarme de sécurité des modérateurs passe par le même abonnement :
+      // on le garde si elle est active sur ce téléphone.
+      if (!hasSecurityAlarmFlag()) await unsubscribePush();
     } catch {
       // rien à faire
     }

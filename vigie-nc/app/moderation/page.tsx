@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { SecurityAlarm } from "@/components/SecurityAlarm";
 import { PrimaryButton, ScreenHeader, TypeTile } from "@/components/ui";
 import { formatAge } from "@/lib/geo";
 import {
@@ -165,6 +166,8 @@ export default function ModerationPage() {
           </button>
         }
       />
+
+      <SecurityAlarm code={code} />
 
       <div className="mx-4 grid grid-cols-2 gap-2" role="tablist">
         {(
