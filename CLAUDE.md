@@ -21,8 +21,11 @@ mairies de Païta, du Mont-Dore et de Yaté.
 - **Thème sombre** des maquettes (lagon / terre rouge).
 - Zone par défaut en kilomètres (1, 3 ou 5 km), pas en centaines de mètres :
   le besoin vient de la route (« les prochains km sont-ils dégagés ? »).
-- Le SOS ne prévient pas les secours à la place de la personne : il met la
-  position sur la carte, prépare un SMS et propose d'appeler 15/17/18.
+- Le SOS ne prévient pas les secours à la place de la personne et **ne
+  publie rien** (décision de Patrice du 18/10/2026) : il prépare un SMS avec
+  la position pour les contacts d'urgence, permet de l'envoyer à qui on
+  veut et propose d'appeler 15/17/18. Jamais de position de personne en
+  danger sur la carte publique.
 - **Facebook : uniquement ce qui est légal.** Pas de récupération
   automatique (pas d'API pour les groupes depuis 2024, collecte automatisée
   interdite par Meta). Les infos vues sur Facebook passent par un humain
@@ -102,6 +105,12 @@ vigie-nc/
   `p_device_id` permettait à un script de voter sans limite). `device-id.ts`
   ne sert plus qu'au mode démo.
 - L'identité n'est stockée qu'en empreinte (`vigie_device_key`).
+- **La table `reports` n'est pas lisible directement** (ni `select` pour
+  `anon`/`authenticated`, ni diffusion temps réel) : lectures par
+  `signalements_proches_v3`, `signalement_detail_v3`, `statistiques_zone`.
+  Le temps réel passe par `vigie_signal` (heure + case de ~11 km, aucun
+  contenu, déclencheur `trg_vigie_signal`) ; `useLiveReports` ne recharge
+  que si la case touche la zone affichée.
 - Votes (`vigie_appliquer_vote`) : témoins à moins de 5 km
   (`vigie_distance_temoin_m()` = `MAX_WITNESS_DISTANCE_M`) ; un danger
   (`vigie_est_danger()` = `ALERT_TYPES`) ne se clôt qu'avec 2 « terminé » et

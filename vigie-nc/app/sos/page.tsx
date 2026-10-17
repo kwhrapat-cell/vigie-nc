@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ScreenHeader } from "@/components/ui";
 import { getEmergencyContacts } from "@/lib/emergency-contacts";
-import { createReport } from "@/lib/reports-api";
 import { useGeolocation } from "@/lib/useGeolocation";
 
 const HOLD_MS = 3000;
@@ -13,11 +12,16 @@ const RING_LEN = 2 * Math.PI * RING_R;
 
 type Phase = "idle" | "holding" | "sending" | "done" | "error";
 
+const messageFor = (link: string) => `SOS — j'ai besoin d'aide, voici ma position : ${link}`;
+
 /**
  * Écran SOS — « Je suis en danger ». Appui long de 3 secondes pour éviter
  * les déclenchements accidentels (poche, enfant…).
- * Vigie NC n'alerte PAS les secours automatiquement : l'écran met la
- * position sur la carte, prépare un SMS pour les contacts d'urgence et
+ * Vigie NC n'alerte PAS les secours automatiquement et NE PUBLIE RIEN :
+ * la position d'une personne en danger ne va jamais sur la carte publique
+ * (personne ne la surveille 24 h sur 24, et elle pourrait être lue par
+ * quelqu'un que la personne fuit). L'écran prépare un SMS avec la position
+ * pour les contacts d'urgence, permet de l'envoyer à qui on veut, et
  * propose d'appeler le 15, 17 ou 18.
  */
 export default function SosPage() {
@@ -27,11 +31,14 @@ export default function SosPage() {
   const [contactsCount, setContactsCount] = useState(0);
   const [mapsLink, setMapsLink] = useState<string | null>(null);
   const [smsHref, setSmsHref] = useState<string | null>(null);
-  const [onMap, setOnMap] = useState(false);
+  const [canShare, setCanShare] = useState(false);
   const startRef = useRef<number | null>(null);
   const frameRef = useRef<number | null>(null);
 
-  useEffect(() => setContactsCount(getEmergencyContacts().length), []);
+  useEffect(() => {
+    setContactsCount(getEmergencyContacts().length);
+    setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
+  }, []);
 
   const trigger = useCallback(async () => {
     setPhase("sending");
@@ -40,18 +47,9 @@ export default function SosPage() {
       const link = `https://maps.google.com/?q=${pos.lat.toFixed(6)},${pos.lng.toFixed(6)}`;
       setMapsLink(link);
 
-      // Le point sur la carte ne doit jamais bloquer le reste.
-      try {
-        await createReport({ type: "sos", lat: pos.lat, lng: pos.lng });
-        setOnMap(true);
-      } catch {
-        setOnMap(false);
-      }
-
       const contacts = getEmergencyContacts();
       if (contacts.length > 0) {
-        const body = encodeURIComponent(`SOS Vigie NC — j'ai besoin d'aide, voici ma position : ${link}`);
-        const href = `sms:${contacts.map((c) => c.phone).join(",")}?body=${body}`;
+        const href = `sms:${contacts.map((c) => c.phone).join(",")}?body=${encodeURIComponent(messageFor(link))}`;
         setSmsHref(href);
         // Ouvre l'appli SMS, message pré-rempli : l'envoi reste un geste
         // volontaire de la personne, jamais automatique.
@@ -62,6 +60,15 @@ export default function SosPage() {
       setPhase("error");
     }
   }, [locate]);
+
+  const sharePosition = useCallback(async () => {
+    if (!mapsLink) return;
+    try {
+      await navigator.share({ title: "SOS", text: messageFor(mapsLink) });
+    } catch {
+      // partage annulé : rien à faire
+    }
+  }, [mapsLink]);
 
   const stopHold = useCallback(() => {
     if (frameRef.current) cancelAnimationFrame(frameRef.current);
@@ -150,16 +157,20 @@ export default function SosPage() {
         )}
 
         <ul className="mt-6 w-full flex flex-col gap-2">
-          <li className="flex items-center gap-3 rounded-xl border border-line bg-panel px-3 py-3 text-[12.5px]">
-            <span className={`w-2.5 h-2.5 rounded-full ${onMap ? "bg-ok" : "bg-line"}`} />
-            <span className="flex-1">
-              Position partagée sur la carte Vigie NC
-              {mapsLink && (
-                <a href={mapsLink} target="_blank" rel="noopener noreferrer" className="block text-[11px] text-lagoon underline">
-                  Voir ma position
+          <li className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-3 text-[12.5px]">
+            <p className="mb-2">Appeler les secours</p>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { n: "15", l: "SAMU" },
+                { n: "17", l: "Police / gend." },
+                { n: "18", l: "Pompiers" },
+              ].map((s) => (
+                <a key={s.n} href={`tel:${s.n}`} className="min-h-[44px] rounded-lg bg-danger py-2 text-center text-white">
+                  <span className="block font-display font-bold text-[18px] leading-tight">{s.n}</span>
+                  <span className="block text-[10px] opacity-90">{s.l}</span>
                 </a>
-              )}
-            </span>
+              ))}
+            </div>
           </li>
           <li className="flex items-center gap-3 rounded-xl border border-line bg-panel px-3 py-3 text-[12.5px]">
             <span className={`w-2.5 h-2.5 rounded-full ${smsHref ? "bg-ok" : "bg-line"}`} />
@@ -175,26 +186,27 @@ export default function SosPage() {
               {contactsCount > 0 ? "Gérer" : "Ajouter"}
             </Link>
           </li>
-          <li className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-3 text-[12.5px]">
-            <p className="mb-2">Appeler les secours</p>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { n: "15", l: "SAMU" },
-                { n: "17", l: "Police / gend." },
-                { n: "18", l: "Pompiers" },
-              ].map((s) => (
-                <a key={s.n} href={`tel:${s.n}`} className="rounded-lg bg-danger py-2 text-center text-white">
-                  <span className="block font-display font-bold text-[18px] leading-tight">{s.n}</span>
-                  <span className="block text-[10px] opacity-90">{s.l}</span>
+          {mapsLink && (
+            <li className="flex items-center gap-3 rounded-xl border border-line bg-panel px-3 py-3 text-[12.5px]">
+              <span className="w-2.5 h-2.5 rounded-full bg-ok" />
+              <span className="flex-1">
+                Ta position est prête à envoyer
+                <a href={mapsLink} target="_blank" rel="noopener noreferrer" className="block text-[11px] text-lagoon underline">
+                  Voir ma position
                 </a>
-              ))}
-            </div>
-          </li>
+              </span>
+              {canShare && (
+                <button type="button" onClick={sharePosition} className="min-h-[44px] text-[11px] text-lagoon underline shrink-0">
+                  Envoyer à quelqu&apos;un
+                </button>
+              )}
+            </li>
+          )}
         </ul>
 
         <p className="mt-5 text-center text-[11px] text-mist-dim leading-relaxed">
-          Le SOS n&apos;est pas un signalement. Il sert à protéger une personne immédiatement.
-          Vigie NC ne prévient pas les secours à ta place : appelle-les.
+          Vigie NC ne prévient pas les secours à ta place : appelle-les. Ta position n&apos;est jamais publiée sur la
+          carte : elle ne va qu&apos;aux personnes à qui tu envoies le message.
         </p>
       </section>
     </main>
