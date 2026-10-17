@@ -10,3 +10,11 @@ export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl as string, supabaseAnonKey as string)
   : null;
+
+// Jamais de mode démo en production : des signalements fictifs montrés au
+// public (faux accidents, fausses inondations) seraient dangereux. Si la
+// configuration manque sur le site en ligne, app/layout.tsx affiche
+// « Service momentanément indisponible » à la place de l'appli.
+const isProduction =
+  process.env.VERCEL_ENV === "production" || process.env.NEXT_PUBLIC_VERCEL_ENV === "production";
+export const demoBlocked = !isSupabaseConfigured && isProduction;

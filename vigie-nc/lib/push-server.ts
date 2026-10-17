@@ -68,6 +68,7 @@ export interface AlertReport {
   lieu: string | null;
   confirmations: number;
   source_officielle: string | null;
+  relais_source?: string | null;
 }
 
 export interface AlertTarget extends PushTarget {
@@ -79,15 +80,20 @@ export interface AlertTarget extends PushTarget {
  * Texte de la notification d'un danger confirmé. Factuel, sans emoji ni
  * « touche ici » : Chrome (Android) classe en « spam possible » les textes
  * vagues, les emoji d'alarme et les formules d'appel.
- * Ex. « Inondation · RT1, Païta » / « Signalement confirmé par 2 personnes,
- * à 3,2 km de « Maison ». »
+ * Ex. « Inondation · RT1, Païta » / « Signalé par 2 personnes, à 3,2 km
+ * de « Maison ». »
+ * Pas de « confirmé » ici : dans l'appli, « Confirmé » veut dire 4
+ * personnes et plus (lib/reliability.ts) ; l'alerte part dès 2.
  */
 export function alertPayload(report: AlertReport, target: AlertTarget): PushPayload {
   const label = REPORT_TYPE_LABELS[report.type] ?? "Danger";
   const title = report.lieu ? `${label} · ${report.lieu}` : label;
+  const surPlace = report.confirmations;
   const qui = report.source_officielle
-    ? `Signalement vérifié par ${report.source_officielle}`
-    : `Signalement confirmé par ${report.confirmations + 1} personnes`;
+    ? `Vérifié par ${report.source_officielle}`
+    : report.relais_source
+      ? `Info relayée, vue sur place par ${surPlace} personne${surPlace > 1 ? "s" : ""}`
+      : `Signalé par ${surPlace + 1} personnes`;
   const d = distanceText(target.distance_m);
   const ou = d ? `, ${d} ${target.nom ? `de « ${target.nom} »` : "de ton lieu d'alerte"}` : "";
   return {

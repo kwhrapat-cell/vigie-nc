@@ -307,6 +307,43 @@ as $$
   select case p_niveau when 'faible' then 1 when 'moyen' then 2 when 'eleve' then 3 else 0 end;
 $$;
 
+-- Paramètres privés (adresse du serveur d'envoi, secret, hôte des photos…)
+-- Créée ici car les règles ci-dessous la lisent. Voir « Alertes » plus bas
+-- pour les valeurs à renseigner.
+create table if not exists vigie_config (
+  cle text primary key,
+  valeur text not null
+);
+
+-- Une photo n'est acceptée que si elle vient du dossier report-photos de
+-- NOTRE projet Supabase (clé 'photo_host' de vigie_config, ex.
+-- 'abcd.supabase.co'). Sans cette clé, aucune photo n'est acceptée : une
+-- adresse vers un autre site permettrait de relever l'adresse IP de chaque
+-- personne qui ouvre la fiche.
+create or replace function vigie_photo_url_valide(p_url text)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_host text;
+  v_prefixe text;
+begin
+  if p_url is null then
+    return true;
+  end if;
+  select valeur into v_host from vigie_config where cle = 'photo_host';
+  if v_host is null then
+    return false;
+  end if;
+  v_prefixe := 'https://' || v_host || '/storage/v1/object/public/report-photos/';
+  return left(p_url, length(v_prefixe)) = v_prefixe
+     and substr(p_url, length(v_prefixe) + 1) ~ '^[A-Za-z0-9._-]{1,100}$';
+end;
+$$;
+
 -- Emprise de la Nouvelle-Calédonie (Grande Terre, Belep, îles Loyauté,
 -- île des Pins) — refuse les positions aberrantes ou envoyées par des robots.
 create or replace function vigie_dans_nc(p_lat double precision, p_lng double precision)
@@ -448,8 +485,7 @@ begin
   if p_lat is null or p_lng is null or not vigie_dans_nc(p_lat, p_lng) then
     raise exception 'position_hors_nc';
   end if;
-  if p_photo_url is not null
-     and p_photo_url !~ '^https://[^/]+/storage/v1/object/public/report-photos/[A-Za-z0-9._-]+$' then
+  if not vigie_photo_url_valide(p_photo_url) then
     raise exception 'photo_invalide';
   end if;
   if v_description is not null and char_length(v_description) > 200 then
@@ -1103,8 +1139,10 @@ begin
     where code_hash = vigie_code_moderation(p_code) and actif
     returning nom into v_nom;
   end if;
+  -- Pas d'attente (pg_sleep) en cas d'erreur : avec des codes de 16
+  -- caractères au moins, deviner est impossible, et une attente offrirait
+  -- un moyen simple de bloquer toutes les connexions de la base.
   if v_nom is null then
-    perform pg_sleep(0.5);  -- freine les essais au hasard
     raise exception 'code_invalide';
   end if;
   return v_nom;
@@ -1247,7 +1285,8 @@ $$;
 -- Configuration (une fois, dans l'éditeur SQL) :
 --   insert into vigie_config (cle, valeur) values
 --     ('notif_url', 'https://vigie-nc.com/api/notifier'),
---     ('notif_secret', '<même valeur que NOTIF_SECRET sur Vercel>')
+--     ('notif_secret', '<même valeur que NOTIF_SECRET sur Vercel>'),
+--     ('photo_host', '<ref du projet>.supabase.co')
 --   on conflict (cle) do update set valeur = excluded.valeur;
 -- ---------------------------------------------------------------------
 create table if not exists vigie_config (
@@ -1375,8 +1414,9 @@ declare
   v_secret text;
 begin
   select valeur into v_secret from vigie_config where cle = 'notif_secret';
+  -- Pas d'attente en cas d'erreur (voir vigie_moderateur) : le secret fait
+  -- 48 caractères, impossible à deviner.
   if v_secret is null or p_secret is null or p_secret <> v_secret then
-    perform pg_sleep(0.5);
     return false;
   end if;
   return true;
@@ -1428,6 +1468,7 @@ begin
       'lieu', v_report.lieu,
       'confirmations', v_report.confirmations,
       'source_officielle', v_report.source_officielle,
+      'relais_source', v_report.relais_source,
       'niveau_risque', v_report.niveau_risque,
       'actif', (v_report.resolved_at is null and v_report.expires_at > now())
     ),
@@ -1954,6 +1995,7 @@ revoke execute on function vigie_moderateur(text) from public, anon, authenticat
 revoke execute on function vigie_secret_notif_ok(text) from public, anon, authenticated;
 revoke execute on function vigie_signal_notification() from public, anon, authenticated;
 revoke execute on function vigie_alarme_moderateurs() from public, anon, authenticated;
+revoke execute on function vigie_photo_url_valide(text) from public, anon, authenticated;
 
 grant execute on function creer_signalement(report_type, double precision, double precision, text, text, text, text, text) to anon, authenticated;
 grant execute on function voter_signalement(uuid, text, text) to anon, authenticated;
@@ -1989,10 +2031,10 @@ set public = true,
     file_size_limit = excluded.file_size_limit,
     allowed_mime_types = excluded.allowed_mime_types;
 
+-- Pas de règle de lecture : le dossier étant public, les liens des photos
+-- marchent sans elle. Une règle de lecture permettrait en plus de LISTER
+-- tous les fichiers (y compris les photos masquées par la modération).
 drop policy if exists "photos lecture publique" on storage.objects;
-create policy "photos lecture publique"
-  on storage.objects for select
-  using (bucket_id = 'report-photos');
 
 drop policy if exists "photos upload anonyme" on storage.objects;
 create policy "photos upload anonyme"

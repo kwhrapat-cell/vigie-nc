@@ -3,14 +3,14 @@
 
 export const LEGAL = {
   editeur: "Tramea Solutions",
-  porteur: "Patrice K.",
+  porteur: "Patrice Kouwahara",
   contact: "tramea.solutions@gmail.com",
   // Numéro RIDET : à remplir une fois l'immatriculation faite
   // (ex. "1 234 567.001"). Tant qu'il est vide, la ligne n'est pas affichée.
   ridet: "",
   lieu: "Nouvelle-Calédonie",
   // À changer à chaque modification des textes légaux.
-  miseAJour: "15 octobre 2026",
+  miseAJour: "18 octobre 2026",
   hebergeur: {
     nom: "Vercel Inc.",
     adresse: "440 N Barranca Avenue #4133, Covina, CA 91723, États-Unis",

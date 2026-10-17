@@ -235,6 +235,7 @@ export function CarteLive() {
         <ReportDetail
           key={selectedReport.id}
           report={selectedReport}
+          userPosition={position}
           onClose={closeDetail}
           onUpdated={(patch) => {
             patchReport(selectedReport.id, patch);

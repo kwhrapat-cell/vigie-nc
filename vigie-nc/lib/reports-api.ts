@@ -245,8 +245,16 @@ export async function relayReport(input: {
   return { id: result.id, resultat: result.resultat };
 }
 
-/** « Toujours là » (present) ou « C'est terminé » (termine). */
-export async function voteOnReport(reportId: string, vote: Vote): Promise<VoteOutcome> {
+/**
+ * « Toujours là » (present) ou « C'est terminé » (termine). `position` =
+ * position actuelle du téléphone (l'écran ne propose le vote qu'à moins de
+ * 5 km ; le serveur le vérifiera aussi avec l'identité anonyme).
+ */
+export async function voteOnReport(
+  reportId: string,
+  vote: Vote,
+  position?: LatLng | null,
+): Promise<VoteOutcome> {
   const deviceId = getDeviceId();
 
   let raw: {

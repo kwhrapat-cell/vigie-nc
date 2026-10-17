@@ -3,9 +3,17 @@
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { errorMessage, flagReport, FlagResult, voteOnReport, VoteResult } from "@/lib/reports-api";
-import { formatAge, formatDistance, formatDuration } from "@/lib/geo";
+import { distanceM, formatAge, formatDistance, formatDuration, LatLng } from "@/lib/geo";
 import { getReliability, RELIABILITY_HEX } from "@/lib/reliability";
-import { FlagReason, FLAG_REASON_LABELS, RELAY_SOURCE_LABELS, Report, RISK_LABELS, Vote } from "@/lib/types";
+import {
+  FlagReason,
+  FLAG_REASON_LABELS,
+  MAX_WITNESS_DISTANCE_M,
+  RELAY_SOURCE_LABELS,
+  Report,
+  RISK_LABELS,
+  Vote,
+} from "@/lib/types";
 import { ReliabilityBadge, TypeTile } from "./ui";
 
 const FLAG_MESSAGES: Record<FlagResult, string> = {
@@ -40,11 +48,14 @@ function Row({ icon, children }: { icon: ReactNode; children: ReactNode }) {
 /** Fiche d'un signalement (maquette « Détail d'un signalement »). */
 export function ReportDetail({
   report,
+  userPosition,
   onClose,
   onUpdated,
   onRemoved,
 }: {
   report: Report;
+  /** Position actuelle du téléphone : seuls les témoins (< 5 km) votent. */
+  userPosition: LatLng | null;
   onClose: () => void;
   onUpdated: (patch: Partial<Report>) => void;
   onRemoved: () => void;
@@ -79,6 +90,8 @@ export function ReportDetail({
   const rel = getReliability(report);
   const dist = formatDistance(report.distanceM);
   const minutesLeft = (new Date(report.expiresAt).getTime() - Date.now()) / 60_000;
+  const myDistanceM = userPosition ? distanceM(userPosition, report) : null;
+  const isWitness = myDistanceM !== null && myDistanceM <= MAX_WITNESS_DISTANCE_M;
 
   async function vote(v: Vote) {
     if (busy) return;
@@ -86,7 +99,7 @@ export function ReportDetail({
     setError(null);
     setMessage(null);
     try {
-      const out = await voteOnReport(report.id, v);
+      const out = await voteOnReport(report.id, v, userPosition);
       setMessage(RESULT_MESSAGES[out.resultat]);
       if (out.resolu) {
         setTimeout(onRemoved, 1400);
@@ -211,7 +224,9 @@ export function ReportDetail({
               alt={`Photo du signalement : ${report.label}`}
               className="w-full max-h-60 object-cover rounded-xl border border-line"
             />
-            <figcaption className="mt-1 text-[10px] text-mist-dim opacity-70">Visages floutés automatiquement</figcaption>
+            <figcaption className="mt-1 text-[10px] text-mist-dim opacity-70">
+              Floutage automatique des visages détectés (il peut en manquer : signale-le ci-dessous)
+            </figcaption>
           </figure>
         )}
 
@@ -291,7 +306,15 @@ export function ReportDetail({
           </div>
         )}
 
-        {active && !report.isMine && !isSos && (
+        {active && !report.isMine && !isSos && !isWitness && (
+          <p className="mt-4 rounded-xl border border-line bg-panel-2 px-3 py-2.5 text-[11.5px] text-mist-dim leading-relaxed">
+            {myDistanceM === null
+              ? "Pour confirmer ou déclarer terminé, active ta position : seules les personnes à moins de 5 km peuvent voter."
+              : `Tu es ${formatDistance(myDistanceM)} : seules les personnes à moins de 5 km peuvent confirmer ou déclarer terminé.`}
+          </p>
+        )}
+
+        {active && !report.isMine && !isSos && isWitness && (
           <div className="mt-4">
             <p className="text-[11.5px] text-mist-dim mb-2">Tu es sur place ?</p>
             <div className="grid grid-cols-2 gap-2.5">

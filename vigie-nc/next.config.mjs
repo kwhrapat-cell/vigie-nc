@@ -1,3 +1,45 @@
+// En-têtes de sécurité. La politique d'images (CSP img-src) n'autorise que
+// l'appli, les photos de NOTRE projet Supabase et les fonds de carte : une
+// image posée par quelqu'un sur son propre serveur ne s'affiche pas (elle
+// pourrait servir à relever l'adresse IP de chaque personne qui ouvre une
+// fiche). À compléter si un nouveau fond de carte est ajouté.
+const supabaseHost = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").host;
+  } catch {
+    return "";
+  }
+})();
+
+const imageSources = [
+  "'self'",
+  "data:",
+  "blob:",
+  supabaseHost && `https://${supabaseHost}`,
+  "https://tile.openstreetmap.org",
+  "https://server.arcgisonline.com",
+  "https://api.maptiler.com",
+]
+  .filter(Boolean)
+  .join(" ");
+
+const securityHeaders = [
+  {
+    key: "Content-Security-Policy",
+    value: [
+      `img-src ${imageSources}`,
+      "frame-ancestors 'none'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join("; "),
+  },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(self), geolocation=(self), microphone=(), payment=(), usb=()" },
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -20,6 +62,7 @@ const nextConfig = {
   // une nouvelle version doit être prise en compte tout de suite.
   async headers() {
     return [
+      { source: "/:path*", headers: securityHeaders },
       {
         source: "/sw.js",
         headers: [

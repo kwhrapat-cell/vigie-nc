@@ -16,6 +16,7 @@ import {
   uploadReportPhoto,
 } from "@/lib/reports-api";
 import {
+  MAX_WITNESS_DISTANCE_M,
   ReportType,
   REPORT_TYPE_HEX,
   REPORT_TYPE_LABELS,
@@ -31,7 +32,7 @@ const STEP_NAMES: Record<1 | 2 | 3, string> = { 1: "Type", 2: "Localisation", 3:
 
 // On peut décaler le repère, mais pas signaler à l'autre bout de l'île :
 // le signalement doit venir de quelqu'un qui est (ou vient d'être) sur place.
-const MAX_PIN_DISTANCE_M = 5000;
+const MAX_PIN_DISTANCE_M = MAX_WITNESS_DISTANCE_M;
 const POOR_ACCURACY_M = 300;
 const DESCRIPTION_MAX = 200;
 const RISK_COLORS: Record<RiskLevel, string> = { faible: "#2BB673", moyen: "#F0912E", eleve: "#E5484D" };
