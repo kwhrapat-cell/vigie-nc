@@ -1,0 +1,65 @@
+# Vérification automatique à chaque pull request (et sur main) :
+#   1. l'appli se construit (types TypeScript + build Next.js) ;
+#   2. supabase/schema.sql passe deux fois de suite sur un Postgres + PostGIS
+#      (il doit rester ré-exécutable), puis supabase/tests/essais.sql.
+# Tout tourne chez GitHub : rien à installer, résultat visible sur la PR.
+name: Vérification
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  appli:
+    name: Build de l'appli
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vigie-nc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Dépendances
+        run: if [ -f package-lock.json ]; then npm ci; else npm install; fi
+      - name: Types TypeScript
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://exemple.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: cle-de-test
+
+  base:
+    name: Schéma SQL et essais
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+      PGOPTIONS: -c search_path=public,extensions
+    steps:
+      - uses: actions/checkout@v4
+      - name: Faux Supabase (rôles, auth, storage)
+        run: psql -v ON_ERROR_STOP=1 -f vigie-nc/supabase/tests/shim-supabase.sql
+      - name: Schéma (1er passage)
+        run: psql -v ON_ERROR_STOP=1 -1 -f vigie-nc/supabase/schema.sql
+      - name: Schéma (2e passage, ré-exécutable)
+        run: psql -v ON_ERROR_STOP=1 -1 -f vigie-nc/supabase/schema.sql
+      - name: Essais
+        run: psql -v ON_ERROR_STOP=1 -1 -f vigie-nc/supabase/tests/essais.sql

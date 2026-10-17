@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
 import { clusterByDistance } from "@/lib/cluster";
 import { distanceM, LatLng } from "@/lib/geo";
-import { MAP_STYLES, NC_BOUNDS } from "@/lib/map-styles";
+import { BACKUP_PLAN_LAYER, MAP_STYLES, NC_BOUNDS } from "@/lib/map-styles";
 import type { MapStyle } from "@/lib/preferences";
 import { getReliability } from "@/lib/reliability";
 import {
@@ -160,10 +160,27 @@ export function LiveMap({
     const map = mapRef.current;
     if (!ready || !L || !map) return;
     tilesRef.current.forEach((t) => t.remove());
-    tilesRef.current = MAP_STYLES[mapStyle].layers.map((spec) =>
-      L.tileLayer(spec.url, spec.options).addTo(map),
-    );
+    const layers = MAP_STYLES[mapStyle].layers.map((spec) => L.tileLayer(spec.url, spec.options).addTo(map));
+    tilesRef.current = layers;
     containerRef.current?.setAttribute("data-fond", mapStyle);
+
+    // Plan de secours : si les tuiles du plan n'arrivent plus alors que le
+    // téléphone a du réseau (serveur bloqué ou saturé), on bascule.
+    const main = layers[0];
+    if (mapStyle !== "satellite" && main) {
+      let errors: number[] = [];
+      main.on("tileerror", () => {
+        if (typeof navigator !== "undefined" && !navigator.onLine) return;
+        const now = Date.now();
+        errors = errors.filter((t) => now - t < 20_000);
+        errors.push(now);
+        if (errors.length >= 8 && tilesRef.current.includes(main)) {
+          main.remove();
+          const backup = L.tileLayer(BACKUP_PLAN_LAYER.url, BACKUP_PLAN_LAYER.options).addTo(map);
+          tilesRef.current = tilesRef.current.map((t) => (t === main ? backup : t));
+        }
+      });
+    }
   }, [ready, mapStyle]);
 
   // 3. Marqueurs : signalements seuls ou pastilles chiffrées

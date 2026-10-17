@@ -102,6 +102,10 @@ export default function ConfidentialitePage() {
           <li>Tes contacts d&apos;urgence (SOS) : jamais envoyés à Vigie NC.</li>
           <li>Tes réglages (rayon, fond de carte) et le texte collé pour relayer une info.</li>
           <li>
+            Les derniers signalements affichés et quelques morceaux de carte, pour pouvoir les revoir sans réseau
+            (ce sont des informations publiques).
+          </li>
+          <li>
             Sur iPhone, l&apos;appli ajoutée à l&apos;écran d&apos;accueil garde ses propres réglages et contacts, à
             part de ceux de Safari.
           </li>
@@ -145,8 +149,11 @@ export default function ConfidentialitePage() {
 
       <LegalSection title="Services extérieurs utilisés par l'appli">
         <LegalList>
-          <li>OpenStreetMap : fonds de carte, et nom du lieu à partir de la position du repère.</li>
-          <li>Esri : fond de carte satellite, si tu le choisis.</li>
+          <li>
+            OpenStreetMap (ou MapTiler) : fonds de carte, et nom du lieu à partir de la position du repère
+            (OpenStreetMap).
+          </li>
+          <li>Esri : fond de carte satellite si tu le choisis, et plan de secours si le plan habituel ne répond plus.</li>
           <li>Météo-France Nouvelle-Calédonie : vignette de vigilance sur l&apos;écran Alertes.</li>
           <li>
             jsDelivr et Google : téléchargement de l&apos;outil de floutage des visages, la première fois que tu
