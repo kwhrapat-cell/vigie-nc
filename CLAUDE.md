@@ -95,6 +95,10 @@ vigie-nc/
 
 ## Conventions
 
+- Versions figées par `vigie-nc/package-lock.json` (Next.js 16, React 19) :
+  toute nouvelle dépendance passe par `npm install` et le fichier mis à
+  jour est commité avec elle.
+
 - Textes de l'interface et commentaires **en français**, tutoiement.
 - Mobile d'abord (largeur 380 px), cibles tactiles ≥ 44 px.
 - Couleurs : jetons Tailwind (`void`, `panel`, `panel-2`, `line`, `primary`,
