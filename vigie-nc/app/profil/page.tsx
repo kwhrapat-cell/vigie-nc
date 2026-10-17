@@ -115,7 +115,10 @@ export default function ProfilPage() {
         <ul className="flex flex-col gap-1.5 text-[11.5px] text-mist-dim leading-relaxed list-disc pl-4">
           <li>Pas de compte, pas de nom : les signalements sont anonymes.</li>
           <li>Ta position sert à chercher les signalements autour de toi, sans être enregistrée. Seule celle d&apos;un signalement que tu publies est gardée.</li>
-          <li>Les visages sont floutés et la position cachée dans les photos est retirée avant l&apos;envoi.</li>
+          <li>
+            Les visages détectés sont floutés et la position cachée dans les photos est retirée avant l&apos;envoi ;
+            les photos sont effacées après 7 jours.
+          </li>
           <li>L&apos;identifiant de ton téléphone n&apos;est jamais public : la base n&apos;en garde qu&apos;une empreinte.</li>
           <li>Aucune exploitation commerciale des données.</li>
         </ul>

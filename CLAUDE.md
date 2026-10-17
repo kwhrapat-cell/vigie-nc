@@ -115,6 +115,12 @@ vigie-nc/
   (`vigie_distance_temoin_m()` = `MAX_WITNESS_DISTANCE_M`) ; un danger
   (`vigie_est_danger()` = `ALERT_TYPES`) ne se clôt qu'avec 2 « terminé » et
   la majorité ; un signalement vérifié ne se clôt que par la modération.
+- Photos effacées après `vigie_photos_jours()` jours (7 ; clé
+  `photos_jours` de `vigie_config` pour allonger en épisode cyclonique,
+  90 max) par la fonction Supabase `supabase/functions/purge-photos`
+  (clé serveur fournie par Supabase, appelée chaque nuit par pg_cron avec
+  le secret `notif_secret`). La base interdit d'effacer un fichier en SQL.
+  `supabase/functions` est exclu de `tsconfig.json` (code Deno).
 - Anti-abus : 1 signalement/minute et 20/jour par session
   (`vigie_limite_signalements`), 5 photos/heure (`vigie_photos_recentes`,
   règle de dépôt du dossier `report-photos`).

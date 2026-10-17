@@ -7,8 +7,14 @@ import { FilesetResolver, FaceDetector } from "@mediapipe/tasks-vision";
 // connexion internet la première fois (puis mis en cache par le navigateur).
 // La version du runtime WASM est figée sur celle du paquet npm.
 const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
+// Modèle « courte distance » : prévu pour les selfies (visages proches).
 const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite";
+// Modèle « longue distance », prévu pour la caméra arrière : sur une photo
+// de route, les visages sont souvent loin. Utilisé EN PLUS du premier
+// quand il se charge ; s'il manque, on garde le premier seul.
+const FULL_RANGE_MODEL_URL =
+  "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_full_range/float16/latest/blaze_face_full_range.tflite";
 
 // Taille maximale de la photo envoyée (plus grand côté) : largement assez
 // pour voir une route inondée, et ~300 Ko au lieu de 3 à 5 Mo — compte pour
@@ -16,23 +22,33 @@ const MODEL_URL =
 const MAX_SIDE_PX = 1600;
 const JPEG_QUALITY = 0.82;
 
-let detectorPromise: Promise<FaceDetector> | null = null;
+let detectorsPromise: Promise<FaceDetector[]> | null = null;
 
-function getDetector(): Promise<FaceDetector> {
-  if (!detectorPromise) {
-    detectorPromise = (async () => {
+function getDetectors(): Promise<FaceDetector[]> {
+  if (!detectorsPromise) {
+    detectorsPromise = (async () => {
       const vision = await FilesetResolver.forVisionTasks(WASM_URL);
-      return FaceDetector.createFromOptions(vision, {
-        baseOptions: { modelAssetPath: MODEL_URL },
-        runningMode: "IMAGE",
-      });
+      const create = (modelAssetPath: string) =>
+        FaceDetector.createFromOptions(vision, {
+          baseOptions: { modelAssetPath },
+          runningMode: "IMAGE",
+          minDetectionConfidence: 0.4,
+        });
+      // Le modèle courte distance est obligatoire (sinon : erreur, photo
+      // bloquée) ; le longue distance est un plus.
+      const [shortRange, fullRange] = await Promise.allSettled([
+        create(MODEL_URL),
+        create(FULL_RANGE_MODEL_URL),
+      ]);
+      if (shortRange.status === "rejected") throw shortRange.reason;
+      return fullRange.status === "fulfilled" ? [shortRange.value, fullRange.value] : [shortRange.value];
     })();
     // En cas d'échec (pas de réseau), on permet de réessayer plus tard.
-    detectorPromise.catch(() => {
-      detectorPromise = null;
+    detectorsPromise.catch(() => {
+      detectorsPromise = null;
     });
   }
-  return detectorPromise;
+  return detectorsPromise;
 }
 
 function pixelateRegion(
@@ -75,7 +91,7 @@ export interface PreparedPhoto {
  * mieux vaut bloquer la photo que risquer d'envoyer un visage non traité.
  */
 export async function preparePhoto(file: File): Promise<PreparedPhoto> {
-  const detector = await getDetector();
+  const detectors = await getDetectors();
 
   const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
   const ratio = Math.min(1, MAX_SIDE_PX / Math.max(bitmap.width, bitmap.height));
@@ -87,21 +103,40 @@ export async function preparePhoto(file: File): Promise<PreparedPhoto> {
   ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
 
-  const result = detector.detect(canvas);
-  let facesBlurred = 0;
+  // Visages trouvés par l'un OU l'autre modèle, tous détectés avant de
+  // flouter. Si le modèle principal échoue, l'erreur remonte (photo
+  // bloquée) ; le modèle longue distance, lui, est un plus.
+  const [main, ...extra] = detectors;
+  const detections = [
+    ...(main.detect(canvas).detections ?? []),
+    ...extra.flatMap((d) => {
+      try {
+        return d.detect(canvas).detections ?? [];
+      } catch {
+        return [];
+      }
+    }),
+  ];
 
-  for (const detection of result.detections ?? []) {
+  // Un même visage vu par les deux modèles ne compte qu'une fois.
+  const zones: { x: number; y: number; w: number; h: number }[] = [];
+  for (const detection of detections) {
     const box = detection.boundingBox;
     if (!box) continue;
     // Marge autour du visage détecté pour couvrir cheveux/oreilles/menton.
     const pad = Math.max(box.width, box.height) * 0.35;
-    const bx = Math.max(0, box.originX - pad);
-    const by = Math.max(0, box.originY - pad);
-    const bw = Math.min(canvas.width - bx, box.width + pad * 2);
-    const bh = Math.min(canvas.height - by, box.height + pad * 2);
-    pixelateRegion(ctx, canvas, bx, by, bw, bh);
-    facesBlurred++;
+    const x = Math.max(0, box.originX - pad);
+    const y = Math.max(0, box.originY - pad);
+    const w = Math.min(canvas.width - x, box.width + pad * 2);
+    const h = Math.min(canvas.height - y, box.height + pad * 2);
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const known = zones.some((z) => cx >= z.x && cx <= z.x + z.w && cy >= z.y && cy <= z.y + z.h);
+    if (!known) zones.push({ x, y, w, h });
+    else pixelateRegion(ctx, canvas, x, y, w, h); // flouté quand même, compté une fois
   }
+  for (const z of zones) pixelateRegion(ctx, canvas, z.x, z.y, z.w, z.h);
+  const facesBlurred = zones.length;
 
   const blob = await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(
