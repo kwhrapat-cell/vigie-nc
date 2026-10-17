@@ -418,6 +418,14 @@ export function AlertSettings() {
         />
         <Note>Il apparaît dans la notification. Écris un lieu, jamais le nom d&apos;une personne.</Note>
 
+        {!zone && (
+          <Note>
+            <strong className="font-semibold text-warn">Un seul endroit par téléphone :</strong> dans l&apos;appli
+            installée si tu l&apos;as, sinon dans le navigateur. Activées aux deux endroits, chaque alerte arrive deux
+            fois.
+          </Note>
+        )}
+
         <div className="mt-3 flex flex-col gap-2">
           <PrimaryButton onClick={save} disabled={busy || !pin}>
             {busy ? "Un instant…" : zone ? "Enregistrer" : "Activer les alertes"}
