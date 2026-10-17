@@ -1984,6 +1984,22 @@ as $$
   limit least(greatest(coalesce(p_limite, 1000), 1), 1000);
 $$;
 
+-- RPC : état de santé (route /api/sante, appelée par un moniteur). Ne
+-- renvoie que le nombre de signalements actifs, déjà visible sur la carte.
+create or replace function vigie_sante()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'ok', true,
+    'actifs', (select count(*) from reports
+               where resolved_at is null and expires_at > now() and type::text <> 'sos')
+  );
+$$;
+
 -- Retire les liens des photos effacées (signalements et contenus masqués)
 create or replace function photos_supprimees(p_noms text[])
 returns int
@@ -2137,6 +2153,7 @@ revoke execute on function vigie_photos_recentes() from public, anon;
 grant execute on function vigie_photos_recentes() to authenticated;
 
 grant execute on function statistiques_zone(double precision, double precision, integer) to anon, authenticated;
+grant execute on function vigie_sante() to anon, authenticated;
 -- Lectures : ouvertes à tous (la carte est publique).
 grant execute on function signalements_proches_v3(double precision, double precision, integer) to anon, authenticated;
 grant execute on function signalement_detail_v3(uuid) to anon, authenticated;

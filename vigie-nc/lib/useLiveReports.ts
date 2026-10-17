@@ -24,6 +24,39 @@ const MAX_JITTER_MS = 1_500;
 
 export type LiveStatus = "loading" | "ready" | "error";
 
+// Dernière carte reçue, gardée sur le téléphone : sans réseau (cyclone,
+// réseau saturé), on l'affiche avec son heure plutôt qu'un écran vide.
+// Ce sont des informations publiques ; rien n'est envoyé ailleurs.
+const CACHE_KEY = "vigie-nc:derniere-carte";
+const CACHE_MAX_AGE_MS = 12 * 3_600_000;
+
+interface CachedMap {
+  savedAt: number;
+  reports: Report[];
+}
+
+function saveCache(reports: Report[]): void {
+  try {
+    const value: CachedMap = { savedAt: Date.now(), reports };
+    window.localStorage.setItem(CACHE_KEY, JSON.stringify(value));
+  } catch {
+    // stockage plein ou indisponible : sans conséquence
+  }
+}
+
+function readCache(): CachedMap | null {
+  try {
+    const raw = window.localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const value = JSON.parse(raw) as CachedMap;
+    if (!value || !Array.isArray(value.reports) || Date.now() - value.savedAt > CACHE_MAX_AGE_MS) return null;
+    const now = Date.now();
+    return { savedAt: value.savedAt, reports: value.reports.filter((r) => new Date(r.expiresAt).getTime() > now) };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Signalements actifs autour de `center`, tenus à jour en direct
  * (Supabase Realtime) sans recharger la page.
@@ -34,6 +67,7 @@ export function useLiveReports(center: LatLng | null, radiusM: number) {
   const [error, setError] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const requestId = useRef(0);
+  const hasLiveData = useRef(false);
 
   const refresh = useCallback(async () => {
     const id = ++requestId.current;
@@ -44,8 +78,19 @@ export function useLiveReports(center: LatLng | null, radiusM: number) {
       setStatus("ready");
       setError(null);
       setUpdatedAt(new Date());
+      hasLiveData.current = true;
+      saveCache(data);
     } catch (e) {
       if (id !== requestId.current) return;
+      const cached = hasLiveData.current ? null : readCache();
+      if (cached) {
+        // Pas encore de données en direct : on montre la dernière carte connue.
+        setReports(cached.reports);
+        setUpdatedAt(new Date(cached.savedAt));
+        setStatus("ready");
+        setError("Pas de réseau : voici les derniers signalements connus, peut-être dépassés.");
+        return;
+      }
       setError(errorMessage(e, "Impossible de charger les signalements — vérifie ta connexion."));
       setStatus((s) => (s === "loading" ? "error" : s));
     }
