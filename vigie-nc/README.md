@@ -6,7 +6,7 @@ travaux, météo…), avec une mémoire de ce qui revient trop souvent.
 
 ## Stack
 
-- Next.js 14 (App Router) + TypeScript + Tailwind CSS
+- Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS
 - Leaflet — fonds de carte OpenStreetMap (Plan, Nuit) et Esri (Satellite),
   sans clé ; tout est dans `lib/map-styles.ts`. Les fonds CARTO exigent
   désormais une clé payante (« KEY REQUIRED ») : ne pas les réutiliser.
