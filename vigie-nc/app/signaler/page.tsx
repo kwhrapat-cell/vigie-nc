@@ -397,7 +397,8 @@ export default function SignalerPage() {
             )}
             {!photoPreview && (
               <p className="mt-1.5 text-[10.5px] text-mist-dim opacity-80">
-                Les visages sont floutés et la position GPS cachée dans la photo est retirée, sur ton téléphone, avant l&apos;envoi.
+                Photographie la route, pas les gens. Les visages détectés sont floutés et la position GPS cachée dans
+                la photo est retirée, sur ton téléphone, avant l&apos;envoi. Photo effacée après 7 jours.
               </p>
             )}
           </div>

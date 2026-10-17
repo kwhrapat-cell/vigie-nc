@@ -12,7 +12,10 @@ export default function ConfidentialitePage() {
       intro={
         <LegalList>
           <li>Pas de compte, pas de nom : personne ne sait qui a signalé quoi.</li>
-          <li>Visages floutés et position cachée des photos retirée, sur ton téléphone, avant l&apos;envoi.</li>
+          <li>
+            Visages détectés floutés et position cachée des photos retirée, sur ton téléphone, avant l&apos;envoi.
+            Photos effacées après 7 jours.
+          </li>
           <li>Aucune publicité, aucune revente, aucune exploitation commerciale des données.</li>
         </LegalList>
       }
@@ -27,7 +30,11 @@ export default function ConfidentialitePage() {
       <LegalSection title="Ce qui est publié quand tu signales">
         <LegalList>
           <li>Le type d&apos;événement, la position du repère, le nom du lieu et l&apos;heure.</li>
-          <li>Si tu les ajoutes : la description, le niveau de risque et la photo (visages floutés, sans métadonnées).</li>
+          <li>
+            Si tu les ajoutes : la description, le niveau de risque et la photo (visages détectés floutés, sans
+            métadonnées). Le floutage automatique peut manquer un visage lointain : photographie la route, pas les
+            gens.
+          </li>
           <li>
             Pour une info relayée (Facebook, radio, SMS) : seulement le type, le lieu, l&apos;heure et la provenance.
             Le texte que tu colles reste sur ton téléphone.
@@ -118,8 +125,12 @@ export default function ConfidentialitePage() {
           </li>
           <li>Ton lieu d&apos;alerte : jusqu&apos;à ce que tu désactives les alertes.</li>
           <li>
-            Une photo ou un texte masqué par la modération n&apos;est plus affiché. Il est gardé à part 90 jours au
-            plus, au cas où le masquage serait une erreur.
+            Les photos sont effacées 7 jours après leur envoi. Pendant un épisode cyclonique, ce délai peut être
+            allongé (90 jours au plus) pour suivre l&apos;évolution des zones touchées.
+          </li>
+          <li>
+            Une photo ou un texte masqué par la modération n&apos;est plus affiché. Le texte est gardé à part 90 jours
+            au plus, au cas où le masquage serait une erreur ; la photo est effacée comme les autres.
           </li>
         </LegalList>
       </LegalSection>

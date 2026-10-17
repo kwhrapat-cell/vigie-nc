@@ -1943,6 +1943,74 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------
+-- Photos : effacées après 7 jours (réglable)
+--   Une photo sert à voir l'état de la route sur le moment : elle n'a pas
+--   à rester des mois. Chaque nuit, la fonction Supabase « purge-photos »
+--   (supabase/functions/purge-photos) efface les fichiers plus anciens que
+--   vigie_photos_jours() jours (masqués par la modération compris), puis
+--   retire leurs liens. Pendant un épisode cyclonique, on peut allonger la
+--   durée (éditeur SQL) :
+--     insert into vigie_config (cle, valeur) values ('photos_jours', '30')
+--     on conflict (cle) do update set valeur = excluded.valeur;
+--   et revenir à 7 jours ensuite :
+--     delete from vigie_config where cle = 'photos_jours';
+-- ---------------------------------------------------------------------
+create or replace function vigie_photos_jours()
+returns int
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select least(greatest(coalesce(
+    (select case when valeur ~ '^[0-9]{1,3}$' then valeur::int end
+     from vigie_config where cle = 'photos_jours'),
+    7), 1), 90);
+$$;
+
+-- Fichiers à effacer (appelée par la fonction purge-photos, clé serveur)
+create or replace function photos_a_supprimer(p_limite int default 1000)
+returns setof text
+language sql
+stable
+security definer
+set search_path = public, storage
+as $$
+  select o.name
+  from storage.objects o
+  where o.bucket_id = 'report-photos'
+    and o.created_at < now() - make_interval(days => vigie_photos_jours())
+  order by o.created_at
+  limit least(greatest(coalesce(p_limite, 1000), 1), 1000);
+$$;
+
+-- Retire les liens des photos effacées (signalements et contenus masqués)
+create or replace function photos_supprimees(p_noms text[])
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_host text;
+  v_prefixe text;
+  v_urls text[];
+  v_nb int := 0;
+begin
+  select valeur into v_host from vigie_config where cle = 'photo_host';
+  if v_host is null or p_noms is null or cardinality(p_noms) = 0 then
+    return 0;
+  end if;
+  v_prefixe := 'https://' || v_host || '/storage/v1/object/public/report-photos/';
+  select array_agg(v_prefixe || n) into v_urls from unnest(p_noms) as n;
+  update reports set photo_url = null where photo_url = any(v_urls);
+  get diagnostics v_nb = row_count;
+  update report_contenu_masque set photo_url = null where photo_url = any(v_urls);
+  return v_nb;
+end;
+$$;
+
+-- ---------------------------------------------------------------------
 -- Vue agrégée par zone nommée (Sprint 1 — remplacée par statistiques_zone,
 -- conservée pour d'éventuelles zones officielles plus tard)
 -- ---------------------------------------------------------------------
@@ -2059,6 +2127,11 @@ revoke execute on function vigie_alarme_moderateurs() from public, anon, authent
 revoke execute on function vigie_photo_url_valide(text) from public, anon, authenticated;
 revoke execute on function vigie_cle_session() from public, anon, authenticated;
 revoke execute on function vigie_emettre_signal() from public, anon, authenticated;
+revoke execute on function vigie_photos_jours() from public, anon, authenticated;
+revoke execute on function photos_a_supprimer(int) from public, anon, authenticated;
+revoke execute on function photos_supprimees(text[]) from public, anon, authenticated;
+grant execute on function photos_a_supprimer(int) to service_role;
+grant execute on function photos_supprimees(text[]) to service_role;
 revoke execute on function vigie_limite_signalements(text) from public, anon, authenticated;
 revoke execute on function vigie_photos_recentes() from public, anon;
 grant execute on function vigie_photos_recentes() to authenticated;
@@ -2156,6 +2229,8 @@ end $$;
 -- pg_cron, activé ici s'il est disponible (c'est le cas sur Supabase).
 -- Sinon : Integrations > Cron dans Supabase, ou lancer à la main
 --   select vigie_purger_donnees_appareil();
+-- Photos (3 h 30 à Nouméa) : appel de la fonction Supabase purge-photos,
+-- avec le même secret que les alertes (vigie_config 'notif_secret').
 -- (cron.schedule remplace la tâche du même nom : ré-exécutable.)
 -- ---------------------------------------------------------------------
 do $$
@@ -2166,6 +2241,20 @@ begin
       'vigie-purge-donnees-appareil',
       '15 16 * * *',
       'select public.vigie_purger_donnees_appareil()'
+    );
+    perform cron.schedule(
+      'vigie-purge-photos',
+      '30 16 * * *',
+      $cmd$select net.http_post(
+        url := 'https://' || (select valeur from public.vigie_config where cle = 'photo_host')
+               || '/functions/v1/purge-photos',
+        body := '{}'::jsonb,
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'x-vigie-secret', (select valeur from public.vigie_config where cle = 'notif_secret')
+        ),
+        timeout_milliseconds := 60000
+      )$cmd$
     );
   else
     raise notice 'pg_cron indisponible : purge automatique non programmée.';
