@@ -1,18 +1,20 @@
 "use client";
 
 // Point d'accès unique aux signalements. Avec Supabase configuré, tout
-// passe par les fonctions SQL (RPC) de supabase/schema.sql ; sinon, par le
-// mode démo en mémoire (lib/demo-store.ts).
+// passe par les fonctions SQL (RPC) de supabase/schema.sql, avec la
+// session anonyme du téléphone (lib/session.ts) ; sinon, par le mode démo
+// en mémoire (lib/demo-store.ts).
 
 import { supabase } from "./supabase";
 import { getDeviceId } from "./device-id";
+import { ensureSession } from "./session";
 import { demoCreate, demoDetail, demoFlag, demoNearby, demoRelay, demoStats, demoVote } from "./demo-store";
 import { LatLng } from "./geo";
 import { FlagReason, RelaySource, Report, ReportType, REPORT_TYPE_LABELS, RiskLevel, Vote } from "./types";
 
 export type CreateResult = "cree" | "fusionne" | "deja_signale";
 export type RelayResult = "relaye" | "existe_deja";
-export type VoteResult = "confirme" | "en_baisse" | "resolu" | "deja_vote";
+export type VoteResult = "confirme" | "en_baisse" | "conteste" | "verifie" | "resolu" | "deja_vote";
 export type FlagResult = "enregistre" | "deja_signale" | "masque";
 
 export interface VoteOutcome {
@@ -41,6 +43,13 @@ export interface ZoneStats {
 const ERROR_MESSAGES: Record<string, string> = {
   rate_limit:
     "Un signalement vient d'être envoyé depuis ce téléphone — patiente une minute avant le suivant.",
+  rate_limit_jour:
+    "Beaucoup de signalements depuis ce téléphone aujourd'hui : réessaie demain ou écris-nous.",
+  connexion_requise:
+    "Ce téléphone n'a pas pu être vérifié pour l'instant — vérifie ta connexion, puis réessaie.",
+  position_requise:
+    "Active ta position : seules les personnes à moins de 5 km peuvent confirmer ou déclarer terminé.",
+  trop_loin: "Tu es à plus de 5 km : seules les personnes sur place peuvent confirmer ou déclarer terminé.",
   position_hors_nc:
     "Cette position semble hors de Nouvelle-Calédonie : le signalement n'a pas été envoyé.",
   propre_signalement:
@@ -73,10 +82,24 @@ export class ReportsApiError extends Error {
   }
 }
 
+// Les codes les plus longs d'abord : « rate_limit_jour » ne doit pas être
+// lu comme « rate_limit ».
+const KNOWN_CODES = Object.keys(ERROR_MESSAGES).sort((a, b) => b.length - a.length);
+
 function codeFromMessage(message: string | undefined): string {
   if (!message) return "inconnu";
-  const known = Object.keys(ERROR_MESSAGES).find((k) => message.includes(k));
+  const known = KNOWN_CODES.find((k) => message.includes(k));
   return known ?? "inconnu";
+}
+
+/** Session anonyme obligatoire pour écrire (signaler, voter, photo…). */
+async function requireSession(): Promise<void> {
+  try {
+    if (await ensureSession()) return;
+  } catch {
+    // message lisible ci-dessous
+  }
+  throw new ReportsApiError("connexion_requise");
 }
 
 /** Message lisible pour l'utilisateur à partir de n'importe quelle erreur. */
@@ -140,14 +163,12 @@ export function mapRow(row: ReportRow): Report {
 
 /** Signalements actifs dans le rayon (ou partout si `center` est nul). */
 export async function fetchNearby(center: LatLng | null, radiusM: number): Promise<Report[]> {
-  const deviceId = getDeviceId();
-  if (!supabase) return demoNearby(center, radiusM, deviceId).map(mapRow);
+  if (!supabase) return demoNearby(center, radiusM, getDeviceId()).map(mapRow);
 
-  const { data, error } = await supabase.rpc("signalements_proches_v2", {
+  const { data, error } = await supabase.rpc("signalements_proches_v3", {
     p_lat: center?.lat ?? null,
     p_lng: center?.lng ?? null,
     p_rayon_m: Math.round(radiusM),
-    p_device_id: deviceId,
   });
   if (error) throw new ReportsApiError(codeFromMessage(error.message));
   return ((data ?? []) as ReportRow[]).map(mapRow);
@@ -155,15 +176,11 @@ export async function fetchNearby(center: LatLng | null, radiusM: number): Promi
 
 /** Un signalement précis (lien partagé), même terminé. */
 export async function fetchReport(id: string): Promise<Report | null> {
-  const deviceId = getDeviceId();
   if (!supabase) {
-    const row = demoDetail(id, deviceId);
+    const row = demoDetail(id, getDeviceId());
     return row ? mapRow(row) : null;
   }
-  const { data, error } = await supabase.rpc("signalement_detail_v2", {
-    p_id: id,
-    p_device_id: deviceId,
-  });
+  const { data, error } = await supabase.rpc("signalement_detail_v3", { p_id: id });
   if (error) throw new ReportsApiError(codeFromMessage(error.message));
   const rows = (data ?? []) as ReportRow[];
   return rows[0] ? mapRow(rows[0]) : null;
@@ -184,22 +201,20 @@ export interface NewReport {
  * le serveur le compte comme une confirmation (« fusionne »).
  */
 export async function createReport(input: NewReport): Promise<{ id: string; resultat: CreateResult }> {
-  const deviceId = getDeviceId();
-
   if (!supabase) {
     try {
-      const r = demoCreate({ ...input, deviceId });
+      const r = demoCreate({ ...input, deviceId: getDeviceId() });
       return { id: r.id, resultat: r.resultat as CreateResult };
     } catch (e) {
       throw new ReportsApiError(e instanceof Error ? e.message : "inconnu");
     }
   }
 
-  const { data, error } = await supabase.rpc("creer_signalement", {
+  await requireSession();
+  const { data, error } = await supabase.rpc("creer_signalement_v3", {
     p_type: input.type,
     p_lat: input.lat,
     p_lng: input.lng,
-    p_device_id: deviceId,
     p_photo_url: input.photoUrl ?? null,
     p_description: input.description ?? null,
     p_niveau_risque: input.riskLevel ?? null,
@@ -221,22 +236,20 @@ export async function relayReport(input: {
   source: RelaySource;
   place?: string | null;
 }): Promise<{ id: string; resultat: RelayResult }> {
-  const deviceId = getDeviceId();
-
   if (!supabase) {
     try {
-      const r = demoRelay({ ...input, deviceId });
+      const r = demoRelay({ ...input, deviceId: getDeviceId() });
       return { id: r.id, resultat: r.resultat as RelayResult };
     } catch (e) {
       throw new ReportsApiError(e instanceof Error ? e.message : "inconnu");
     }
   }
 
-  const { data, error } = await supabase.rpc("relayer_signalement", {
+  await requireSession();
+  const { data, error } = await supabase.rpc("relayer_signalement_v3", {
     p_type: input.type,
     p_lat: input.lat,
     p_lng: input.lng,
-    p_device_id: deviceId,
     p_source: input.source,
     p_lieu: input.place ?? null,
   });
@@ -255,8 +268,6 @@ export async function voteOnReport(
   vote: Vote,
   position?: LatLng | null,
 ): Promise<VoteOutcome> {
-  const deviceId = getDeviceId();
-
   let raw: {
     resultat: VoteResult;
     confirmations: number;
@@ -267,15 +278,17 @@ export async function voteOnReport(
 
   if (!supabase) {
     try {
-      raw = demoVote(reportId, deviceId, vote) as typeof raw;
+      raw = demoVote(reportId, getDeviceId(), vote) as typeof raw;
     } catch (e) {
       throw new ReportsApiError(e instanceof Error ? e.message : "inconnu");
     }
   } else {
-    const { data, error } = await supabase.rpc("voter_signalement", {
+    await requireSession();
+    const { data, error } = await supabase.rpc("voter_signalement_v3", {
       p_report_id: reportId,
-      p_device_id: deviceId,
       p_vote: vote,
+      p_lat: position?.lat ?? null,
+      p_lng: position?.lng ?? null,
     });
     if (error) throw new ReportsApiError(codeFromMessage(error.message));
     raw = data as typeof raw;
@@ -298,19 +311,17 @@ export async function flagReport(
   reportId: string,
   reason: FlagReason,
 ): Promise<{ resultat: FlagResult; masque: boolean }> {
-  const deviceId = getDeviceId();
-
   if (!supabase) {
     try {
-      return demoFlag(reportId, deviceId, reason) as { resultat: FlagResult; masque: boolean };
+      return demoFlag(reportId, getDeviceId(), reason) as { resultat: FlagResult; masque: boolean };
     } catch (e) {
       throw new ReportsApiError(e instanceof Error ? e.message : "inconnu");
     }
   }
 
-  const { data, error } = await supabase.rpc("signaler_contenu", {
+  await requireSession();
+  const { data, error } = await supabase.rpc("signaler_contenu_v3", {
     p_report_id: reportId,
-    p_device_id: deviceId,
     p_motif: reason,
   });
   if (error) throw new ReportsApiError(codeFromMessage(error.message));
@@ -370,6 +381,8 @@ export async function fetchZoneStats(center: LatLng | null, radiusM: number): Pr
 export async function uploadReportPhoto(file: File): Promise<string> {
   if (!supabase) return URL.createObjectURL(file);
 
+  // Dépôt réservé aux sessions (5 photos par heure au plus, voir schema.sql)
+  await requireSession();
   const path = `${crypto.randomUUID()}.jpg`;
   const { error } = await supabase.storage.from("report-photos").upload(path, file, {
     upsert: false,

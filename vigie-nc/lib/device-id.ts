@@ -1,18 +1,12 @@
 "use client";
 
-// Même clé qu'au Sprint 1 : les téléphones déjà utilisés gardent leur
-// identifiant.
+// Identifiant du téléphone pour le MODE DÉMO uniquement (rien n'est
+// enregistré, tout reste en mémoire). Avec la vraie base, l'identité vient
+// de la session anonyme Supabase (lib/session.ts), jamais d'ici.
 const STORAGE_KEY = "vigie-nc:device-hash";
 
 let memoryFallback: string | null = null;
 
-/**
- * Identifiant anonyme généré une fois par téléphone, jamais lié à une
- * identité. Il reste sur l'appareil : la base de données n'en garde
- * qu'une empreinte (voir vigie_device_key dans supabase/schema.sql), qui
- * sert à l'anti-spam, à éviter qu'on confirme son propre signalement et à
- * se souvenir de son vote.
- */
 export function getDeviceId(): string {
   if (typeof window === "undefined") return "serveur-sans-appareil";
   try {

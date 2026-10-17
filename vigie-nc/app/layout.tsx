@@ -3,6 +3,7 @@ import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import { ServiceIndisponible } from "@/components/ServiceIndisponible";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
+import { SessionInit } from "@/components/SessionInit";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 import { demoBlocked } from "@/lib/supabase";
 
@@ -52,6 +53,7 @@ export default function RootLayout({
     <html lang="fr">
       <body>
         <ServiceWorkerRegister />
+        {!demoBlocked && <SessionInit />}
         <div className="max-w-md mx-auto min-h-screen flex flex-col bg-void">
           {demoBlocked ? <ServiceIndisponible /> : children}
         </div>

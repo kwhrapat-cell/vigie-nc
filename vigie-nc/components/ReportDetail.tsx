@@ -26,6 +26,10 @@ const RESULT_MESSAGES: Record<VoteResult, string> = {
   confirme: "Merci ! Ta confirmation garde le signalement visible.",
   en_baisse:
     "Noté. Il disparaîtra d'ici 30 min si personne ne confirme qu'il est toujours là.",
+  conteste:
+    "Noté. Pour un danger, il faut l'avis d'au moins 2 personnes pour le retirer de la carte.",
+  verifie:
+    "Noté. Ce signalement est vérifié par une source officielle : seule la modération peut le retirer.",
   resolu: "Merci ! Le signalement est retiré de la carte.",
   deja_vote: "Ton avis était déjà pris en compte.",
 };

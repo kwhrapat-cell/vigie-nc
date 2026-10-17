@@ -40,23 +40,31 @@ export default function ConfidentialitePage() {
         <p>Ces informations sont publiques : tout le monde peut les voir sur la carte. Jamais qui les a envoyées.</p>
       </LegalSection>
 
-      <LegalSection title="L'identifiant de ton téléphone">
+      <LegalSection title="L'identifiant anonyme de ton téléphone">
         <p>
-          À la première utilisation, l&apos;appli crée sur ton téléphone un identifiant au hasard, sans lien avec ton
-          identité. La base n&apos;en garde qu&apos;une <strong>empreinte</strong> (impossible à retourner), dans des
-          tables que personne ne peut lire depuis l&apos;appli.
+          À la première utilisation, {LEGAL.base.nom} ouvre pour ton téléphone une <strong>session anonyme</strong> :
+          un identifiant tiré au hasard, sans nom, sans e-mail, sans numéro de téléphone. Ton navigateur le garde.
+          Les tables de Vigie NC n&apos;en gardent qu&apos;une <strong>empreinte</strong> (impossible à retourner),
+          que personne ne peut lire depuis l&apos;appli.
         </p>
         <p>
-          Elle sert uniquement à : limiter les abus (un signalement par minute), compter un seul vote par personne,
-          et reconnaître tes propres signalements pour que tu puisses les clore.
+          Elle sert uniquement à : limiter les abus (un signalement par minute et 20 par jour, 5 photos par heure),
+          compter un seul vote par personne, et reconnaître tes propres signalements pour que tu puisses les clore.
+        </p>
+        <p>
+          Comme pour toute connexion, {LEGAL.base.nom} note avec la session l&apos;adresse IP et le type de
+          navigateur, pour bloquer les ouvertures de sessions en rafale. Si la protection Cloudflare Turnstile est
+          active, Cloudflare vérifie en plus qu&apos;il s&apos;agit d&apos;une vraie personne, sans te demander qui tu
+          es.
         </p>
       </LegalSection>
 
       <LegalSection title="Ta position">
         <p>
           Pour afficher les signalements autour de toi, ta position est envoyée à la base au moment de la
-          recherche. Elle n&apos;est <strong>pas enregistrée</strong>. Seule la position d&apos;un signalement que tu
-          publies est conservée.
+          recherche. Quand tu confirmes ou déclares terminé un signalement, elle est envoyée pour vérifier que tu es à
+          moins de 5 km. Dans les deux cas, elle n&apos;est <strong>pas enregistrée</strong>. Seule la position
+          d&apos;un signalement que tu publies est conservée.
         </p>
       </LegalSection>
 
@@ -104,6 +112,10 @@ export default function ConfidentialitePage() {
             Le lien entre l&apos;empreinte de ton téléphone et tes signalements, votes et signalements de contenu est
             effacé 30 jours après la fin du signalement.
           </li>
+          <li>
+            Ta session anonyme : supprimée après 90 jours sans utilisation (avec son adresse IP). Le journal de
+            sécurité des connexions est gardé 30 jours.
+          </li>
           <li>Ton lieu d&apos;alerte : jusqu&apos;à ce que tu désactives les alertes.</li>
           <li>
             Une photo ou un texte masqué par la modération n&apos;est plus affiché. Il est gardé à part 90 jours au
@@ -132,6 +144,7 @@ export default function ConfidentialitePage() {
           <li>Google Maps : seulement si tu touches « Voir dans Maps ».</li>
           <li>WhatsApp : seulement si tu touches « WhatsApp » pour partager l&apos;appli.</li>
           <li>Google, Apple ou Mozilla : acheminent les alertes jusqu&apos;à ton téléphone, si tu les actives.</li>
+          <li>Cloudflare (Turnstile) : vérifie qu&apos;une vraie personne ouvre la session anonyme, si cette protection est active.</li>
         </LegalList>
       </LegalSection>
 

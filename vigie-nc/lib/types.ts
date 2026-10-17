@@ -145,6 +145,12 @@ export const REPORT_TYPE_ICON: Record<ReportType, string> = {
 
 export type Vote = "present" | "termine";
 
+// Dangers : ils déclenchent une alerte, et un seul « C'est terminé » ne
+// suffit pas à les retirer de la carte (il en faut 2, et plus de
+// « terminé » que de « toujours là »).
+// ⚠️ Doit rester aligné sur vigie_est_danger() dans supabase/schema.sql.
+export const ALERT_TYPES: ReportType[] = ["accident", "route_coupee", "inondation", "danger", "meteo"];
+
 // On signale, confirme ou déclare terminé seulement ce qu'on voit autour de
 // soi : à plus de 5 km, on n'est pas témoin. (L'auteur peut toujours clore
 // son propre signalement, où qu'il soit.)
