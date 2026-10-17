@@ -9,6 +9,7 @@
 import { distanceM, GRAND_NOUMEA, LatLng, offsetKm } from "./geo";
 import type { ReportRow } from "./reports-api";
 import {
+  ALERT_TYPES,
   FlagReason,
   FLAG_HIDE_THRESHOLD,
   RelaySource,
@@ -209,6 +210,7 @@ function applyVote(r: DemoReport, deviceId: string, vote: Vote): string {
 
   if (r.author === deviceId) {
     if (vote === "present") throw new DemoError("propre_signalement");
+    if (r.officialSource) return "verifie";
     r.resolvedAt = now;
     r.expiresAt = now;
     return "resolu";
@@ -222,6 +224,17 @@ function applyVote(r: DemoReport, deviceId: string, vote: Vote): string {
     r.expiresAt = Math.max(r.expiresAt, now + REPORT_TYPE_LIFETIME_MIN[r.type] * MIN);
     r.lastConfirmedAt = now;
     return "confirme";
+  }
+  // Mêmes règles que vigie_appliquer_vote() : un signalement vérifié ne se
+  // retire que par la modération ; un danger, avec 2 « terminé » au moins.
+  if (r.officialSource) return "verifie";
+  if (ALERT_TYPES.includes(r.type)) {
+    if (infirmations >= 2 && infirmations > confirmations) {
+      r.resolvedAt = now;
+      r.expiresAt = now;
+      return "resolu";
+    }
+    return "conteste";
   }
   if (infirmations > confirmations) {
     r.resolvedAt = now;
@@ -246,35 +259,35 @@ export function demoCreate(input: {
   seed({ lat: input.lat, lng: input.lng });
   const description = input.description?.trim() || null;
   if (description && description.length > 200) throw new DemoError("description_trop_longue");
+  // Le SOS ne publie rien (voir creer_signalement_v3)
+  if (input.type === "sos") throw new DemoError("type_invalide");
 
-  if (input.type !== "sos") {
-    const last = lastReportByDevice.get(input.deviceId);
-    if (last && now - last < 60_000) throw new DemoError("rate_limit");
+  const last = lastReportByDevice.get(input.deviceId);
+  if (last && now - last < 60_000) throw new DemoError("rate_limit");
 
-    const radius = REPORT_TYPE_MERGE_RADIUS_M[input.type];
-    if (radius > 0) {
-      const existing = store
-        .filter((r) => r.type === input.type && isActive(r, now))
-        .map((r) => ({ r, d: distanceM(r, input) }))
-        .filter(({ d }) => d <= radius)
-        .sort((a, b) => a.d - b.d)[0]?.r;
+  const radius = REPORT_TYPE_MERGE_RADIUS_M[input.type];
+  if (radius > 0) {
+    const existing = store
+      .filter((r) => r.type === input.type && isActive(r, now))
+      .map((r) => ({ r, d: distanceM(r, input) }))
+      .filter(({ d }) => d <= radius)
+      .sort((a, b) => a.d - b.d)[0]?.r;
 
-      if (existing) {
-        if (existing.author === input.deviceId) {
-          return { id: existing.id, resultat: "deja_signale" };
-        }
-        applyVote(existing, input.deviceId, "present");
-        if (existing.contentHiddenAt === null) {
-          existing.photoUrl ??= input.photoUrl ?? null;
-          existing.description ??= description;
-        }
-        existing.place ??= input.place ?? null;
-        if (input.riskLevel && (RISK_RANK[input.riskLevel] ?? 0) > (RISK_RANK[existing.riskLevel ?? ""] ?? 0)) {
-          existing.riskLevel = input.riskLevel;
-        }
-        notify();
-        return { id: existing.id, resultat: "fusionne" };
+    if (existing) {
+      if (existing.author === input.deviceId) {
+        return { id: existing.id, resultat: "deja_signale" };
       }
+      applyVote(existing, input.deviceId, "present");
+      if (existing.contentHiddenAt === null) {
+        existing.photoUrl ??= input.photoUrl ?? null;
+        existing.description ??= description;
+      }
+      existing.place ??= input.place ?? null;
+      if (input.riskLevel && (RISK_RANK[input.riskLevel] ?? 0) > (RISK_RANK[existing.riskLevel ?? ""] ?? 0)) {
+        existing.riskLevel = input.riskLevel;
+      }
+      notify();
+      return { id: existing.id, resultat: "fusionne" };
     }
   }
 

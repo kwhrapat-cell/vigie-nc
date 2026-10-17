@@ -93,7 +93,22 @@ vigie-nc/
 
 - Écritures **uniquement via les RPC** `security definer` ; les tables
   `report_authors` et `report_votes` ne sont jamais lisibles depuis l'appli.
-- L'identifiant d'appareil n'est stocké qu'en empreinte (`vigie_device_key`).
+- **Identité = session anonyme Supabase** (`lib/session.ts`,
+  `signInAnonymously`, Turnstile si `NEXT_PUBLIC_TURNSTILE_SITE_KEY`). Les
+  RPC d'écriture `_v3` (`creer_signalement_v3`, `voter_signalement_v3`,
+  `relayer_signalement_v3`, `signaler_contenu_v3`) utilisent `auth.uid()`
+  via `vigie_cle_session()` et ne sont accordées qu'au rôle `authenticated`.
+  **Ne jamais réintroduire un identifiant choisi par le téléphone** (l'ancien
+  `p_device_id` permettait à un script de voter sans limite). `device-id.ts`
+  ne sert plus qu'au mode démo.
+- L'identité n'est stockée qu'en empreinte (`vigie_device_key`).
+- Votes (`vigie_appliquer_vote`) : témoins à moins de 5 km
+  (`vigie_distance_temoin_m()` = `MAX_WITNESS_DISTANCE_M`) ; un danger
+  (`vigie_est_danger()` = `ALERT_TYPES`) ne se clôt qu'avec 2 « terminé » et
+  la majorité ; un signalement vérifié ne se clôt que par la modération.
+- Anti-abus : 1 signalement/minute et 20/jour par session
+  (`vigie_limite_signalements`), 5 photos/heure (`vigie_photos_recentes`,
+  règle de dépôt du dossier `report-photos`).
 - Modération : `signaler_contenu` (2 téléphones → photo + texte masqués,
   seuil `vigie_seuil_masquage()` = `FLAG_HIDE_THRESHOLD` de `lib/types.ts`),
   `vigie_masquer_contenu` / `vigie_retablir_contenu` à la main.

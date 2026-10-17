@@ -12,10 +12,13 @@
 --   - toutes les écritures passent par des fonctions (RPC) contrôlées côté
 --     serveur : le téléphone ne peut plus choisir lui-même l'expiration ou
 --     le nombre de confirmations d'un signalement ;
---   - l'identifiant anonyme de l'appareil n'est jamais lisible
---     publiquement (sinon on pourrait reconstituer les déplacements d'une
---     personne à partir de ses signalements) et il est stocké sous forme
---     d'empreinte, jamais en clair ;
+--   - chaque téléphone écrit avec une session ANONYME Supabase (auth.uid(),
+--     signé par Supabase) : jamais avec un identifiant qu'il aurait choisi
+--     lui-même, qu'un script pourrait changer à chaque requête ;
+--   - cet identifiant n'est jamais lisible publiquement (sinon on pourrait
+--     reconstituer les déplacements d'une personne à partir de ses
+--     signalements) et il est stocké sous forme d'empreinte, jamais en
+--     clair ;
 --   - un même événement signalé plusieurs fois à proximité = un seul point
 --     sur la carte, avec un compteur de confirmations.
 -- =====================================================================
@@ -356,6 +359,90 @@ as $$
 $$;
 
 -- ---------------------------------------------------------------------
+-- Identité anonyme vérifiée
+--   Chaque téléphone ouvre une session ANONYME Supabase (Authentication >
+--   Sign In / Providers > « Allow anonymous sign-ins ») : pas de compte,
+--   pas d'e-mail. Supabase limite ces connexions par adresse IP, et
+--   Cloudflare Turnstile les protège si la clé est configurée.
+--   Les fonctions ci-dessous ne font JAMAIS confiance à un identifiant
+--   envoyé par le téléphone : elles utilisent auth.uid(), signé par
+--   Supabase. La base ne garde que son empreinte, comme avant.
+-- ---------------------------------------------------------------------
+create or replace function vigie_cle_session()
+returns text
+language sql
+stable
+security definer
+set search_path = public, extensions
+as $$
+  select case when auth.uid() is null then null
+              else vigie_device_key('auth:' || auth.uid()::text) end;
+$$;
+
+-- On confirme ou déclare terminé seulement ce qu'on voit : à moins de 5 km.
+-- ⚠️ Doit rester aligné sur MAX_WITNESS_DISTANCE_M dans lib/types.ts.
+create or replace function vigie_distance_temoin_m()
+returns int
+language sql
+immutable
+set search_path = public
+as $$
+  select 5000;
+$$;
+
+-- Types qui déclenchent une alerte, et qu'un seul « C'est terminé » ne
+-- peut pas retirer de la carte.
+-- ⚠️ Doit rester aligné sur ALERT_TYPES dans lib/types.ts.
+create or replace function vigie_est_danger(p_type report_type)
+returns boolean
+language sql
+immutable
+set search_path = public
+as $$
+  select p_type::text in ('accident', 'route_coupee', 'inondation', 'danger', 'meteo');
+$$;
+
+-- Anti-abus : 1 signalement (ou relais) par minute et 20 par jour par session.
+create or replace function vigie_limite_signalements(p_key text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_dernier timestamptz;
+  v_nb int;
+begin
+  select max(created_at), count(*) filter (where created_at > now() - interval '24 hours')
+  into v_dernier, v_nb
+  from report_authors
+  where device_key = p_key;
+  if v_dernier is not null and now() - v_dernier < interval '60 seconds' then
+    raise exception 'rate_limit';
+  end if;
+  if v_nb >= 20 then
+    raise exception 'rate_limit_jour';
+  end if;
+end;
+$$;
+
+-- Photos déposées par cette session dans la dernière heure (règle de
+-- dépôt du dossier report-photos, plus bas : 5 par heure au plus).
+create or replace function vigie_photos_recentes()
+returns int
+language sql
+stable
+security definer
+set search_path = public, storage
+as $$
+  select count(*)::int
+  from storage.objects
+  where bucket_id = 'report-photos'
+    and owner_id = auth.uid()::text
+    and created_at > now() - interval '1 hour';
+$$;
+
+-- ---------------------------------------------------------------------
 -- Vote (fonction interne, non appelable depuis l'appli)
 -- ---------------------------------------------------------------------
 create or replace function vigie_appliquer_vote(
@@ -384,9 +471,14 @@ begin
   select device_key into v_auteur from report_authors where report_id = p_report_id;
 
   -- L'auteur peut clore son propre signalement, mais pas le confirmer.
+  -- Un signalement vérifié par une source officielle ne se clôt que par la
+  -- modération, même par son auteur.
   if v_auteur = p_device_key then
     if p_vote = 'present' then
       raise exception 'propre_signalement';
+    end if;
+    if v_report.source_officielle is not null then
+      return 'verifie';
     end if;
     update reports set resolved_at = now(), expires_at = now() where id = p_report_id;
     return 'resolu';
@@ -431,8 +523,27 @@ begin
     return 'confirme';
   end if;
 
-  -- p_vote = 'termine' : clos si les « terminé » l'emportent, sinon le
-  -- signalement s'efface dans 30 min au plus, sauf nouvelle confirmation.
+  -- p_vote = 'termine'
+  -- Vérifié : l'avis est noté (affiché « contesté »), seule la modération
+  -- retire le signalement.
+  if v_report.source_officielle is not null then
+    return 'verifie';
+  end if;
+
+  -- Danger (accident, route coupée, inondation, danger, météo) : il ne
+  -- disparaît pas sur l'avis d'une seule personne. Il faut au moins 2
+  -- « C'est terminé », et plus de « terminé » que de « toujours là ».
+  if vigie_est_danger(v_report.type) then
+    if v_report.infirmations >= 2 and v_report.infirmations > v_report.confirmations then
+      update reports set resolved_at = now(), expires_at = now() where id = p_report_id;
+      return 'resolu';
+    end if;
+    return 'conteste';
+  end if;
+
+  -- Autres types (travaux, trafic, chaussée, autre) : clos si les
+  -- « terminé » l'emportent, sinon il s'efface dans 30 min au plus, sauf
+  -- nouvelle confirmation.
   if v_report.infirmations > v_report.confirmations then
     update reports set resolved_at = now(), expires_at = now() where id = p_report_id;
     return 'resolu';
@@ -446,18 +557,32 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------
--- RPC : créer un signalement (ou confirmer l'existant s'il s'agit du
--- même événement)
---   select creer_signalement('inondation', -22.27, 166.45, '<id appareil>');
--- Retour : {"id": "...", "resultat": "cree" | "fusionne" | "deja_signale"}
+-- Anciennes versions supprimées : elles faisaient confiance à un
+-- identifiant inventé par le téléphone (p_device_id), qu'un script pouvait
+-- changer à chaque requête. Remplacées par les versions _v3 (session
+-- anonyme Supabase).
 -- ---------------------------------------------------------------------
 drop function if exists creer_signalement(report_type, double precision, double precision, text, text);
+drop function if exists creer_signalement(report_type, double precision, double precision, text, text, text, text, text);
+drop function if exists voter_signalement(uuid, text, text);
+drop function if exists signalements_proches(double precision, double precision, integer, text);
+drop function if exists signalements_proches_v2(double precision, double precision, integer, text);
+drop function if exists signalement_detail(uuid, text);
+drop function if exists signalement_detail_v2(uuid, text);
+drop function if exists relayer_signalement(report_type, double precision, double precision, text, text, text);
+drop function if exists signaler_contenu(uuid, text, text);
 
-create or replace function creer_signalement(
+-- ---------------------------------------------------------------------
+-- RPC : créer un signalement (ou confirmer l'existant s'il s'agit du
+-- même événement). Session anonyme obligatoire.
+--   select creer_signalement_v3('inondation', -22.27, 166.45);
+-- Retour : {"id": "...", "resultat": "cree" | "fusionne" | "deja_signale"}
+-- Le SOS n'est pas un signalement : il ne publie rien (écran /sos).
+-- ---------------------------------------------------------------------
+create or replace function creer_signalement_v3(
   p_type report_type,
   p_lat double precision,
   p_lng double precision,
-  p_device_id text,
   p_photo_url text default null,
   p_description text default null,
   p_niveau_risque text default null,
@@ -469,9 +594,8 @@ security definer
 set search_path = public, extensions
 as $$
 declare
-  v_key text;
+  v_key text := vigie_cle_session();
   v_point geography;
-  v_dernier timestamptz;
   v_existant record;
   v_rayon int;
   v_id uuid;
@@ -479,8 +603,11 @@ declare
   v_niveau text := nullif(btrim(p_niveau_risque), '');
   v_lieu text := left(nullif(btrim(p_lieu), ''), 80);
 begin
-  if p_device_id is null or length(p_device_id) not between 16 and 128 then
-    raise exception 'appareil_invalide';
+  if v_key is null then
+    raise exception 'connexion_requise';
+  end if;
+  if p_type is null or p_type::text = 'sos' then
+    raise exception 'type_invalide';
   end if;
   if p_lat is null or p_lng is null or not vigie_dans_nc(p_lat, p_lng) then
     raise exception 'position_hors_nc';
@@ -495,53 +622,44 @@ begin
     raise exception 'niveau_invalide';
   end if;
 
-  v_key := vigie_device_key(p_device_id);
+  perform vigie_limite_signalements(v_key);
+
   v_point := st_setsrid(st_makepoint(p_lng, p_lat), 4326)::geography;
+  v_rayon := vigie_rayon_fusion_m(p_type);
+  if v_rayon > 0 then
+    select r.id, a.device_key as auteur
+    into v_existant
+    from reports r
+    left join report_authors a on a.report_id = r.id
+    where r.type = p_type
+      and r.resolved_at is null
+      and r.expires_at > now()
+      and st_dwithin(r.geom, v_point, v_rayon)
+    order by st_distance(r.geom, v_point)
+    limit 1;
 
-  if p_type::text <> 'sos' then
-    -- Anti-spam : un signalement par minute et par appareil.
-    -- Le SOS n'est jamais bloqué : mieux vaut un doublon qu'une urgence muette.
-    select max(created_at) into v_dernier from report_authors where device_key = v_key;
-    if v_dernier is not null and now() - v_dernier < interval '60 seconds' then
-      raise exception 'rate_limit';
-    end if;
-
-    v_rayon := vigie_rayon_fusion_m(p_type);
-    if v_rayon > 0 then
-      select r.id, a.device_key as auteur
-      into v_existant
-      from reports r
-      left join report_authors a on a.report_id = r.id
-      where r.type = p_type
-        and r.resolved_at is null
-        and r.expires_at > now()
-        and st_dwithin(r.geom, v_point, v_rayon)
-      order by st_distance(r.geom, v_point)
-      limit 1;
-
-      if found then
-        if v_existant.auteur = v_key then
-          return jsonb_build_object('id', v_existant.id, 'resultat', 'deja_signale');
-        end if;
-
-        perform vigie_appliquer_vote(v_existant.id, v_key, 'present');
-
-        -- Complète l'événement existant avec ce qui lui manquait (sauf si la
-        -- modération a masqué son contenu : on ne le remplace pas).
-        update reports
-        set photo_url = case when contenu_masque_at is null
-                             then coalesce(photo_url, p_photo_url) else photo_url end,
-            description = case when contenu_masque_at is null
-                               then coalesce(description, v_description) else description end,
-            lieu = coalesce(lieu, v_lieu),
-            niveau_risque = case
-              when vigie_rang_risque(v_niveau) > vigie_rang_risque(niveau_risque) then v_niveau
-              else niveau_risque
-            end
-        where id = v_existant.id;
-
-        return jsonb_build_object('id', v_existant.id, 'resultat', 'fusionne');
+    if found then
+      if v_existant.auteur = v_key then
+        return jsonb_build_object('id', v_existant.id, 'resultat', 'deja_signale');
       end if;
+
+      perform vigie_appliquer_vote(v_existant.id, v_key, 'present');
+
+      -- Complète l'événement existant avec ce qui lui manquait (sauf si la
+      -- modération a masqué son contenu : on ne le remplace pas).
+      update reports
+      set photo_url = case when contenu_masque_at is null
+                           then coalesce(photo_url, p_photo_url) else photo_url end,
+          description = case when contenu_masque_at is null
+                             then coalesce(description, v_description) else description end,
+          lieu = coalesce(lieu, v_lieu),
+          niveau_risque = case
+            when vigie_rang_risque(v_niveau) > vigie_rang_risque(niveau_risque) then v_niveau
+            else niveau_risque
+          end
+      where id = v_existant.id;
+
+      return jsonb_build_object('id', v_existant.id, 'resultat', 'fusionne');
     end if;
   end if;
 
@@ -557,14 +675,17 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------
--- RPC : voter sur un signalement
---   select voter_signalement('<uuid>', '<id appareil>', 'present' | 'termine');
--- Retour : {"resultat": "confirme" | "en_baisse" | "resolu" | "deja_vote", ...}
+-- RPC : voter sur un signalement. Session anonyme obligatoire ; sauf pour
+-- l'auteur, il faut envoyer sa position et être à moins de 5 km.
+--   select voter_signalement_v3('<uuid>', 'present', -22.27, 166.45);
+-- Retour : {"resultat": "confirme" | "en_baisse" | "conteste" | "verifie"
+--          | "resolu" | "deja_vote", ...}
 -- ---------------------------------------------------------------------
-create or replace function voter_signalement(
+create or replace function voter_signalement_v3(
   p_report_id uuid,
-  p_device_id text,
-  p_vote text
+  p_vote text,
+  p_lat double precision default null,
+  p_lng double precision default null
 )
 returns jsonb
 language plpgsql
@@ -572,18 +693,17 @@ security definer
 set search_path = public, extensions
 as $$
 declare
-  v_key text;
+  v_key text := vigie_cle_session();
   v_resultat text;
   v_report reports%rowtype;
+  v_auteur text;
 begin
-  if p_device_id is null or length(p_device_id) not between 16 and 128 then
-    raise exception 'appareil_invalide';
+  if v_key is null then
+    raise exception 'connexion_requise';
   end if;
   if p_vote is null or p_vote not in ('present', 'termine') then
     raise exception 'vote_invalide';
   end if;
-
-  v_key := vigie_device_key(p_device_id);
 
   -- Garde-fou contre les votes en rafale (30 par tranche de 10 minutes).
   if (
@@ -591,6 +711,24 @@ begin
     where device_key = v_key and updated_at > now() - interval '10 minutes'
   ) >= 30 then
     raise exception 'rate_limit';
+  end if;
+
+  select * into v_report from reports where id = p_report_id;
+  if not found then
+    raise exception 'signalement_introuvable';
+  end if;
+  select device_key into v_auteur from report_authors where report_id = p_report_id;
+
+  -- Seuls les témoins votent (à moins de 5 km) ; l'auteur peut clore son
+  -- signalement d'où il veut.
+  if v_auteur is distinct from v_key then
+    if p_lat is null or p_lng is null then
+      raise exception 'position_requise';
+    end if;
+    if st_distance(v_report.geom, st_setsrid(st_makepoint(p_lng, p_lat), 4326)::geography)
+       > vigie_distance_temoin_m() then
+      raise exception 'trop_loin';
+    end if;
   end if;
 
   v_resultat := vigie_appliquer_vote(p_report_id, v_key, p_vote);
@@ -608,20 +746,16 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------
--- RPC : signalements actifs autour d'une position
---   select * from signalements_proches(-22.27, 166.45, 5000, '<id appareil>');
--- Sans position (p_lat/p_lng nuls) : tous les signalements actifs.
--- Le rayon est borné entre 500 m et 20 km.
+-- RPC : signalements actifs autour d'une position (SOS exclus : le SOS ne
+-- publie rien). Sans position (p_lat/p_lng nuls) : tous les signalements
+-- actifs. Le rayon est borné entre 500 m et 20 km. Sans session, la
+-- lecture marche aussi (est_auteur et mon_vote restent vides).
+--   select * from signalements_proches_v3(-22.27, 166.45, 5000);
 -- ---------------------------------------------------------------------
--- Le type de retour change d'une version à l'autre : on supprime d'abord,
--- sinon `create or replace` échoue.
-drop function if exists signalements_proches(double precision, double precision, integer, text);
-
-create or replace function signalements_proches(
+create or replace function signalements_proches_v3(
   p_lat double precision default null,
   p_lng double precision default null,
-  p_rayon_m int default 5000,
-  p_device_id text default null
+  p_rayon_m int default 5000
 )
 returns table (
   id uuid,
@@ -633,6 +767,7 @@ returns table (
   niveau_risque text,
   lieu text,
   source_officielle text,
+  relais_source text,
   confirmations int,
   infirmations int,
   created_at timestamptz,
@@ -650,28 +785,16 @@ set search_path = public, extensions
 as $$
   with
     moi as (
-      select case when p_device_id is null then null
-                  else vigie_device_key(p_device_id) end as cle
+      select vigie_cle_session() as cle
     ),
     centre as (
       select case when p_lat is null or p_lng is null then null
                   else st_setsrid(st_makepoint(p_lng, p_lat), 4326)::geography end as pt
     )
   select
-    r.id,
-    r.type,
-    r.lat,
-    r.lng,
-    r.photo_url,
-    r.description,
-    r.niveau_risque,
-    r.lieu,
-    r.source_officielle,
-    r.confirmations,
-    r.infirmations,
-    r.created_at,
-    r.expires_at,
-    r.last_confirmed_at,
+    r.id, r.type, r.lat, r.lng, r.photo_url, r.description, r.niveau_risque,
+    r.lieu, r.source_officielle, r.relais_source, r.confirmations, r.infirmations,
+    r.created_at, r.expires_at, r.last_confirmed_at,
     case when c.pt is null then null else st_distance(r.geom, c.pt) end as distance_m,
     coalesce(a.device_key = m.cle, false) as est_auteur,
     v.vote as mon_vote,
@@ -683,6 +806,7 @@ as $$
   left join report_votes v on v.report_id = r.id and v.device_key = m.cle
   where r.expires_at > now()
     and r.resolved_at is null
+    and r.type::text <> 'sos'
     and (
       c.pt is null
       or st_dwithin(r.geom, c.pt, least(greatest(coalesce(p_rayon_m, 5000), 500), 20000))
@@ -693,14 +817,9 @@ $$;
 
 -- ---------------------------------------------------------------------
 -- RPC : un signalement précis (lien partagé), même terminé
---   select * from signalement_detail('<uuid>', '<id appareil>');
+--   select * from signalement_detail_v3('<uuid>');
 -- ---------------------------------------------------------------------
-drop function if exists signalement_detail(uuid, text);
-
-create or replace function signalement_detail(
-  p_id uuid,
-  p_device_id text default null
-)
+create or replace function signalement_detail_v3(p_id uuid)
 returns table (
   id uuid,
   type report_type,
@@ -711,6 +830,7 @@ returns table (
   niveau_risque text,
   lieu text,
   source_officielle text,
+  relais_source text,
   confirmations int,
   infirmations int,
   created_at timestamptz,
@@ -727,13 +847,12 @@ security definer
 set search_path = public, extensions
 as $$
   with moi as (
-    select case when p_device_id is null then null
-                else vigie_device_key(p_device_id) end as cle
+    select vigie_cle_session() as cle
   )
   select
     r.id, r.type, r.lat, r.lng, r.photo_url, r.description, r.niveau_risque,
-    r.lieu, r.source_officielle, r.confirmations, r.infirmations, r.created_at,
-    r.expires_at, r.last_confirmed_at,
+    r.lieu, r.source_officielle, r.relais_source, r.confirmations, r.infirmations,
+    r.created_at, r.expires_at, r.last_confirmed_at,
     null::double precision as distance_m,
     coalesce(a.device_key = m.cle, false) as est_auteur,
     v.vote as mon_vote,
@@ -743,7 +862,7 @@ as $$
   left join report_authors a on a.report_id = r.id
   left join report_votes v on v.report_id = r.id and v.device_key = m.cle
   where r.id = p_id
-    and r.type::text <> 'sos'  -- un SOS n'est pas partageable par lien
+    and r.type::text <> 'sos'
 $$;
 
 -- ---------------------------------------------------------------------
@@ -823,8 +942,9 @@ as $$
 $$;
 
 -- ---------------------------------------------------------------------
--- RPC : relayer une info vue ailleurs (Facebook, radio, SMS…)
---   select relayer_signalement('inondation', -22.27, 166.58, '<id>', 'facebook', 'Radier de la Coulée');
+-- RPC : relayer une info vue ailleurs (Facebook, radio, SMS…). Session
+-- anonyme obligatoire.
+--   select relayer_signalement_v3('inondation', -22.27, 166.58, 'facebook', 'Radier de la Coulée');
 -- Seul le fait est enregistré (type, lieu, heure) : jamais le texte, le
 -- nom de l'auteur ni la photo d'origine. Pas de limite de distance (la
 -- personne n'est pas forcément sur place) : l'info apparaît « relayée, à
@@ -832,11 +952,10 @@ $$;
 -- compte jamais comme une confirmation.
 -- Retour : {"id": "...", "resultat": "relaye" | "existe_deja"}
 -- ---------------------------------------------------------------------
-create or replace function relayer_signalement(
+create or replace function relayer_signalement_v3(
   p_type report_type,
   p_lat double precision,
   p_lng double precision,
-  p_device_id text,
   p_source text,
   p_lieu text default null
 )
@@ -846,16 +965,15 @@ security definer
 set search_path = public, extensions
 as $$
 declare
-  v_key text;
+  v_key text := vigie_cle_session();
   v_point geography;
-  v_dernier timestamptz;
   v_existant uuid;
   v_rayon int;
   v_id uuid;
   v_lieu text := left(nullif(btrim(p_lieu), ''), 80);
 begin
-  if p_device_id is null or length(p_device_id) not between 16 and 128 then
-    raise exception 'appareil_invalide';
+  if v_key is null then
+    raise exception 'connexion_requise';
   end if;
   if p_type is null or p_type::text = 'sos' then
     raise exception 'type_invalide';
@@ -867,14 +985,9 @@ begin
     raise exception 'position_hors_nc';
   end if;
 
-  v_key := vigie_device_key(p_device_id);
+  perform vigie_limite_signalements(v_key);
+
   v_point := st_setsrid(st_makepoint(p_lng, p_lat), 4326)::geography;
-
-  select max(created_at) into v_dernier from report_authors where device_key = v_key;
-  if v_dernier is not null and now() - v_dernier < interval '60 seconds' then
-    raise exception 'rate_limit';
-  end if;
-
   v_rayon := vigie_rayon_fusion_m(p_type);
   if v_rayon > 0 then
     select r.id into v_existant
@@ -991,16 +1104,15 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------
--- RPC : signaler un contenu qui pose problème
---   select signaler_contenu('<uuid>', '<id appareil>', 'donnee_personnelle');
+-- RPC : signaler un contenu qui pose problème. Session anonyme obligatoire.
+--   select signaler_contenu_v3('<uuid>', 'donnee_personnelle');
 -- Motifs : donnee_personnelle (visage, plaque, nom, téléphone…),
 -- inapproprie (insulte, accusation, image choquante), hors_sujet (pas une
 -- info sur la route).
 -- Retour : {"resultat": "enregistre" | "deja_signale" | "masque", "masque": bool}
 -- ---------------------------------------------------------------------
-create or replace function signaler_contenu(
+create or replace function signaler_contenu_v3(
   p_report_id uuid,
-  p_device_id text,
   p_motif text
 )
 returns jsonb
@@ -1009,21 +1121,19 @@ security definer
 set search_path = public, extensions
 as $$
 declare
-  v_key text;
+  v_key text := vigie_cle_session();
   v_report reports%rowtype;
   v_auteur text;
   v_nb int;
 begin
-  if p_device_id is null or length(p_device_id) not between 16 and 128 then
-    raise exception 'appareil_invalide';
+  if v_key is null then
+    raise exception 'connexion_requise';
   end if;
   if p_motif is null or p_motif not in ('donnee_personnelle', 'inapproprie', 'hors_sujet') then
     raise exception 'motif_invalide';
   end if;
 
-  v_key := vigie_device_key(p_device_id);
-
-  -- Garde-fou : 10 signalements de contenu par heure et par téléphone.
+  -- Garde-fou : 10 signalements de contenu par heure et par session.
   if (
     select count(*) from report_flags
     where device_key = v_key and created_at > now() - interval '1 hour'
@@ -1783,15 +1893,18 @@ for each statement execute function vigie_alarme_moderateurs();
 --     de contenu) ;
 --   - le contenu masqué par la modération est effacé après 90 jours ;
 --   - le journal de modération est gardé un an ;
---   - la trace des alertes envoyées (anti-doublon) est gardée 7 jours.
+--   - la trace des alertes envoyées (anti-doublon) est gardée 7 jours ;
+--   - les sessions anonymes inactives depuis 90 jours sont supprimées ;
+--   - le journal de sécurité de Supabase Auth est gardé 30 jours.
 -- Les signalements eux-mêmes restent, anonymes, pour l'historique.
 -- ---------------------------------------------------------------------
 create or replace function vigie_purger_donnees_appareil()
 returns void
-language sql
+language plpgsql
 security definer
 set search_path = public
 as $$
+begin
   delete from report_votes v using reports r
    where v.report_id = r.id and r.expires_at < now() - interval '30 days';
   delete from report_authors a using reports r
@@ -1804,124 +1917,27 @@ as $$
    where j.created_at < now() - interval '1 year';
   delete from push_envois p
    where p.sent_at < now() - interval '7 days';
-$$;
 
--- ---------------------------------------------------------------------
--- Versions 2 des lectures : mêmes colonnes + relais_source.
--- (Les versions 1 restent pour les anciennes versions de l'appli.)
--- ---------------------------------------------------------------------
-create or replace function signalements_proches_v2(
-  p_lat double precision default null,
-  p_lng double precision default null,
-  p_rayon_m int default 5000,
-  p_device_id text default null
-)
-returns table (
-  id uuid,
-  type report_type,
-  lat double precision,
-  lng double precision,
-  photo_url text,
-  description text,
-  niveau_risque text,
-  lieu text,
-  source_officielle text,
-  relais_source text,
-  confirmations int,
-  infirmations int,
-  created_at timestamptz,
-  expires_at timestamptz,
-  last_confirmed_at timestamptz,
-  distance_m double precision,
-  est_auteur boolean,
-  mon_vote text,
-  actif boolean
-)
-language sql
-stable
-security definer
-set search_path = public, extensions
-as $$
-  with
-    moi as (
-      select case when p_device_id is null then null
-                  else vigie_device_key(p_device_id) end as cle
-    ),
-    centre as (
-      select case when p_lat is null or p_lng is null then null
-                  else st_setsrid(st_makepoint(p_lng, p_lat), 4326)::geography end as pt
-    )
-  select
-    r.id, r.type, r.lat, r.lng, r.photo_url, r.description, r.niveau_risque,
-    r.lieu, r.source_officielle, r.relais_source, r.confirmations, r.infirmations,
-    r.created_at, r.expires_at, r.last_confirmed_at,
-    case when c.pt is null then null else st_distance(r.geom, c.pt) end as distance_m,
-    coalesce(a.device_key = m.cle, false) as est_auteur,
-    v.vote as mon_vote,
-    true as actif
-  from reports r
-  cross join moi m
-  cross join centre c
-  left join report_authors a on a.report_id = r.id
-  left join report_votes v on v.report_id = r.id and v.device_key = m.cle
-  where r.expires_at > now()
-    and r.resolved_at is null
-    and (
-      c.pt is null
-      or st_dwithin(r.geom, c.pt, least(greatest(coalesce(p_rayon_m, 5000), 500), 20000))
-    )
-  order by distance_m nulls last, r.created_at desc
-  limit 200;
-$$;
+  -- Sessions anonymes sans activité depuis 90 jours : supprimées. Elles ne
+  -- portent aucun nom, et leur lien avec les signalements est déjà effacé
+  -- 30 jours après la fin de chaque signalement.
+  begin
+    delete from auth.users u
+     where u.is_anonymous
+       and coalesce(u.last_sign_in_at, u.created_at) < now() - interval '90 days';
+  exception when others then
+    raise notice 'Sessions anonymes non purgées : %', sqlerrm;
+  end;
 
-create or replace function signalement_detail_v2(
-  p_id uuid,
-  p_device_id text default null
-)
-returns table (
-  id uuid,
-  type report_type,
-  lat double precision,
-  lng double precision,
-  photo_url text,
-  description text,
-  niveau_risque text,
-  lieu text,
-  source_officielle text,
-  relais_source text,
-  confirmations int,
-  infirmations int,
-  created_at timestamptz,
-  expires_at timestamptz,
-  last_confirmed_at timestamptz,
-  distance_m double precision,
-  est_auteur boolean,
-  mon_vote text,
-  actif boolean
-)
-language sql
-stable
-security definer
-set search_path = public, extensions
-as $$
-  with moi as (
-    select case when p_device_id is null then null
-                else vigie_device_key(p_device_id) end as cle
-  )
-  select
-    r.id, r.type, r.lat, r.lng, r.photo_url, r.description, r.niveau_risque,
-    r.lieu, r.source_officielle, r.relais_source, r.confirmations, r.infirmations,
-    r.created_at, r.expires_at, r.last_confirmed_at,
-    null::double precision as distance_m,
-    coalesce(a.device_key = m.cle, false) as est_auteur,
-    v.vote as mon_vote,
-    (r.resolved_at is null and r.expires_at > now()) as actif
-  from reports r
-  cross join moi m
-  left join report_authors a on a.report_id = r.id
-  left join report_votes v on v.report_id = r.id and v.device_key = m.cle
-  where r.id = p_id
-    and r.type::text <> 'sos'
+  -- Journal de sécurité de Supabase Auth (adresses IP des connexions) :
+  -- gardé 30 jours.
+  begin
+    delete from auth.audit_log_entries l
+     where l.created_at < now() - interval '30 days';
+  exception when others then
+    raise notice 'Journal Auth non purgé : %', sqlerrm;
+  end;
+end;
 $$;
 
 -- ---------------------------------------------------------------------
@@ -1996,16 +2012,24 @@ revoke execute on function vigie_secret_notif_ok(text) from public, anon, authen
 revoke execute on function vigie_signal_notification() from public, anon, authenticated;
 revoke execute on function vigie_alarme_moderateurs() from public, anon, authenticated;
 revoke execute on function vigie_photo_url_valide(text) from public, anon, authenticated;
+revoke execute on function vigie_cle_session() from public, anon, authenticated;
+revoke execute on function vigie_limite_signalements(text) from public, anon, authenticated;
+revoke execute on function vigie_photos_recentes() from public, anon;
+grant execute on function vigie_photos_recentes() to authenticated;
 
-grant execute on function creer_signalement(report_type, double precision, double precision, text, text, text, text, text) to anon, authenticated;
-grant execute on function voter_signalement(uuid, text, text) to anon, authenticated;
-grant execute on function signalements_proches(double precision, double precision, integer, text) to anon, authenticated;
-grant execute on function signalement_detail(uuid, text) to anon, authenticated;
 grant execute on function statistiques_zone(double precision, double precision, integer) to anon, authenticated;
-grant execute on function relayer_signalement(report_type, double precision, double precision, text, text, text) to anon, authenticated;
-grant execute on function signalements_proches_v2(double precision, double precision, integer, text) to anon, authenticated;
-grant execute on function signalement_detail_v2(uuid, text) to anon, authenticated;
-grant execute on function signaler_contenu(uuid, text, text) to anon, authenticated;
+-- Lectures : ouvertes à tous (la carte est publique).
+grant execute on function signalements_proches_v3(double precision, double precision, integer) to anon, authenticated;
+grant execute on function signalement_detail_v3(uuid) to anon, authenticated;
+-- Écritures : seulement avec une session (anonyme) Supabase.
+revoke execute on function creer_signalement_v3(report_type, double precision, double precision, text, text, text, text) from public, anon;
+revoke execute on function voter_signalement_v3(uuid, text, double precision, double precision) from public, anon;
+revoke execute on function relayer_signalement_v3(report_type, double precision, double precision, text, text) from public, anon;
+revoke execute on function signaler_contenu_v3(uuid, text) from public, anon;
+grant execute on function creer_signalement_v3(report_type, double precision, double precision, text, text, text, text) to authenticated;
+grant execute on function voter_signalement_v3(uuid, text, double precision, double precision) to authenticated;
+grant execute on function relayer_signalement_v3(report_type, double precision, double precision, text, text) to authenticated;
+grant execute on function signaler_contenu_v3(uuid, text) to authenticated;
 grant execute on function moderation_verifier(text) to anon, authenticated;
 grant execute on function moderation_liste(text, text) to anon, authenticated;
 grant execute on function moderation_action(text, uuid, text, text) to anon, authenticated;
@@ -2021,8 +2045,9 @@ grant execute on function moderation_alertes_destinataires(text) to anon, authen
 grant execute on function moderation_alertes_echecs(text, text[]) to anon, authenticated;
 
 -- ---------------------------------------------------------------------
--- Photos : bucket public en lecture, upload anonyme limité aux images
--- de 3 Mo maximum (l'appli les réduit à ~300 Ko avant l'envoi).
+-- Photos : bucket public en lecture, dépôt réservé aux sessions (anonymes)
+-- Supabase, 5 photos par heure au plus, images de 3 Mo maximum (l'appli
+-- les réduit à ~300 Ko avant l'envoi).
 -- ---------------------------------------------------------------------
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('report-photos', 'report-photos', true, 3145728, array['image/jpeg', 'image/webp', 'image/png'])
@@ -2039,7 +2064,8 @@ drop policy if exists "photos lecture publique" on storage.objects;
 drop policy if exists "photos upload anonyme" on storage.objects;
 create policy "photos upload anonyme"
   on storage.objects for insert
-  with check (bucket_id = 'report-photos');
+  to authenticated
+  with check (bucket_id = 'report-photos' and public.vigie_photos_recentes() < 5);
 
 -- ---------------------------------------------------------------------
 -- Temps réel : la carte se met à jour dès qu'un signalement change

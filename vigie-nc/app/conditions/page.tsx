@@ -65,7 +65,11 @@ export default function ConditionsPage() {
             Chacun peut <strong>signaler un contenu</strong> depuis la fiche d&apos;un signalement. Après deux
             signalements, la photo et le texte sont masqués automatiquement.
           </li>
-          <li>Un événement fini ou faux disparaît grâce aux votes « C&apos;est terminé ».</li>
+          <li>
+            Un événement fini ou faux disparaît grâce aux votes « C&apos;est terminé » des personnes à moins de 5 km.
+            Pour un danger (accident, route coupée, inondation, danger, météo), il faut l&apos;avis d&apos;au moins 2
+            personnes ; un signalement « Vérifié » ne se retire que par la modération.
+          </li>
           <li>
             {LEGAL.editeur} peut masquer ou retirer tout contenu qui ne respecte pas ces règles.
           </li>
