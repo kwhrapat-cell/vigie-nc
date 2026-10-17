@@ -41,6 +41,7 @@ Le code est dans `vigie-nc/` (Root Directory Vercel).
 vigie-nc/
   app/            écrans (/, /signaler, /relayer, /sos, /alertes, /historique, /profil, /contacts)
                   + /api/notifier (appelé par la base : envoie les alertes) et /api/notif-test
+                  + /api/sante (moniteur : site + base ; RPC vigie_sante)
                   + /api/alerte-securite (appelé par la base : liste des modérateurs modifiée)
                   + pages légales (/conditions, /confidentialite, /mentions-legales)
                   + /affiche (l'affiche à envoyer par lien ; images dans public/affiche/)
@@ -53,16 +54,24 @@ vigie-nc/
                   InstallApp (installer l'appli : bouton Android, étapes iPhone),
                   ShareAffiche (partager le lien de l'affiche),
                   AlertSettings (écran Alertes : activer les notifications),
-                  ServiceWorkerRegister (enregistre public/sw.js)
+                  ServiceWorkerRegister (enregistre public/sw.js),
+                  SessionInit (ouvre la session anonyme au démarrage),
+                  ServiceIndisponible (affiché en prod si la base n'est pas
+                  branchée : JAMAIS de mode démo en production)
   lib/
     types.ts         types de signalement, couleurs, icônes, durées, rayons
     reports-api.ts   SEUL point d'accès aux données (RPC Supabase ou démo)
-    demo-store.ts    mode démo en mémoire (mêmes règles que le SQL)
+    session.ts       session anonyme Supabase (identité signée, pas de compte)
+    turnstile.ts     Cloudflare Turnstile (facultatif, NEXT_PUBLIC_TURNSTILE_SITE_KEY)
+    demo-store.ts    mode démo en mémoire (mêmes règles que le SQL), jamais en prod
+    useLiveReports.ts carte en direct (temps réel vigie_signal) + dernière
+                     carte gardée pour l'affichage sans réseau
     reliability.ts   4 niveaux : Signalement / À confirmer / Confirmé / Vérifié
     face-blur.ts     photo : réduction, floutage visages, suppression EXIF
     place.ts         nom du lieu via Nominatim
     map-styles.ts    fonds de carte (OpenStreetMap / Esri, sans clé — pas CARTO,
-                     qui exige une clé depuis 2026) + emprise NC
+                     qui exige une clé depuis 2026 ; MapTiler si
+                     NEXT_PUBLIC_MAPTILER_KEY ; plan de secours automatique) + emprise NC
     cluster.ts       regroupement des signalements en pastilles chiffrées
     relay-parser.ts  lecture d'un message collé → type + lieu (sur le téléphone)
     legal.ts         éditeur (Tramea Solutions), contact, hébergeurs, date des textes légaux
@@ -74,8 +83,14 @@ vigie-nc/
   app/manifest.ts  rend l'appli installable (display standalone, nécessaire aux
                    notifications sur iPhone ; là, l'appli de l'écran d'accueil a
                    ses propres données, à part de Safari) ; icônes dans public/icons/
-  public/sw.js     service worker : uniquement les notifications, pas de cache
+  public/sw.js     service worker : notifications + ouverture sans réseau
+                   (pages réseau d'abord, fichiers /_next/static, tuiles OSM)
   supabase/schema.sql  schéma complet, ré-exécutable
+  supabase/functions/purge-photos  fonction Supabase (Deno) : photos > 7 jours
+  supabase/tests/  shim-supabase.sql (faux Supabase pour Postgres + PostGIS)
+                   et essais.sql (20 essais : identité, votes, SOS, photos, droits)
+.github/workflows/verification.yml  à chaque PR : build + types, schema.sql
+                   deux fois puis essais.sql sur Postgres + PostGIS
 ```
 
 ## Conventions
@@ -157,9 +172,16 @@ vigie-nc/
   `drop ... if exists` avant de changer un type de retour, et toute
   **nouvelle valeur d'enum** ajoutée par `alter type ... add value if not
   exists` puis comparée en texte (`p_type::text = '...'`) dans les fonctions.
-- Pour tester le SQL sans Supabase : Postgres local + petit shim PostGIS
-  (st_makepoint, st_setsrid, st_distance haversine, st_dwithin) et rôles
-  `anon`/`authenticated` ; lancer le schéma avec `psql -1` (comme l'éditeur).
+- Tester le SQL : la vérification GitHub le fait à chaque PR
+  (`supabase/tests/shim-supabase.sql` puis `schema.sql` deux fois puis
+  `essais.sql`, avec `PGOPTIONS='-c search_path=public,extensions'`).
+  Ajouter un essai dans `essais.sql` pour toute nouvelle règle.
+- **Patrice lance lui-même le SQL** dans l'éditeur Supabase (les
+  modifications par l'outil MCP lui demandent une validation). Avant de
+  lui donner un script, le tester À BLANC sur la vraie base : un bloc
+  `do $verif$ begin execute $schema_verif$ … $schema_verif$; execute
+  $essais_verif$ … $essais_verif$; raise exception 'FIN'; end $verif$;`
+  via `execute_sql` — l'exception finale annule tout, rien n'est gardé.
 
 ## Façon de travailler
 

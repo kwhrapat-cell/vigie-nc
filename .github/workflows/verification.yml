@@ -23,7 +23,22 @@ jobs:
         with:
           node-version: 20
       - name: Dépendances
-        run: if [ -f package-lock.json ]; then npm ci; else npm install; fi
+        id: deps
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+            echo "genere=1" >> "$GITHUB_OUTPUT"
+          fi
+      # Sans package-lock.json dans le dépôt, on garde celui qui vient d'être
+      # créé (téléchargeable depuis la page de la vérification) pour l'ajouter.
+      - name: Garder le package-lock.json créé
+        if: steps.deps.outputs.genere == '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-lock
+          path: vigie-nc/package-lock.json
       - name: Types TypeScript
         run: npx tsc --noEmit
       - name: Build
