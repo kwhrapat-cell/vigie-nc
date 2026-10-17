@@ -136,8 +136,7 @@ export function HomeSheet({
 
       {status === "ready" && reports.length === 0 && (
         <div className="py-2 text-[12px] text-mist-dim leading-relaxed">
-          Aucun signalement {filter ? "de ce type " : ""}
-          {hasCenter ? "dans ce rayon" : ""} pour l&apos;instant.
+          {`Aucun signalement ${filter ? "de ce type " : ""}${hasCenter ? "dans ce rayon " : ""}pour l'instant.`}
           <span className="block text-[10.5px] opacity-70 mt-0.5">
             L&apos;absence de signalement ne garantit pas que la route est dégagée.
           </span>
