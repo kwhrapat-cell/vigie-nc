@@ -145,6 +145,12 @@ export const REPORT_TYPE_ICON: Record<ReportType, string> = {
 
 export type Vote = "present" | "termine";
 
+// On signale, confirme ou déclare terminé seulement ce qu'on voit autour de
+// soi : à plus de 5 km, on n'est pas témoin. (L'auteur peut toujours clore
+// son propre signalement, où qu'il soit.)
+// ⚠️ Doit rester aligné sur vigie_distance_temoin_m() dans supabase/schema.sql.
+export const MAX_WITNESS_DISTANCE_M = 5000;
+
 // Signalement d'un contenu (photo ou texte) qui pose problème. Une info
 // fausse ou finie se traite par le vote « C'est terminé », pas ici.
 export type FlagReason = "donnee_personnelle" | "inapproprie" | "hors_sujet";

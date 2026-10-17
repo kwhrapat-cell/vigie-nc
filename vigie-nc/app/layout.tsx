@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
+import { ServiceIndisponible } from "@/components/ServiceIndisponible";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
+import { demoBlocked } from "@/lib/supabase";
 
 // L'image d'aperçu (app/opengraph-image.png) et les icônes (app/icon.png,
 // app/apple-icon.png) sont ajoutées automatiquement par Next.js.
@@ -51,7 +53,7 @@ export default function RootLayout({
       <body>
         <ServiceWorkerRegister />
         <div className="max-w-md mx-auto min-h-screen flex flex-col bg-void">
-          {children}
+          {demoBlocked ? <ServiceIndisponible /> : children}
         </div>
       </body>
     </html>
