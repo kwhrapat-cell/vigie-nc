@@ -1917,6 +1917,8 @@ begin
    where j.created_at < now() - interval '1 year';
   delete from push_envois p
    where p.sent_at < now() - interval '7 days';
+  delete from vigie_signal s
+   where s.created_at < now() - interval '1 day';
 
   -- Sessions anonymes sans activité depuis 90 jours : supprimées. Elles ne
   -- portent aucun nom, et leur lien avec les signalements est déjà effacé
@@ -1959,13 +1961,52 @@ left join reports r on r.zone_id = z.id
 group by z.id, z.name, z.risk_label;
 
 -- ---------------------------------------------------------------------
+-- Temps réel SANS contenu : quand un signalement change, la base ajoute
+-- une ligne dans vigie_signal avec seulement l'heure et une case de
+-- ~11 km (position arrondie à 0,1°). Les téléphones dont la zone touche
+-- cette case rechargent la carte par signalements_proches_v3. La table
+-- reports, elle, n'est plus lisible ni diffusée directement.
+-- ---------------------------------------------------------------------
+create table if not exists vigie_signal (
+  id bigint generated always as identity primary key,
+  cellule_lat real not null,
+  cellule_lng real not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists vigie_signal_created_idx on vigie_signal (created_at);
+
+create or replace function vigie_emettre_signal()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into vigie_signal (cellule_lat, cellule_lng)
+  values (round(new.lat::numeric, 1)::real, round(new.lng::numeric, 1)::real);
+  return null;
+end;
+$$;
+
+drop trigger if exists trg_vigie_signal on reports;
+create trigger trg_vigie_signal
+after insert or update of confirmations, infirmations, expires_at, resolved_at,
+  photo_url, description, source_officielle, lat, lng
+on reports
+for each row execute function vigie_emettre_signal();
+
+-- ---------------------------------------------------------------------
 -- Droits d'accès
---   - lecture publique des signalements (la carte est publique) ;
+--   - les signalements ne se lisent QUE par les fonctions (RPC) : elles
+--     ne montrent que ce qui doit l'être (signalements actifs, jamais de
+--     SOS, jamais qui les a envoyés) ; la table reports n'est pas lisible
+--     directement ;
 --   - aucune écriture directe depuis l'appli : tout passe par les RPC ;
 --   - auteurs et votes illisibles depuis l'appli.
 -- ---------------------------------------------------------------------
 alter table zones enable row level security;
 alter table reports enable row level security;
+alter table vigie_signal enable row level security;
 alter table report_authors enable row level security;
 alter table report_votes enable row level security;
 alter table report_flags enable row level security;
@@ -1981,13 +2022,17 @@ drop policy if exists "zones lecture publique" on zones;
 create policy "zones lecture publique" on zones for select using (true);
 
 drop policy if exists "reports lecture publique" on reports;
-create policy "reports lecture publique" on reports for select using (true);
-
 drop policy if exists "reports insertion anonyme" on reports;
 
+drop policy if exists "signal lecture publique" on vigie_signal;
+create policy "signal lecture publique" on vigie_signal for select using (true);
+
 grant usage on schema public to anon, authenticated;
-grant select on reports, zones, zone_history to anon, authenticated;
-revoke insert, update, delete on reports from anon, authenticated;
+grant select on zones to anon, authenticated;
+grant select on vigie_signal to anon, authenticated;
+revoke all on reports from anon, authenticated;
+revoke all on zone_history from anon, authenticated;
+revoke insert, update, delete on vigie_signal from anon, authenticated;
 revoke insert, update, delete on zones from anon, authenticated;
 revoke all on report_authors from anon, authenticated;
 revoke all on report_votes from anon, authenticated;
@@ -2013,6 +2058,7 @@ revoke execute on function vigie_signal_notification() from public, anon, authen
 revoke execute on function vigie_alarme_moderateurs() from public, anon, authenticated;
 revoke execute on function vigie_photo_url_valide(text) from public, anon, authenticated;
 revoke execute on function vigie_cle_session() from public, anon, authenticated;
+revoke execute on function vigie_emettre_signal() from public, anon, authenticated;
 revoke execute on function vigie_limite_signalements(text) from public, anon, authenticated;
 revoke execute on function vigie_photos_recentes() from public, anon;
 grant execute on function vigie_photos_recentes() to authenticated;
@@ -2068,16 +2114,25 @@ create policy "photos upload anonyme"
   with check (bucket_id = 'report-photos' and public.vigie_photos_recentes() < 5);
 
 -- ---------------------------------------------------------------------
--- Temps réel : la carte se met à jour dès qu'un signalement change
+-- Temps réel : seule la table vigie_signal (sans contenu) est diffusée ;
+-- reports ne l'est plus (elle envoyait chaque ligne complète, SOS compris,
+-- à tous les téléphones connectés).
 -- ---------------------------------------------------------------------
 do $$
 begin
-  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
-     and not exists (
-       select 1 from pg_publication_tables
-       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'reports'
-     ) then
-    alter publication supabase_realtime add table reports;
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    if exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'reports'
+    ) then
+      alter publication supabase_realtime drop table reports;
+    end if;
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'vigie_signal'
+    ) then
+      alter publication supabase_realtime add table vigie_signal;
+    end if;
   end if;
 end $$;
 

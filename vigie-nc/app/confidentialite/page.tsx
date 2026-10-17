@@ -32,12 +32,12 @@ export default function ConfidentialitePage() {
             Pour une info relayée (Facebook, radio, SMS) : seulement le type, le lieu, l&apos;heure et la provenance.
             Le texte que tu colles reste sur ton téléphone.
           </li>
-          <li>
-            Pour un SOS : ta position, visible sur la carte pendant 2 heures au plus (ou jusqu&apos;à ce que tu
-            indiques ne plus avoir besoin d&apos;aide), sans ton nom.
-          </li>
         </LegalList>
         <p>Ces informations sont publiques : tout le monde peut les voir sur la carte. Jamais qui les a envoyées.</p>
+        <p>
+          Le <strong>SOS ne publie rien</strong> : ta position est seulement mise dans le message que tu envoies
+          toi-même à tes contacts (SMS ou autre appli). Vigie NC ne la reçoit pas.
+        </p>
       </LegalSection>
 
       <LegalSection title="L'identifiant anonyme de ton téléphone">
