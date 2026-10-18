@@ -58,30 +58,22 @@ export function ReliabilityBadge({
   );
 }
 
-/** Logo : bouclier + repère, « VIGIE NC ». */
+/** Logo « Signal » : repère + ondes (en direct, on veille), « VIGIE NC ». */
 export function Logo({ withTagline = false }: { withTagline?: boolean }) {
   return (
     <span className="flex items-center gap-2">
-      <svg viewBox="0 0 32 36" className="w-7 h-8 shrink-0" aria-hidden="true">
-        <defs>
-          <linearGradient id="vigie-shield" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#22B8B0" />
-            <stop offset="0.6" stopColor="#1C9890" />
-            <stop offset="1" stopColor="#E8892F" />
-          </linearGradient>
-        </defs>
+      <svg viewBox="4.5 12 55 38.5" className="w-10 h-7 shrink-0" aria-hidden="true">
+        <g fill="none" stroke="#22B8B0" strokeWidth="3.4" strokeLinecap="round">
+          <path d="M16.85 17.39A18.5 18.5 0 0 0 16.85 38.61" />
+          <path d="M47.15 17.39A18.5 18.5 0 0 1 47.15 38.61" />
+          <path d="M10.8 14.75A25 25 0 0 0 10.8 41.25" strokeOpacity="0.5" />
+          <path d="M53.2 14.75A25 25 0 0 1 53.2 41.25" strokeOpacity="0.5" />
+        </g>
         <path
-          d="M16 1.5L29 6v10.2c0 8.3-5.5 14.6-13 18.3C8.5 30.8 3 24.5 3 16.2V6z"
-          fill="none"
-          stroke="url(#vigie-shield)"
-          strokeWidth="3"
-          strokeLinejoin="round"
+          d="M32 15.5a12.5 12.5 0 0 1 12.5 12.5c0 9-12.5 21.5-12.5 21.5S19.5 37 19.5 28A12.5 12.5 0 0 1 32 15.5z"
+          fill="#22B8B0"
         />
-        <path
-          d="M16 9.5a6 6 0 0 1 6 6c0 4.3-6 10-6 10s-6-5.7-6-10a6 6 0 0 1 6-6z"
-          fill="#EAF6F4"
-        />
-        <circle cx="16" cy="15.5" r="2.4" fill="#081317" />
+        <circle cx="32" cy="28" r="5" fill="#E8622F" />
       </svg>
       <span className="leading-none">
         <span className="font-display font-bold text-[17px] tracking-tight">
