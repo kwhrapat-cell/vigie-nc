@@ -106,6 +106,10 @@ export default function ConfidentialitePage() {
             adresse. Cette trace est effacée au bout de 7 jours.
           </li>
           <li>
+            Rarement, une <strong>annonce importante pour toute la Calédonie</strong> (cyclone, évacuation…) part
+            vers tous les téléphones abonnés : ton lieu n&apos;est pas utilisé pour elle.
+          </li>
+          <li>
             Tout est effacé dès que tu touches « Désactiver », ou quand ton téléphone n&apos;accepte plus les
             notifications.
           </li>
@@ -117,8 +121,8 @@ export default function ConfidentialitePage() {
           <li>Tes contacts d&apos;urgence (SOS) : jamais envoyés à Vigie NC.</li>
           <li>Tes réglages (rayon, fond de carte) et le texte collé pour relayer une info.</li>
           <li>
-            Les derniers signalements affichés et quelques morceaux de carte, pour pouvoir les revoir sans réseau
-            (ce sont des informations publiques).
+            Les derniers signalements et annonces affichés et quelques morceaux de carte, pour pouvoir les revoir
+            sans réseau (ce sont des informations publiques), et les annonces que tu as réduites.
           </li>
           <li>
             Sur iPhone, l&apos;appli ajoutée à l&apos;écran d&apos;accueil garde ses propres réglages et contacts, à

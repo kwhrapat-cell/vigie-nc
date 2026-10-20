@@ -10,7 +10,17 @@ import { getDeviceId } from "./device-id";
 import { ensureSession } from "./session";
 import { demoCreate, demoDetail, demoFlag, demoNearby, demoRelay, demoStats, demoVote } from "./demo-store";
 import { LatLng } from "./geo";
-import { FlagReason, RelaySource, Report, ReportType, REPORT_TYPE_LABELS, RiskLevel, Vote } from "./types";
+import {
+  Annonce,
+  AnnonceNiveau,
+  FlagReason,
+  RelaySource,
+  Report,
+  ReportType,
+  REPORT_TYPE_LABELS,
+  RiskLevel,
+  Vote,
+} from "./types";
 
 export type CreateResult = "cree" | "fusionne" | "deja_signale";
 export type RelayResult = "relaye" | "existe_deja";
@@ -74,6 +84,15 @@ const ERROR_MESSAGES: Record<string, string> = {
     "Notifications refusées : autorise-les pour ce site dans les réglages du navigateur, puis réessaie.",
   trop_de_signalements:
     "Beaucoup de contenus signalés depuis ce téléphone : réessaie dans une heure ou écris-nous.",
+  annonce_niveau_invalide: "Choisis le niveau de l'annonce : info, vigilance ou urgence.",
+  annonce_trop_courte: "Le message est trop court (10 caractères au moins).",
+  annonce_trop_longue: "Le message est trop long (280 caractères au plus).",
+  annonce_duree_invalide: "Choisis une durée entre 1 h et 72 h.",
+  annonce_notif_info: "Une simple info ne part pas en notification : choisis « Vigilance » ou « Urgence ».",
+  trop_d_annonces: "10 annonces publiées ces dernières 24 h : c'est le maximum.",
+  trop_de_notifications:
+    "3 annonces sont déjà parties en notification ces dernières 24 h : publie celle-ci sans notification.",
+  annonce_introuvable: "Cette annonce n'existe plus.",
 };
 
 export class ReportsApiError extends Error {
@@ -655,3 +674,106 @@ export async function notifRemove(endpoint: string): Promise<void> {
 
 /** Les alertes ont besoin de la base en direct (pas de mode démo). */
 export const notifAvailable = Boolean(supabase);
+
+// ---------------------------------------------------------------------
+// Annonces générales : vues par tout le monde, dans toute la Calédonie.
+// Lecture sans session (annonces_actives) ; publication et retrait avec le
+// code d'un modérateur. Pas de mode démo : sans base, aucune annonce.
+// ---------------------------------------------------------------------
+
+interface AnnonceRow {
+  id: string;
+  niveau: AnnonceNiveau;
+  texte: string;
+  source: string | null;
+  created_at: string;
+  expires_at: string;
+}
+
+function mapAnnonce(r: AnnonceRow): Annonce {
+  return {
+    id: r.id,
+    niveau: r.niveau,
+    texte: r.texte,
+    source: r.source,
+    createdAt: r.created_at,
+    expiresAt: r.expires_at,
+  };
+}
+
+/** Annonces en cours, les plus graves d'abord. */
+export async function fetchAnnonces(): Promise<Annonce[]> {
+  if (!supabase) return [];
+  const rows = await liveRpc<AnnonceRow[]>("annonces_actives", {});
+  return (rows ?? []).map(mapAnnonce);
+}
+
+export interface ModAnnonce extends Annonce {
+  retireeAt: string | null;
+  actif: boolean;
+  notifier: boolean;
+  envoyee: boolean;
+  auteur: string | null;
+}
+
+export interface ModAnnonces {
+  annonces: ModAnnonce[];
+  abonnes: number;
+  notifiees24h: number;
+  publiees24h: number;
+}
+
+interface ModAnnonceRow extends AnnonceRow {
+  retiree_at: string | null;
+  actif: boolean;
+  notifier: boolean;
+  envoyee: boolean;
+  auteur: string | null;
+}
+
+export async function modAnnonces(code: string): Promise<ModAnnonces> {
+  const out = await liveRpc<{
+    annonces: ModAnnonceRow[] | null;
+    abonnes: number;
+    notifiees_24h: number;
+    publiees_24h: number;
+  }>("moderation_annonces", { p_code: code });
+  return {
+    annonces: (out.annonces ?? []).map((r) => ({
+      ...mapAnnonce(r),
+      retireeAt: r.retiree_at,
+      actif: r.actif,
+      notifier: r.notifier,
+      envoyee: r.envoyee,
+      auteur: r.auteur,
+    })),
+    abonnes: out.abonnes ?? 0,
+    notifiees24h: out.notifiees_24h ?? 0,
+    publiees24h: out.publiees_24h ?? 0,
+  };
+}
+
+export interface NewAnnonce {
+  niveau: AnnonceNiveau;
+  texte: string;
+  source: string | null;
+  dureeH: number;
+  notifier: boolean;
+}
+
+/** Publie une annonce pour toute la Calédonie ; `notifiee` : notification partie. */
+export async function modAnnoncePublier(code: string, a: NewAnnonce): Promise<{ id: string; notifiee: boolean }> {
+  const out = await liveRpc<{ id: string; notifiee: boolean }>("moderation_annonce_publier", {
+    p_code: code,
+    p_niveau: a.niveau,
+    p_texte: a.texte,
+    p_source: a.source?.trim() || null,
+    p_duree_h: a.dureeH,
+    p_notifier: a.notifier,
+  });
+  return { id: out.id, notifiee: Boolean(out.notifiee) };
+}
+
+export async function modAnnonceRetirer(code: string, annonceId: string): Promise<void> {
+  await liveRpc("moderation_annonce_retirer", { p_code: code, p_annonce_id: annonceId });
+}

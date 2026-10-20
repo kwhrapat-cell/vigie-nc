@@ -1,6 +1,6 @@
 -- =====================================================================
 -- Essais de schema.sql : identité anonyme, votes, SOS, photos, droits,
--- type « feu », chiffres d'utilisation.
+-- type « feu », chiffres d'utilisation, annonces générales.
 -- À lancer APRÈS schema.sql. Chaque essai qui échoue arrête tout avec un
 -- message « Ex échec : … ». Rien n'est envoyé : l'adresse d'envoi des
 -- alertes est retirée pendant l'essai.
@@ -26,6 +26,9 @@ declare
   code_essai constant text := 'code-essai-statistiques-0000';
   v_stats jsonb;
   v_e uuid := gen_random_uuid();
+  code_annonce constant text := 'code-essai-annonces-00000000';
+  v_annonce uuid;
+  v_secret text;
 begin
   delete from vigie_config where cle in ('notif_url', 'securite_url');
   insert into vigie_config (cle, valeur) values ('photo_host', 'essai.supabase.co')
@@ -282,6 +285,125 @@ begin
     raise exception 'E24 échec : total du jour non gardé';
   end if;
 
-  raise notice 'ESSAIS OK (24)';
+  -- E25 : annonce générale — code obligatoire, contenu contrôlé
+  begin
+    perform moderation_annonce_publier('mauvais-code-de-test-0000', 'info', 'Essai sans code valide');
+    raise exception 'E25 échec : annonce publiée sans code';
+  exception when others then
+    if sqlerrm not like '%code_invalide%' then raise exception 'E25 échec : %', sqlerrm; end if;
+  end;
+  perform vigie_ajouter_moderateur('Essai annonces', code_annonce);
+  begin
+    perform moderation_annonce_publier(code_annonce, 'alerte', 'Niveau qui n''existe pas');
+    raise exception 'E25 échec : niveau inconnu accepté';
+  exception when others then
+    if sqlerrm not like '%annonce_niveau_invalide%' then raise exception 'E25 échec : %', sqlerrm; end if;
+  end;
+  begin
+    perform moderation_annonce_publier(code_annonce, 'info', E'  court \n ');
+    raise exception 'E25 échec : texte trop court accepté';
+  exception when others then
+    if sqlerrm not like '%annonce_trop_courte%' then raise exception 'E25 échec : %', sqlerrm; end if;
+  end;
+  begin
+    perform moderation_annonce_publier(code_annonce, 'info', repeat('x', 281));
+    raise exception 'E25 échec : texte trop long accepté';
+  exception when others then
+    if sqlerrm not like '%annonce_trop_longue%' then raise exception 'E25 échec : %', sqlerrm; end if;
+  end;
+  begin
+    perform moderation_annonce_publier(code_annonce, 'info', 'Durée beaucoup trop longue', null, 100);
+    raise exception 'E25 échec : durée de 100 h acceptée';
+  exception when others then
+    if sqlerrm not like '%annonce_duree_invalide%' then raise exception 'E25 échec : %', sqlerrm; end if;
+  end;
+  begin
+    perform moderation_annonce_publier(code_annonce, 'info', 'Une simple info ne sonne pas', null, 6, true);
+    raise exception 'E25 échec : notification acceptée pour une simple info';
+  exception when others then
+    if sqlerrm not like '%annonce_notif_info%' then raise exception 'E25 échec : %', sqlerrm; end if;
+  end;
+
+  -- E26 : publiée, elle est visible par tous ; retirée, elle disparaît
+  select count(*) into v_n from vigie_annonce_signal;
+  v_r := moderation_annonce_publier(code_annonce, 'vigilance',
+           E'Essai : RT1 coupée\u0007 à Boulouparis,\n\n\n\nprudence.', ' Sécurité civile ', 6, false);
+  v_annonce := (v_r->>'id')::uuid;
+  if v_annonce is null then raise exception 'E26 échec : %', v_r; end if;
+  if (select texte from annonces where id = v_annonce) <> E'Essai : RT1 coupée  à Boulouparis,\n\nprudence.'
+     or (select source from annonces where id = v_annonce) <> 'Sécurité civile' then
+    raise exception 'E26 échec : texte mal nettoyé « % »', (select texte from annonces where id = v_annonce);
+  end if;
+  if not (annonces_actives() @> jsonb_build_array(jsonb_build_object('id', v_annonce, 'niveau', 'vigilance'))) then
+    raise exception 'E26 échec : annonce absente des annonces en cours';
+  end if;
+  if annonces_actives()::text like '%Essai annonces%' then
+    raise exception 'E26 échec : le nom du modérateur est visible';
+  end if;
+  if (select count(*) from vigie_annonce_signal) <= v_n then
+    raise exception 'E26 échec : pas de signal temps réel';
+  end if;
+  if not exists (select 1 from moderation_journal where action = 'annonce_publier' and detail = v_annonce::text
+                   and moderateur = 'Essai annonces') then
+    raise exception 'E26 échec : publication non notée dans le journal';
+  end if;
+  if not ((moderation_annonces(code_annonce)->'annonces')
+          @> jsonb_build_array(jsonb_build_object('id', v_annonce, 'auteur', 'Essai annonces', 'actif', true))) then
+    raise exception 'E26 échec : liste de modération %', moderation_annonces(code_annonce);
+  end if;
+  perform moderation_annonce_retirer(code_annonce, v_annonce);
+  if annonces_actives() @> jsonb_build_array(jsonb_build_object('id', v_annonce)) then
+    raise exception 'E26 échec : annonce retirée encore visible';
+  end if;
+  update annonces set expires_at = now() - interval '1 minute', retiree_at = null where id = v_annonce;
+  if annonces_actives() @> jsonb_build_array(jsonb_build_object('id', v_annonce)) then
+    raise exception 'E26 échec : annonce expirée encore visible';
+  end if;
+
+  -- E27 : notification à tous (une seule fois, 3 par 24 h), droits
+  select valeur into v_secret from vigie_config where cle = 'notif_secret';
+  if v_secret is null then
+    v_secret := 'secret-essai-annonces-0000000000000000';
+    insert into vigie_config (cle, valeur) values ('notif_secret', v_secret);
+  end if;
+  insert into push_abonnements (endpoint, p256dh, auth, lat, lng, rayon_km)
+  values ('https://fcm.googleapis.com/fcm/send/essai-annonce-loin', 'cle', 'auth', -20.70, 164.90, 3);
+  v_r := moderation_annonce_publier(code_annonce, 'urgence', 'Essai : cyclone, restez chez vous.', null, 12, true);
+  v_annonce := (v_r->>'id')::uuid;
+  begin
+    perform annonce_destinataires('mauvais-secret', v_annonce);
+    raise exception 'E27 échec : destinataires remis sans secret';
+  exception when others then
+    if sqlerrm not like '%secret_invalide%' then raise exception 'E27 échec : %', sqlerrm; end if;
+  end;
+  v_r := annonce_destinataires(v_secret, v_annonce);
+  if not ((v_r->'abonnements') @> '[{"endpoint": "https://fcm.googleapis.com/fcm/send/essai-annonce-loin"}]'::jsonb) then
+    raise exception 'E27 échec : un abonné loin (Koumac) ne reçoit pas l''annonce : %', v_r;
+  end if;
+  if jsonb_array_length(annonce_destinataires(v_secret, v_annonce)->'abonnements') <> 0 then
+    raise exception 'E27 échec : annonce envoyée deux fois';
+  end if;
+  perform moderation_annonce_publier(code_annonce, 'urgence', 'Essai : deuxième notification.', null, 1, true);
+  perform moderation_annonce_publier(code_annonce, 'vigilance', 'Essai : troisième notification.', null, 1, true);
+  begin
+    perform moderation_annonce_publier(code_annonce, 'urgence', 'Essai : quatrième notification.', null, 1, true);
+    raise exception 'E27 échec : 4e notification en 24 h acceptée';
+  exception when others then
+    if sqlerrm not like '%trop_de_notifications%' then raise exception 'E27 échec : %', sqlerrm; end if;
+  end;
+  if has_table_privilege('anon', 'public.annonces', 'select')
+     or has_table_privilege('authenticated', 'public.annonces', 'insert')
+     or has_table_privilege('anon', 'public.vigie_annonce_signal', 'insert') then
+    raise exception 'E27 échec : table des annonces accessible directement';
+  end if;
+  if not has_function_privilege('anon', 'annonces_actives()', 'execute')
+     or not has_table_privilege('anon', 'public.vigie_annonce_signal', 'select') then
+    raise exception 'E27 échec : les annonces ne sont pas lisibles par tous';
+  end if;
+  delete from annonces where texte like 'Essai%';
+  delete from push_abonnements where endpoint like '%essai-annonce%';
+  delete from moderateurs where nom = 'Essai annonces';
+
+  raise notice 'ESSAIS OK (27)';
 end
 $essais$;

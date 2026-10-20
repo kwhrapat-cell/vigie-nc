@@ -4,7 +4,7 @@
 
 import webpush from "web-push";
 import { LEGAL } from "./legal";
-import { REPORT_TYPE_LABELS, ReportType } from "./types";
+import { ANNONCE_NIVEAU_LABELS, AnnonceNiveau, REPORT_TYPE_LABELS, ReportType } from "./types";
 
 const PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
@@ -139,4 +139,38 @@ export function securityPayload(evenement: SecurityEvent, nom: unknown): PushPay
     // un tag différent à chaque fois : plusieurs changements = plusieurs notifications
     tag: `securite-${Date.now()}`,
   };
+}
+
+// ---------------------------------------------------------------------
+// Annonce générale (toute la Calédonie) : envoyée par /api/annonce à tous
+// les téléphones abonnés aux alertes, quel que soit leur lieu, quand le
+// modérateur l'a demandé (vigilance ou urgence seulement).
+// Texte factuel, sans emoji (voir alertPayload).
+// ---------------------------------------------------------------------
+
+export interface AnnonceAlerte {
+  id: string;
+  niveau: AnnonceNiveau;
+  texte: string;
+  source: string | null;
+  expires_at: string;
+}
+
+/** Ex. « Urgence · Sécurité civile » / « Cyclone : restez chez vous jusqu'à la levée de l'alerte. » */
+export function annoncePayload(a: AnnonceAlerte): PushPayload {
+  const nettoye = (t: string) => t.replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, " ").trim();
+  const source = a.source ? nettoye(a.source).slice(0, 60) : "Vigie NC";
+  const texte = nettoye(a.texte).replace(/\s*\n\s*/g, " ");
+  return {
+    title: `${ANNONCE_NIVEAU_LABELS[a.niveau] ?? "Annonce"} · ${source}`,
+    body: texte.length > 240 ? `${texte.slice(0, 239)}…` : texte,
+    url: `/?annonce=${a.id}`,
+    tag: `annonce-${a.id}`,
+  };
+}
+
+/** Durée de garde par le service d'envoi si le téléphone est éteint : jusqu'à la fin de l'annonce (1 h à 24 h). */
+export function annonceTtl(a: AnnonceAlerte, now = Date.now()): number {
+  const restant = Math.floor((new Date(a.expires_at).getTime() - now) / 1000);
+  return Math.min(24 * 3600, Math.max(3600, Number.isFinite(restant) ? restant : 3600));
 }

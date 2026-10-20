@@ -228,3 +228,34 @@ export interface EmergencyContact {
   name: string;
   phone: string; // format international, ex: +687XXXXXX
 }
+
+// ---------------------------------------------------------------------
+// Annonces générales : message vu par tout le monde, dans toute la
+// Calédonie (bandeau en haut de la carte). Publiées depuis /moderation.
+// ⚠️ Limites alignées sur moderation_annonce_publier() dans supabase/schema.sql.
+// ---------------------------------------------------------------------
+export type AnnonceNiveau = "info" | "vigilance" | "urgence";
+
+export const ANNONCE_NIVEAUX: AnnonceNiveau[] = ["info", "vigilance", "urgence"];
+
+export const ANNONCE_NIVEAU_LABELS: Record<AnnonceNiveau, string> = {
+  info: "Info",
+  vigilance: "Vigilance",
+  urgence: "Urgence",
+};
+
+export const ANNONCE_TEXTE_MIN = 10;
+export const ANNONCE_TEXTE_MAX = 280;
+export const ANNONCE_SOURCE_MAX = 60;
+export const ANNONCE_DUREES_H = [2, 6, 12, 24, 48] as const;
+// Notifications à tous les abonnés : 3 annonces par 24 h au plus.
+export const ANNONCE_NOTIF_MAX_24H = 3;
+
+export interface Annonce {
+  id: string;
+  niveau: AnnonceNiveau;
+  texte: string;
+  source: string | null;
+  createdAt: string; // ISO
+  expiresAt: string; // ISO — disparaît toute seule à cette heure
+}
