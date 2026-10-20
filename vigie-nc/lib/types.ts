@@ -4,6 +4,7 @@ export type ReportType =
   | "sos"
   | "accident"
   | "inondation"
+  | "feu"
   | "route_coupee"
   | "danger"
   | "travaux"
@@ -16,6 +17,7 @@ export type ReportType =
 export const SIGNALABLE_TYPES: Exclude<ReportType, "sos">[] = [
   "accident",
   "inondation",
+  "feu",
   "route_coupee",
   "danger",
   "travaux",
@@ -29,6 +31,7 @@ export const REPORT_TYPE_LABELS: Record<ReportType, string> = {
   sos: "SOS — urgence",
   accident: "Accident",
   inondation: "Inondation",
+  feu: "Feu ou fumée",
   route_coupee: "Route coupée",
   danger: "Danger",
   travaux: "Travaux",
@@ -43,6 +46,7 @@ export const REPORT_TYPE_SHORT: Record<ReportType, string> = {
   ...REPORT_TYPE_LABELS,
   sos: "SOS",
   meteo: "Météo",
+  feu: "Feu",
 };
 
 // Durée de vie d'un signalement sans nouvelle confirmation (minutes).
@@ -56,6 +60,7 @@ export const REPORT_TYPE_LIFETIME_MIN: Record<ReportType, number> = {
   autre: 180,
   route_coupee: 240,
   inondation: 240,
+  feu: 240,
   travaux: 3 * 24 * 60,
   chaussee_degradee: 3 * 24 * 60,
 };
@@ -69,6 +74,8 @@ export const REPORT_TYPE_MERGE_RADIUS_M: Record<ReportType, number> = {
   trafic_dense: 500,
   route_coupee: 800,
   inondation: 1000,
+  // Un feu se voit (fumée) depuis plusieurs points de la route.
+  feu: 1500,
   meteo: 2000,
   chaussee_degradee: 150,
   sos: 0,
@@ -85,6 +92,7 @@ export const REPORT_TYPE_CATEGORY: Record<ReportType, Category> = {
   accident: "danger",
   route_coupee: "danger",
   danger: "danger",
+  feu: "danger",
   travaux: "perturbation",
   trafic_dense: "perturbation",
   chaussee_degradee: "perturbation",
@@ -111,6 +119,7 @@ export const REPORT_TYPE_HEX: Record<ReportType, string> = {
   sos: "#E5484D",
   accident: "#E2572B",
   inondation: "#2D7BE5",
+  feu: "#C2410C",
   route_coupee: "#F0912E",
   danger: "#D93A3A",
   travaux: "#D9A11E",
@@ -128,6 +137,8 @@ export const REPORT_TYPE_ICON: Record<ReportType, string> = {
     '<path d="M5 11l1.5-4.3A2 2 0 0 1 8.4 5.3h7.2a2 2 0 0 1 1.9 1.4L19 11"/><rect x="3" y="11" width="18" height="6" rx="2"/><path d="M6 17v2M18 17v2"/><circle cx="7.5" cy="14" r="1"/><circle cx="16.5" cy="14" r="1"/>',
   inondation:
     '<path d="M7 11.5L12 7l5 4.5"/><path d="M3 15.5c1.5 1.2 3 1.2 4.5 0s3-1.2 4.5 0 3 1.2 4.5 0 3-1.2 4.5 0"/><path d="M3 19.5c1.5 1.2 3 1.2 4.5 0s3-1.2 4.5 0 3 1.2 4.5 0 3-1.2 4.5 0"/>',
+  feu:
+    '<path d="M12 21c-3.9 0-6.5-2.6-6.5-6.2 0-3.4 2.4-5.4 3.6-8.3.4 1.9 1.5 3 2.6 3.6C12 6.8 13.4 4.4 15.6 3c-.3 2.6.7 4.6 2 6.4 1 1.4 1.9 3 1.9 5.2C19.5 18.4 16.4 21 12 21z"/><path d="M12 21c-1.7 0-2.9-1.2-2.9-2.8 0-1.7 1.4-2.6 2-4.1.9 1.1 1.8 1.5 2.6 2.6.6.8.8 1.4.8 2 0 1.3-1.1 2.3-2.5 2.3z"/>',
   route_coupee:
     '<rect x="3" y="7.5" width="18" height="5.5" rx="1"/><path d="M7.5 7.5l-2.5 5.5M13 7.5l-2.5 5.5M18.5 7.5L16 13"/><path d="M6 13v6.5M18 13v6.5"/>',
   danger: '<path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.3v.2"/>',
@@ -149,7 +160,7 @@ export type Vote = "present" | "termine";
 // suffit pas à les retirer de la carte (il en faut 2, et plus de
 // « terminé » que de « toujours là »).
 // ⚠️ Doit rester aligné sur vigie_est_danger() dans supabase/schema.sql.
-export const ALERT_TYPES: ReportType[] = ["accident", "route_coupee", "inondation", "danger", "meteo"];
+export const ALERT_TYPES: ReportType[] = ["accident", "route_coupee", "inondation", "feu", "danger", "meteo"];
 
 // On signale, confirme ou déclare terminé seulement ce qu'on voit autour de
 // soi : à plus de 5 km, on n'est pas témoin. (L'auteur peut toujours clore

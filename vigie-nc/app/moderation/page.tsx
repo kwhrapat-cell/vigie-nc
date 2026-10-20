@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { ModStatsPanel } from "@/components/ModStatsPanel";
 import { SecurityAlarm } from "@/components/SecurityAlarm";
 import { PrimaryButton, ScreenHeader, TypeTile } from "@/components/ui";
 import { formatAge } from "@/lib/geo";
@@ -50,7 +51,8 @@ export default function ModerationPage() {
   const [input, setInput] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  const [filter, setFilter] = useState<ModFilter>("signales");
+  // Onglets : les deux listes à modérer, puis les chiffres d'utilisation
+  const [filter, setFilter] = useState<ModFilter | "chiffres">("signales");
   const [items, setItems] = useState<ModItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
@@ -72,7 +74,7 @@ export default function ModerationPage() {
   }, []);
 
   const load = useCallback(async () => {
-    if (!code) return;
+    if (!code || filter === "chiffres") return;
     setLoading(true);
     setListError(null);
     try {
@@ -169,12 +171,13 @@ export default function ModerationPage() {
 
       <SecurityAlarm code={code} />
 
-      <div className="mx-4 grid grid-cols-2 gap-2" role="tablist">
+      <div className="mx-4 grid grid-cols-3 gap-2" role="tablist">
         {(
           [
             ["signales", "Signalés"],
             ["recents", "Récents 48 h"],
-          ] as [ModFilter, string][]
+            ["chiffres", "Chiffres"],
+          ] as [ModFilter | "chiffres", string][]
         ).map(([f, label]) => (
           <button
             key={f}
@@ -191,36 +194,42 @@ export default function ModerationPage() {
         ))}
       </div>
 
-      <div className="mx-4 mt-2 flex items-center justify-between text-[11.5px] text-mist-dim">
-        <span>
-          {loading
-            ? "Chargement…"
-            : filter === "signales"
-              ? `${items.length} à regarder (30 derniers jours)`
-              : `${items.length} signalement${items.length > 1 ? "s" : ""} (48 dernières heures)`}
-        </span>
-        <button type="button" onClick={load} disabled={loading} className="py-2 underline disabled:opacity-50">
-          Actualiser
-        </button>
-      </div>
+      {filter === "chiffres" && <ModStatsPanel code={code} />}
 
-      {listError && (
-        <p className="mx-4 mt-2 text-[12px] text-danger" role="alert">
-          {listError}
-        </p>
+      {filter !== "chiffres" && (
+        <>
+          <div className="mx-4 mt-2 flex items-center justify-between text-[11.5px] text-mist-dim">
+            <span>
+              {loading
+                ? "Chargement…"
+                : filter === "signales"
+                  ? `${items.length} à regarder (30 derniers jours)`
+                  : `${items.length} signalement${items.length > 1 ? "s" : ""} (48 dernières heures)`}
+            </span>
+            <button type="button" onClick={load} disabled={loading} className="py-2 underline disabled:opacity-50">
+              Actualiser
+            </button>
+          </div>
+
+          {listError && (
+            <p className="mx-4 mt-2 text-[12px] text-danger" role="alert">
+              {listError}
+            </p>
+          )}
+
+          {!loading && !listError && items.length === 0 && (
+            <p className="mx-4 mt-6 text-center text-[12.5px] text-mist-dim">
+              {filter === "signales" ? "Rien à modérer pour l'instant." : "Aucun signalement ces dernières 48 h."}
+            </p>
+          )}
+
+          <div className="mt-3 flex flex-col gap-3">
+            {items.map((item) => (
+              <ModCard key={item.id} item={item} code={code} onDone={load} />
+            ))}
+          </div>
+        </>
       )}
-
-      {!loading && !listError && items.length === 0 && (
-        <p className="mx-4 mt-6 text-center text-[12.5px] text-mist-dim">
-          {filter === "signales" ? "Rien à modérer pour l'instant." : "Aucun signalement ces dernières 48 h."}
-        </p>
-      )}
-
-      <div className="mt-3 flex flex-col gap-3">
-        {items.map((item) => (
-          <ModCard key={item.id} item={item} code={code} onDone={load} />
-        ))}
-      </div>
     </main>
   );
 }

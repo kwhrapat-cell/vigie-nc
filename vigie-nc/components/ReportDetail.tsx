@@ -142,8 +142,11 @@ export function ReportDetail({
   // type et le lieu, eux, se corrigent avec « C'est terminé ».
   const canFlag = !isSos && !report.isMine && Boolean(report.photoUrl || report.description);
 
+  // Lien /s/<id> : WhatsApp, Facebook… affichent un aperçu du signalement
+  // (type, lieu, fiabilité, heure) ; « src=partage » compte, sans savoir
+  // qui, les nouveaux visiteurs arrivés par un partage.
   async function share() {
-    const url = `${window.location.origin}/?signalement=${report.id}`;
+    const url = `${window.location.origin}/s/${report.id}?src=partage`;
     const text = `${report.label}${report.place ? ` — ${report.place}` : ""} (signalé sur Vigie NC)`;
     try {
       if (navigator.share) {
@@ -241,6 +244,13 @@ export function ReportDetail({
         </p>
         {report.description && (
           <p className="mt-1.5 text-[13px] leading-relaxed whitespace-pre-line">{report.description}</p>
+        )}
+
+        {report.type === "feu" && active && (
+          <p className="mt-3 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-[12px] leading-relaxed">
+            Feu : ne t&apos;approche pas. Si les pompiers ne sont pas encore prévenus, appelle le{" "}
+            <a href="tel:18" className="underline font-semibold">18</a>.
+          </p>
         )}
 
         {isSos ? (

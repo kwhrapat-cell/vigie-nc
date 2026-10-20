@@ -49,8 +49,13 @@ const KEYWORDS: Record<RelayableType, [string, number][]> = {
     ["arbre tombe", 5], ["arbre en travers", 5], ["eboulement", 5], ["glissement de terrain", 5],
     ["eboulis", 4], ["rochers sur la route", 5], ["pierres sur la route", 5], ["animal sur la route", 4],
     ["vache", 3], ["chevaux", 3], ["cheval", 3], ["cerf", 3], ["huile sur la route", 4], ["gasoil", 3],
-    ["feu de brousse", 4], ["incendie", 4], ["fumee", 2], ["cable", 2], ["poteau", 2], ["arbre", 2],
-    ["danger", 2], ["attention", 1],
+    ["cable", 2], ["poteau", 2], ["arbre", 2], ["danger", 2], ["attention", 1],
+  ],
+  // « feu » seul est absent : « feu rouge » (carrefour) le déclencherait.
+  feu: [
+    ["feu de brousse", 6], ["feux de brousse", 6], ["feu de foret", 6], ["feux de foret", 6],
+    ["incendie", 5], ["en feu", 5], ["flammes", 4], ["fumee sur la route", 6], ["fumee", 3],
+    ["ca brule", 4], ["brule", 2], ["pompiers", 1],
   ],
   travaux: [
     ["travaux", 5], ["pour travaux", 6], ["chantier", 4], ["alternat", 4], ["circulation alternee", 4], ["basculement", 3],
@@ -76,6 +81,7 @@ const PRIORITY: RelayableType[] = [
   "accident",
   "route_coupee",
   "inondation",
+  "feu",
   "danger",
   "travaux",
   "trafic_dense",
