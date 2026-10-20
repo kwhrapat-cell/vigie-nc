@@ -7,6 +7,7 @@ import { HomeSheet } from "./HomeSheet";
 import { ReportDetail } from "./ReportDetail";
 import { BottomNav } from "./BottomNav";
 import { WelcomeNotice } from "./WelcomeNotice";
+import { AnnonceBanner } from "./AnnonceBanner";
 import { Logo } from "./ui";
 import { MapStyleSwitcher, RecenterButton, ZoneSelector } from "./MapControls";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -171,6 +172,9 @@ export function CarteLive() {
           </Link>
         </div>
       </header>
+
+      {/* Annonces générales : vues par tout le monde, quelle que soit la zone */}
+      <AnnonceBanner />
 
       {banner && (
         <div role="status" className="mx-4 mb-2 rounded-xl border border-lagoon/30 bg-lagoon/10 px-3 py-2 text-[12px] text-mist">

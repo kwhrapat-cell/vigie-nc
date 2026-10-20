@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { ModAnnoncesPanel } from "@/components/ModAnnoncesPanel";
 import { ModStatsPanel } from "@/components/ModStatsPanel";
 import { SecurityAlarm } from "@/components/SecurityAlarm";
 import { PrimaryButton, ScreenHeader, TypeTile } from "@/components/ui";
@@ -19,6 +20,8 @@ import { FlagReason, RELAY_SOURCE_LABELS, REPORT_TYPE_LABELS } from "@/lib/types
 
 // Le code reste sur ce téléphone, jamais affiché.
 const CODE_KEY = "vigie-nc:code-moderation";
+
+type Onglet = ModFilter | "annonces" | "chiffres";
 
 const MOTIFS_COURTS: Record<FlagReason, string> = {
   donnee_personnelle: "visage, plaque ou nom",
@@ -51,8 +54,9 @@ export default function ModerationPage() {
   const [input, setInput] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  // Onglets : les deux listes à modérer, puis les chiffres d'utilisation
-  const [filter, setFilter] = useState<ModFilter | "chiffres">("signales");
+  // Onglets : les deux listes à modérer, les annonces générales, puis les
+  // chiffres d'utilisation
+  const [filter, setFilter] = useState<Onglet>("signales");
   const [items, setItems] = useState<ModItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
@@ -74,7 +78,7 @@ export default function ModerationPage() {
   }, []);
 
   const load = useCallback(async () => {
-    if (!code || filter === "chiffres") return;
+    if (!code || filter === "chiffres" || filter === "annonces") return;
     setLoading(true);
     setListError(null);
     try {
@@ -171,13 +175,14 @@ export default function ModerationPage() {
 
       <SecurityAlarm code={code} />
 
-      <div className="mx-4 grid grid-cols-3 gap-2" role="tablist">
+      <div className="mx-4 grid grid-cols-4 gap-1.5" role="tablist">
         {(
           [
             ["signales", "Signalés"],
-            ["recents", "Récents 48 h"],
+            ["recents", "Récents"],
+            ["annonces", "Annonces"],
             ["chiffres", "Chiffres"],
-          ] as [ModFilter | "chiffres", string][]
+          ] as [Onglet, string][]
         ).map(([f, label]) => (
           <button
             key={f}
@@ -185,7 +190,7 @@ export default function ModerationPage() {
             role="tab"
             aria-selected={filter === f}
             onClick={() => setFilter(f)}
-            className={`rounded-lg py-2.5 text-[13px] font-medium border ${
+            className={`rounded-lg py-2.5 text-[12.5px] font-medium border ${
               filter === f ? "bg-primary border-primary text-white" : "border-line bg-panel-2 text-mist-dim"
             }`}
           >
@@ -196,7 +201,9 @@ export default function ModerationPage() {
 
       {filter === "chiffres" && <ModStatsPanel code={code} />}
 
-      {filter !== "chiffres" && (
+      {filter === "annonces" && <ModAnnoncesPanel code={code} />}
+
+      {(filter === "signales" || filter === "recents") && (
         <>
           <div className="mx-4 mt-2 flex items-center justify-between text-[11.5px] text-mist-dim">
             <span>

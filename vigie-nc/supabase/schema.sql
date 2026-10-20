@@ -2120,7 +2120,7 @@ $$;
 --     téléphone et ce signalement est effacé (auteur, votes, signalements
 --     de contenu) ;
 --   - le contenu masqué par la modération est effacé après 90 jours ;
---   - le journal de modération est gardé un an ;
+--   - le journal de modération et les annonces générales sont gardés un an ;
 --   - la trace des alertes envoyées (anti-doublon) est gardée 7 jours ;
 --   - les sessions anonymes inactives depuis 90 jours sont supprimées ;
 --   - le journal de sécurité de Supabase Auth est gardé 30 jours ;
@@ -2150,6 +2150,10 @@ begin
    where p.sent_at < now() - interval '7 days';
   delete from vigie_signal s
    where s.created_at < now() - interval '1 day';
+  delete from vigie_annonce_signal s
+   where s.created_at < now() - interval '1 day';
+  delete from annonces a
+   where a.created_at < now() - interval '1 year';
 
   -- Chiffres d'utilisation : totaux par jour (jours terminés), puis le
   -- détail par appareil est effacé.
@@ -2324,6 +2328,314 @@ on reports
 for each row execute function vigie_emettre_signal();
 
 -- ---------------------------------------------------------------------
+-- Annonces générales : un message vu par TOUT le monde, dans toute la
+-- Calédonie, quelle que soit la zone choisie (bandeau en haut de la carte).
+--   - publiées depuis l'écran /moderation (onglet « Annonces »), avec le
+--     code d'un modérateur ; plus tard, un partenaire officiel (mairie,
+--     Sécurité civile…) pourra recevoir son propre code ;
+--   - niveau : info / vigilance / urgence ; texte de 10 à 280 caractères ;
+--     source facultative (« Sécurité civile ») ; durée de 1 à 72 h, puis
+--     l'annonce disparaît toute seule (ou plus tôt : « Retirer ») ;
+--   - notification facultative (vigilance ou urgence seulement) à TOUS les
+--     téléphones abonnés aux alertes, quel que soit leur lieu, une seule
+--     fois par annonce ;
+--   - garde-fous (un code volé ne doit pas pouvoir inonder tout le monde) :
+--     10 annonces par 24 h au plus, dont 3 avec notification ;
+--   - qui a publié : noté dans moderation_journal, jamais affiché ;
+--   - lecture : annonces_actives() ; la table n'est pas lisible
+--     directement. Temps réel SANS contenu par vigie_annonce_signal (comme
+--     vigie_signal) : les téléphones rechargent les annonces.
+-- Envoi des notifications : /api/annonce (adresse = notif_url avec
+-- /api/annonce au bout, ou la clé 'annonce_url' de vigie_config), même
+-- secret que les alertes routières.
+-- ---------------------------------------------------------------------
+create table if not exists annonces (
+  id uuid primary key default gen_random_uuid(),
+  niveau text not null check (niveau in ('info', 'vigilance', 'urgence')),
+  texte text not null check (char_length(texte) between 10 and 280),
+  source text check (source is null or char_length(source) <= 60),
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  retiree_at timestamptz,
+  -- notification demandée / serveur d'envoi prévenu / destinataires remis
+  notifier boolean not null default false,
+  notifie_at timestamptz,
+  envoyee_at timestamptz
+);
+create index if not exists annonces_created_idx on annonces (created_at desc);
+
+create table if not exists vigie_annonce_signal (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now()
+);
+create index if not exists vigie_annonce_signal_created_idx on vigie_annonce_signal (created_at);
+
+create or replace function vigie_emettre_signal_annonce()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into vigie_annonce_signal default values;
+  return null;
+end;
+$$;
+
+drop trigger if exists trg_vigie_annonce_signal on annonces;
+create trigger trg_vigie_annonce_signal
+after insert or update of retiree_at, expires_at, texte, niveau, source
+on annonces
+for each row execute function vigie_emettre_signal_annonce();
+
+-- Texte propre : sans caractères de contrôle (sauf retours à la ligne),
+-- pas plus d'une ligne vide de suite (fonction interne).
+create or replace function vigie_texte_annonce(p_texte text)
+returns text
+language sql
+immutable
+set search_path = public
+as $$
+  select btrim(
+    regexp_replace(
+      regexp_replace(
+        replace(coalesce(p_texte, ''), E'\r', ''),
+        E'[\\x01-\\x09\\x0b-\\x1f\\x7f]+', ' ', 'g'),
+      E'\\n{3,}', E'\n\n', 'g'),
+    E' \n\t');
+$$;
+
+-- RPC : annonces en cours (tout le monde, sans session). Les plus graves
+-- d'abord, puis les plus récentes. Jamais qui les a publiées.
+create or replace function annonces_actives()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+      'id', a.id,
+      'niveau', a.niveau,
+      'texte', a.texte,
+      'source', a.source,
+      'created_at', a.created_at,
+      'expires_at', a.expires_at
+    ) order by case a.niveau when 'urgence' then 0 when 'vigilance' then 1 else 2 end, a.created_at desc),
+    '[]'::jsonb)
+  from (
+    select * from annonces
+    where retiree_at is null and expires_at > now()
+    order by created_at desc
+    limit 5
+  ) a;
+$$;
+
+-- RPC (modération) : publier une annonce pour toute la Calédonie
+create or replace function moderation_annonce_publier(
+  p_code text,
+  p_niveau text,
+  p_texte text,
+  p_source text default null,
+  p_duree_h int default 6,
+  p_notifier boolean default false
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_nom text;
+  v_texte text := vigie_texte_annonce(p_texte);
+  v_source text := left(nullif(btrim(regexp_replace(coalesce(p_source, ''), E'[\\x01-\\x1f\\x7f]+', ' ', 'g')), ''), 60);
+  v_notifier boolean := coalesce(p_notifier, false);
+  v_id uuid;
+  v_url text;
+  v_secret text;
+begin
+  v_nom := vigie_moderateur(p_code);
+
+  if p_niveau is null or p_niveau not in ('info', 'vigilance', 'urgence') then
+    raise exception 'annonce_niveau_invalide';
+  end if;
+  if char_length(v_texte) < 10 then
+    raise exception 'annonce_trop_courte';
+  end if;
+  if char_length(v_texte) > 280 then
+    raise exception 'annonce_trop_longue';
+  end if;
+  if p_duree_h is null or p_duree_h < 1 or p_duree_h > 72 then
+    raise exception 'annonce_duree_invalide';
+  end if;
+  if v_notifier and p_niveau = 'info' then
+    raise exception 'annonce_notif_info';
+  end if;
+
+  if (select count(*) from annonces where created_at > now() - interval '24 hours') >= 10 then
+    raise exception 'trop_d_annonces';
+  end if;
+  if v_notifier
+     and (select count(*) from annonces where notifier and created_at > now() - interval '24 hours') >= 3 then
+    raise exception 'trop_de_notifications';
+  end if;
+
+  insert into annonces (niveau, texte, source, expires_at, notifier)
+  values (p_niveau, v_texte, v_source, now() + make_interval(hours => p_duree_h), v_notifier)
+  returning id into v_id;
+
+  insert into moderation_journal (moderateur, report_id, action, detail)
+  values (v_nom, null, 'annonce_publier', v_id::text);
+
+  -- Notification à tous les abonnés : le serveur d'envoi est prévenu. Sans
+  -- configuration ou sans pg_net, l'annonce est quand même publiée.
+  if v_notifier then
+    select valeur into v_url from vigie_config where cle = 'annonce_url';
+    if v_url is null then
+      select regexp_replace(valeur, '/api/notifier/?$', '/api/annonce')
+      into v_url from vigie_config where cle = 'notif_url';
+      if v_url !~ '/api/annonce$' then
+        v_url := null;
+      end if;
+    end if;
+    select valeur into v_secret from vigie_config where cle = 'notif_secret';
+    if v_url is not null and v_secret is not null then
+      begin
+        perform net.http_post(
+          url := v_url,
+          body := jsonb_build_object('annonce_id', v_id),
+          headers := jsonb_build_object('Content-Type', 'application/json', 'x-vigie-secret', v_secret),
+          timeout_milliseconds := 60000
+        );
+        update annonces set notifie_at = now() where id = v_id;
+      exception when others then
+        -- pg_net absent ou en panne : annonce visible, sans notification.
+        null;
+      end;
+    end if;
+  end if;
+
+  return jsonb_build_object(
+    'ok', true,
+    'id', v_id,
+    'notifiee', exists (select 1 from annonces where id = v_id and notifie_at is not null)
+  );
+end;
+$$;
+
+-- RPC (modération) : retirer une annonce avant l'heure prévue
+create or replace function moderation_annonce_retirer(p_code text, p_annonce_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_nom text;
+begin
+  v_nom := vigie_moderateur(p_code);
+  update annonces
+  set retiree_at = coalesce(retiree_at, now())
+  where id = p_annonce_id;
+  if not found then
+    raise exception 'annonce_introuvable';
+  end if;
+  insert into moderation_journal (moderateur, report_id, action, detail)
+  values (v_nom, null, 'annonce_retirer', p_annonce_id::text);
+  return jsonb_build_object('ok', true);
+end;
+$$;
+
+-- RPC (modération) : annonces des 7 derniers jours (et en cours), qui les
+-- a publiées, et nombre de téléphones abonnés aux alertes.
+create or replace function moderation_annonces(p_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_liste jsonb;
+begin
+  perform vigie_moderateur(p_code);
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+      'id', a.id,
+      'niveau', a.niveau,
+      'texte', a.texte,
+      'source', a.source,
+      'created_at', a.created_at,
+      'expires_at', a.expires_at,
+      'retiree_at', a.retiree_at,
+      'actif', (a.retiree_at is null and a.expires_at > now()),
+      'notifier', a.notifier,
+      'envoyee', (a.envoyee_at is not null),
+      'auteur', (select j.moderateur from moderation_journal j
+                 where j.action = 'annonce_publier' and j.detail = a.id::text
+                 order by j.created_at limit 1)
+    ) order by a.created_at desc), '[]'::jsonb)
+  into v_liste
+  from (
+    select * from annonces
+    where created_at > now() - interval '7 days'
+       or (retiree_at is null and expires_at > now())
+    order by created_at desc
+    limit 50
+  ) a;
+
+  return jsonb_build_object(
+    'annonces', v_liste,
+    'abonnes', (select count(*) from push_abonnements),
+    'notifiees_24h', (select count(*) from annonces where notifier and created_at > now() - interval '24 hours'),
+    'publiees_24h', (select count(*) from annonces where created_at > now() - interval '24 hours')
+  );
+end;
+$$;
+
+-- RPC (serveur d'envoi) : l'annonce et TOUS les téléphones abonnés aux
+-- alertes, quel que soit leur lieu. Remis une seule fois par annonce.
+create or replace function annonce_destinataires(p_secret text, p_annonce_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_a annonces%rowtype;
+  v_premiere boolean;
+begin
+  if not vigie_secret_notif_ok(p_secret) then
+    raise exception 'secret_invalide';
+  end if;
+
+  update annonces
+  set envoyee_at = now()
+  where id = p_annonce_id and notifier and envoyee_at is null
+  returning true into v_premiere;
+
+  select * into v_a from annonces where id = p_annonce_id;
+  if not found then
+    raise exception 'annonce_introuvable';
+  end if;
+
+  return jsonb_build_object(
+    'annonce', jsonb_build_object(
+      'id', v_a.id,
+      'niveau', v_a.niveau,
+      'texte', v_a.texte,
+      'source', v_a.source,
+      'expires_at', v_a.expires_at,
+      'actif', (v_a.retiree_at is null and v_a.expires_at > now())
+    ),
+    'abonnements', case when coalesce(v_premiere, false) then coalesce(
+      (select jsonb_agg(jsonb_build_object('endpoint', p.endpoint, 'p256dh', p.p256dh, 'auth', p.auth))
+       from push_abonnements p),
+      '[]'::jsonb) else '[]'::jsonb end
+  );
+end;
+$$;
+
+-- ---------------------------------------------------------------------
 -- Droits d'accès
 --   - les signalements ne se lisent QUE par les fonctions (RPC) : elles
 --     ne montrent que ce qui doit l'être (signalements actifs, jamais de
@@ -2349,6 +2661,8 @@ alter table vigie_activite enable row level security;
 alter table vigie_visiteurs enable row level security;
 alter table vigie_sources_jour enable row level security;
 alter table vigie_stats_jour enable row level security;
+alter table annonces enable row level security;
+alter table vigie_annonce_signal enable row level security;
 
 drop policy if exists "zones lecture publique" on zones;
 create policy "zones lecture publique" on zones for select using (true);
@@ -2359,9 +2673,13 @@ drop policy if exists "reports insertion anonyme" on reports;
 drop policy if exists "signal lecture publique" on vigie_signal;
 create policy "signal lecture publique" on vigie_signal for select using (true);
 
+drop policy if exists "signal annonce lecture publique" on vigie_annonce_signal;
+create policy "signal annonce lecture publique" on vigie_annonce_signal for select using (true);
+
 grant usage on schema public to anon, authenticated;
 grant select on zones to anon, authenticated;
 grant select on vigie_signal to anon, authenticated;
+grant select on vigie_annonce_signal to anon, authenticated;
 revoke all on reports from anon, authenticated;
 revoke all on zone_history from anon, authenticated;
 revoke insert, update, delete on vigie_signal from anon, authenticated;
@@ -2380,6 +2698,8 @@ revoke all on vigie_activite from anon, authenticated;
 revoke all on vigie_visiteurs from anon, authenticated;
 revoke all on vigie_sources_jour from anon, authenticated;
 revoke all on vigie_stats_jour from anon, authenticated;
+revoke all on annonces from anon, authenticated;
+revoke insert, update, delete on vigie_annonce_signal from anon, authenticated;
 
 revoke execute on function vigie_appliquer_vote(uuid, text, text) from public, anon, authenticated;
 revoke execute on function vigie_masquer_contenu(uuid, text) from public, anon, authenticated;
@@ -2395,6 +2715,8 @@ revoke execute on function vigie_alarme_moderateurs() from public, anon, authent
 revoke execute on function vigie_photo_url_valide(text) from public, anon, authenticated;
 revoke execute on function vigie_cle_session() from public, anon, authenticated;
 revoke execute on function vigie_emettre_signal() from public, anon, authenticated;
+revoke execute on function vigie_emettre_signal_annonce() from public, anon, authenticated;
+revoke execute on function vigie_texte_annonce(text) from public, anon, authenticated;
 revoke execute on function vigie_photos_jours() from public, anon, authenticated;
 revoke execute on function photos_a_supprimer(int) from public, anon, authenticated;
 revoke execute on function photos_supprimees(text[]) from public, anon, authenticated;
@@ -2437,6 +2759,14 @@ revoke execute on function vigie_presence(text) from public, anon;
 grant execute on function vigie_presence(text) to authenticated;
 grant execute on function moderation_statistiques(text) to anon, authenticated;
 
+-- Annonces générales : lecture pour tous ; publication et retrait avec le
+-- code d'un modérateur ; destinataires avec le secret du serveur d'envoi.
+grant execute on function annonces_actives() to anon, authenticated;
+grant execute on function moderation_annonce_publier(text, text, text, text, int, boolean) to anon, authenticated;
+grant execute on function moderation_annonce_retirer(text, uuid) to anon, authenticated;
+grant execute on function moderation_annonces(text) to anon, authenticated;
+grant execute on function annonce_destinataires(text, uuid) to anon, authenticated;
+
 -- ---------------------------------------------------------------------
 -- Photos : bucket public en lecture, dépôt réservé aux sessions (anonymes)
 -- Supabase, 5 photos par heure au plus, images de 3 Mo maximum (l'appli
@@ -2461,7 +2791,8 @@ create policy "photos upload anonyme"
   with check (bucket_id = 'report-photos' and public.vigie_photos_recentes() < 5);
 
 -- ---------------------------------------------------------------------
--- Temps réel : seule la table vigie_signal (sans contenu) est diffusée ;
+-- Temps réel : seules les tables vigie_signal et vigie_annonce_signal
+-- (sans contenu) sont diffusées ;
 -- reports ne l'est plus (elle envoyait chaque ligne complète, SOS compris,
 -- à tous les téléphones connectés).
 -- ---------------------------------------------------------------------
@@ -2479,6 +2810,12 @@ begin
       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'vigie_signal'
     ) then
       alter publication supabase_realtime add table vigie_signal;
+    end if;
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'vigie_annonce_signal'
+    ) then
+      alter publication supabase_realtime add table vigie_annonce_signal;
     end if;
   end if;
 end $$;

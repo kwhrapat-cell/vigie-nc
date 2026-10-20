@@ -43,9 +43,11 @@ vigie-nc/
                   + /api/notifier (appelé par la base : envoie les alertes) et /api/notif-test
                   + /api/sante (moniteur : site + base ; RPC vigie_sante)
                   + /api/alerte-securite (appelé par la base : liste des modérateurs modifiée)
+                  + /api/annonce (appelé par la base : annonce générale avec notification)
                   + pages légales (/conditions, /confidentialite, /mentions-legales)
                   + /affiche (l'affiche à envoyer par lien ; images dans public/affiche/)
                   + /moderation (écran des modérateurs, code personnel ; lien discret en bas du Profil ;
+                    onglet « Annonces » : message pour toute la Calédonie ;
                     onglet « Chiffres » : utilisateurs actifs, connectés en direct, provenances)
                   + /s/[id] (lien partagé d'un signalement : aperçu WhatsApp/Facebook via
                     opengraph-image.tsx, puis renvoi vers /?signalement=<id>&src=partage)
@@ -62,6 +64,9 @@ vigie-nc/
                   ServiceIndisponible (affiché en prod si la base n'est pas
                   branchée : JAMAIS de mode démo en production),
                   ModStatsPanel (onglet Chiffres de /moderation),
+                  AnnonceBanner (bandeau des annonces générales sur l'accueil ;
+                  AnnonceCard sert aussi d'aperçu), ModAnnoncesPanel (onglet
+                  Annonces de /moderation),
                   ShareRedirect (page /s/[id] → carte)
   lib/
     types.ts         types de signalement, couleurs, icônes, durées, rayons
@@ -74,6 +79,8 @@ vigie-nc/
     demo-store.ts    mode démo en mémoire (mêmes règles que le SQL), jamais en prod
     useLiveReports.ts carte en direct (temps réel vigie_signal) + dernière
                      carte gardée pour l'affichage sans réseau
+    useAnnonces.ts   annonces générales en direct (temps réel
+                     vigie_annonce_signal) + copie pour l'affichage sans réseau
     reliability.ts   4 niveaux : Signalement / À confirmer / Confirmé / Vérifié
     face-blur.ts     photo : réduction, floutage visages, suppression EXIF
     place.ts         nom du lieu via Nominatim
@@ -97,8 +104,8 @@ vigie-nc/
   supabase/schema.sql  schéma complet, ré-exécutable
   supabase/functions/purge-photos  fonction Supabase (Deno) : photos > 7 jours
   supabase/tests/  shim-supabase.sql (faux Supabase pour Postgres + PostGIS)
-                   et essais.sql (24 essais : identité, votes, SOS, photos, droits,
-                   type « feu », chiffres d'utilisation)
+                   et essais.sql (27 essais : identité, votes, SOS, photos, droits,
+                   type « feu », chiffres d'utilisation, annonces générales)
 .github/workflows/verification.yml  à chaque PR : build + types, schema.sql
                    deux fois puis essais.sql sur Postgres + PostGIS
 ```
@@ -187,6 +194,17 @@ vigie-nc/
   dépôt). `notif_destinataires` note les envois (`push_envois`, 7 jours,
   5 alertes/heure max). Clés VAPID : variables Vercel
   `NEXT_PUBLIC_VAPID_PUBLIC_KEY` et `VAPID_PRIVATE_KEY`.
+- Annonces générales (vues par tout le monde, quelle que soit la zone) :
+  table privée `annonces`, lecture par `annonces_actives()` (sans session),
+  temps réel sans contenu par `vigie_annonce_signal`. Publication et retrait
+  depuis /moderation (`moderation_annonce_publier` / `_retirer` /
+  `moderation_annonces`, code du modérateur, noté dans `moderation_journal`,
+  jamais affiché). Niveaux info / vigilance / urgence, 10 à 280 caractères,
+  1 à 72 h. Notification facultative (vigilance ou urgence) à TOUS les
+  abonnés : pg_net → `/api/annonce` (`annonce_url` de `vigie_config`, sinon
+  notif_url avec /api/annonce au bout) → `annonce_destinataires` (une seule
+  fois par annonce). Garde-fous : 10 annonces et 3 notifications par 24 h.
+  Limites alignées sur `ANNONCE_*` de `lib/types.ts`.
 - Les pages `/confidentialite` et `/conditions` décrivent ce que fait
   vraiment le code (données envoyées, durées, purge `pg_cron`) : les mettre
   à jour (et `miseAJour` dans `lib/legal.ts`) si ça change.

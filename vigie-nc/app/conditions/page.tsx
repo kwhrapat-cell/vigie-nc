@@ -31,6 +31,10 @@ export default function ConditionsPage() {
           Les alertes sur le téléphone peuvent arriver en retard ou pas du tout (téléphone éteint, économie de
           batterie, pas de réseau). Ne compte pas uniquement sur elles.
         </p>
+        <p>
+          Les annonces pour toute la Calédonie (bandeau en haut de la carte) sont publiées par l&apos;équipe de
+          Vigie NC. Quand elles citent une source, suis d&apos;abord les consignes de cette source.
+        </p>
       </LegalSection>
 
       <LegalSection title="2. Pas de téléphone en conduisant">

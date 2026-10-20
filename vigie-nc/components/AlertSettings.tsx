@@ -79,6 +79,7 @@ function WhatTriggers() {
       <li>• Accident, route coupée, inondation, danger, météo.</li>
       <li>• Seulement quand une 2e personne confirme, ou qu&apos;une source officielle vérifie.</li>
       <li>• 5 alertes par heure au maximum.</li>
+      <li>• Et, rarement, les annonces importantes pour toute la Calédonie (cyclone, évacuation…).</li>
     </ul>
   );
 }
