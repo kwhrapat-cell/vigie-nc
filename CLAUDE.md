@@ -7,8 +7,8 @@ les aperçus Vercel. Écris-lui en français, simplement, sans jargon.
 ## Le projet
 
 Carte gratuite et anonyme de l'état des routes en Nouvelle-Calédonie :
-signalements citoyens (accident, inondation, route coupée, danger, travaux,
-météo, trafic dense, chaussée dégradée, autre), fiabilisés par les votes
+signalements citoyens (accident, inondation, feu ou fumée, route coupée,
+danger, travaux, météo, trafic dense, chaussée dégradée, autre), fiabilisés par les votes
 (« Toujours là » / « C'est terminé »), zone 1-5 km autour de l'utilisateur,
 mémoire du territoire. Pilote prévu avec la famille au Mont-Dore, puis les
 mairies de Païta, du Mont-Dore et de Yaté.
@@ -45,7 +45,10 @@ vigie-nc/
                   + /api/alerte-securite (appelé par la base : liste des modérateurs modifiée)
                   + pages légales (/conditions, /confidentialite, /mentions-legales)
                   + /affiche (l'affiche à envoyer par lien ; images dans public/affiche/)
-                  + /moderation (écran des modérateurs, code personnel ; lien discret en bas du Profil)
+                  + /moderation (écran des modérateurs, code personnel ; lien discret en bas du Profil ;
+                    onglet « Chiffres » : utilisateurs actifs, connectés en direct, provenances)
+                  + /s/[id] (lien partagé d'un signalement : aperçu WhatsApp/Facebook via
+                    opengraph-image.tsx, puis renvoi vers /?signalement=<id>&src=partage)
   components/     CarteLive (accueil), LiveMap, HomeSheet, ReportDetail,
                   PositionPicker, BottomNav, ui.tsx (Logo, TypeTile, boutons…),
                   VigilanceMeteo (vignette officielle meteo.nc, sans clé),
@@ -57,10 +60,15 @@ vigie-nc/
                   ServiceWorkerRegister (enregistre public/sw.js),
                   SessionInit (ouvre la session anonyme au démarrage),
                   ServiceIndisponible (affiché en prod si la base n'est pas
-                  branchée : JAMAIS de mode démo en production)
+                  branchée : JAMAIS de mode démo en production),
+                  ModStatsPanel (onglet Chiffres de /moderation),
+                  ShareRedirect (page /s/[id] → carte)
   lib/
     types.ts         types de signalement, couleurs, icônes, durées, rayons
-    reports-api.ts   SEUL point d'accès aux données (RPC Supabase ou démo)
+    reports-api.ts   SEUL point d'accès aux données depuis le navigateur (RPC
+                     Supabase ou démo)
+    report-public.ts lecture côté serveur d'un signalement pour l'aperçu de
+                     /s/[id] (type, lieu, heures, confirmations : rien d'autre)
     session.ts       session anonyme Supabase (identité signée, pas de compte)
     turnstile.ts     Cloudflare Turnstile (facultatif, NEXT_PUBLIC_TURNSTILE_SITE_KEY)
     demo-store.ts    mode démo en mémoire (mêmes règles que le SQL), jamais en prod
@@ -85,10 +93,12 @@ vigie-nc/
                    ses propres données, à part de Safari) ; icônes dans public/icons/
   public/sw.js     service worker : notifications + ouverture sans réseau
                    (pages réseau d'abord, fichiers /_next/static, tuiles OSM)
+  assets/fonts/    Inter réduite aux caractères latins (image d'aperçu de /s/[id]), licence OFL.txt
   supabase/schema.sql  schéma complet, ré-exécutable
   supabase/functions/purge-photos  fonction Supabase (Deno) : photos > 7 jours
   supabase/tests/  shim-supabase.sql (faux Supabase pour Postgres + PostGIS)
-                   et essais.sql (20 essais : identité, votes, SOS, photos, droits)
+                   et essais.sql (24 essais : identité, votes, SOS, photos, droits,
+                   type « feu », chiffres d'utilisation)
 .github/workflows/verification.yml  à chaque PR : build + types, schema.sql
                    deux fois puis essais.sql sur Postgres + PostGIS
 ```
@@ -159,6 +169,15 @@ vigie-nc/
   table privée `moderation_alertes`, indépendante de l'état du modérateur).
   Le repère `vigie-nc:alarme-securite` (localStorage) empêche l'écran
   Alertes de couper l'abonnement partagé.
+- Chiffres d'utilisation (comptage interne et anonyme, décrit dans
+  /confidentialite) : `SessionInit` appelle `vigie_presence(p_source)` à
+  l'ouverture puis toutes les 2 min (session anonyme obligatoire, une
+  écriture par minute au plus). Tables privées `vigie_activite` (empreinte +
+  jour, effacée après 35 jours), `vigie_visiteurs` (premier/dernier jour,
+  90 jours), `vigie_sources_jour` et `vigie_stats_jour` (totaux, sans lien
+  avec un appareil). Lecture : `moderation_statistiques(p_code)`, seulement
+  des totaux. La purge de nuit range les jours terminés dans
+  `vigie_stats_jour`. Provenance d'un lien : `?src=affiche`, `?src=partage`…
 - Notifications : RPC `notif_abonner` / `notif_mon_abonnement` /
   `notif_desabonner` (table privée `push_abonnements`, lieu arrondi à
   ~1 km, rayon 3/5/10 km). Le déclencheur `trg_vigie_notification` appelle

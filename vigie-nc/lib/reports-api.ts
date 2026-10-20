@@ -484,6 +484,105 @@ export async function modAct(code: string, reportId: string, action: ModAction, 
   });
 }
 
+// ---------------------------------------------------------------------
+// Chiffres d'utilisation (onglet « Chiffres » de /moderation)
+// Comptage anonyme : voir vigie_presence() et moderation_statistiques()
+// dans supabase/schema.sql. Uniquement des totaux.
+// ---------------------------------------------------------------------
+
+export interface ModStats {
+  maintenant: number;
+  aujourdhui: number;
+  semaine: number;
+  mois: number;
+  nouveauxMois: number;
+  visiteursTotal: number;
+  debut: string | null;
+  record: { nombre: number; jour: string } | null;
+  fidelite: { base: number; revenus: number };
+  signalements: {
+    aujourdhui: number;
+    semaine: number;
+    mois: number;
+    confirmesMois: number;
+    delaiConfirmationMin: number | null;
+    votesMois: number;
+  };
+  abonnesAlertes: number;
+  sources: { source: string; nouveaux: number }[];
+  courbe: { jour: string; actifs: number; signalements: number; maxSimultanes: number }[];
+}
+
+interface ModStatsRow {
+  maintenant: number;
+  aujourdhui: number;
+  semaine: number;
+  mois: number;
+  nouveaux_mois: number;
+  visiteurs_total: number;
+  debut: string | null;
+  record: { nombre: number; jour: string } | null;
+  fidelite: { base: number; revenus: number } | null;
+  signalements: {
+    aujourdhui: number;
+    semaine: number;
+    mois: number;
+    confirmes_mois: number;
+    delai_confirmation_min: number | null;
+    votes_mois: number;
+  };
+  abonnes_alertes: number;
+  sources: { source: string; nouveaux: number }[] | null;
+  courbe: { jour: string; actifs: number; signalements: number; max_simultanes: number }[] | null;
+}
+
+export async function modStats(code: string): Promise<ModStats> {
+  const r = await liveRpc<ModStatsRow>("moderation_statistiques", { p_code: code });
+  return {
+    maintenant: r.maintenant,
+    aujourdhui: r.aujourdhui,
+    semaine: r.semaine,
+    mois: r.mois,
+    nouveauxMois: r.nouveaux_mois,
+    visiteursTotal: r.visiteurs_total,
+    debut: r.debut,
+    record: r.record,
+    fidelite: r.fidelite ?? { base: 0, revenus: 0 },
+    signalements: {
+      aujourdhui: r.signalements.aujourdhui,
+      semaine: r.signalements.semaine,
+      mois: r.signalements.mois,
+      confirmesMois: r.signalements.confirmes_mois,
+      delaiConfirmationMin: r.signalements.delai_confirmation_min,
+      votesMois: r.signalements.votes_mois,
+    },
+    abonnesAlertes: r.abonnes_alertes,
+    sources: r.sources ?? [],
+    courbe: (r.courbe ?? []).map((c) => ({
+      jour: c.jour,
+      actifs: c.actifs,
+      signalements: c.signalements,
+      maxSimultanes: c.max_simultanes,
+    })),
+  };
+}
+
+/**
+ * « Ce téléphone utilise l'appli » : compté une fois par minute au plus,
+ * sous l'empreinte de la session anonyme (jamais l'adresse IP ni la
+ * position). `source` = provenance du lien (?src=affiche…), utile
+ * seulement pour un nouveau visiteur. Ne bloque jamais l'appli.
+ */
+export async function notePresence(source: string | null): Promise<void> {
+  if (!supabase) return; // mode démo : rien à compter
+  try {
+    if (!(await ensureSession())) return;
+    await supabase.rpc("vigie_presence", { p_source: source });
+  } catch {
+    // pas de réseau ou session impossible : on réessaiera plus tard
+  }
+}
+
 /** Alarme de sécurité (liste des modérateurs modifiée) active sur ce téléphone ? */
 export async function modAlarmState(code: string, endpoint: string): Promise<boolean> {
   const out = await liveRpc<{ active: boolean }>("moderation_alertes_etat", { p_code: code, p_endpoint: endpoint });

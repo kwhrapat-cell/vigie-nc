@@ -56,7 +56,8 @@ export default function ConfidentialitePage() {
         </p>
         <p>
           Elle sert uniquement à : limiter les abus (un signalement par minute et 20 par jour, 5 photos par heure),
-          compter un seul vote par personne, et reconnaître tes propres signalements pour que tu puisses les clore.
+          compter un seul vote par personne, reconnaître tes propres signalements pour que tu puisses les clore, et
+          compter combien de téléphones utilisent l&apos;appli (voir « Chiffres d&apos;utilisation » plus bas).
         </p>
         <p>
           Comme pour toute connexion, {LEGAL.base.nom} note avec la session l&apos;adresse IP et le type de
@@ -73,6 +74,20 @@ export default function ConfidentialitePage() {
           moins de 5 km. Dans les deux cas, elle n&apos;est <strong>pas enregistrée</strong>. Seule la position
           d&apos;un signalement que tu publies est conservée.
         </p>
+      </LegalSection>
+
+      <LegalSection title="Chiffres d'utilisation">
+        <p>
+          Pour savoir si Vigie NC sert (et le montrer aux mairies et aux financeurs), l&apos;appli compte, dans sa
+          propre base et sans outil extérieur, les jours où ton téléphone l&apos;ouvre et l&apos;heure de sa dernière
+          activité, sous l&apos;empreinte de ta session anonyme. Jamais d&apos;adresse IP, jamais de position, aucun
+          cookie.
+        </p>
+        <p>
+          Si tu arrives par un lien suivi (une affiche, un signalement partagé…), sa provenance est comptée parmi les
+          nouveaux visiteurs du jour, sans lien avec ton téléphone.
+        </p>
+        <p>Seuls des totaux sont affichés (aux modérateurs) : personne ne voit qui utilise l&apos;appli ni quand.</p>
       </LegalSection>
 
       <LegalSection title="Les alertes (si tu les actives)">
@@ -110,7 +125,10 @@ export default function ConfidentialitePage() {
             part de ceux de Safari.
           </li>
         </LegalList>
-        <p>Pas de cookies publicitaires, pas de mesure d&apos;audience.</p>
+        <p>
+          Pas de cookies, pas de publicité, pas d&apos;outil de mesure d&apos;audience extérieur (seulement le
+          comptage anonyme décrit plus haut).
+        </p>
       </LegalSection>
 
       <LegalSection title="Combien de temps ?">
@@ -128,6 +146,11 @@ export default function ConfidentialitePage() {
             sécurité des connexions est gardé 30 jours.
           </li>
           <li>Ton lieu d&apos;alerte : jusqu&apos;à ce que tu désactives les alertes.</li>
+          <li>
+            Les jours où ton téléphone a ouvert l&apos;appli : 35 jours, puis il ne reste que les totaux par jour. Le
+            premier et le dernier jour de visite (pour reconnaître un nouveau visiteur) : effacés après 90 jours sans
+            visite.
+          </li>
           <li>
             Les photos sont effacées 7 jours après leur envoi. Pendant un épisode cyclonique, ce délai peut être
             allongé (90 jours au plus) pour suivre l&apos;évolution des zones touchées.

@@ -1,5 +1,6 @@
 -- =====================================================================
--- Essais de schema.sql : identité anonyme, votes, SOS, photos, droits.
+-- Essais de schema.sql : identité anonyme, votes, SOS, photos, droits,
+-- type « feu », chiffres d'utilisation.
 -- À lancer APRÈS schema.sql. Chaque essai qui échoue arrête tout avec un
 -- message « Ex échec : … ». Rien n'est envoyé : l'adresse d'envoi des
 -- alertes est retirée pendant l'essai.
@@ -22,8 +23,11 @@ declare
   lat0 constant double precision := -22.2700;
   lng0 constant double precision := 166.5800;
   sig_creer constant text := 'creer_signalement_v3(report_type, double precision, double precision, text, text, text, text)';
+  code_essai constant text := 'code-essai-statistiques-0000';
+  v_stats jsonb;
+  v_e uuid := gen_random_uuid();
 begin
-  delete from vigie_config where cle = 'notif_url';
+  delete from vigie_config where cle in ('notif_url', 'securite_url');
   insert into vigie_config (cle, valeur) values ('photo_host', 'essai.supabase.co')
   on conflict (cle) do update set valeur = excluded.valeur;
   delete from vigie_config where cle = 'photos_jours';
@@ -196,6 +200,88 @@ begin
   -- E20 : santé
   if (vigie_sante()->>'ok')::boolean is not true then raise exception 'E20 échec : santé'; end if;
 
-  raise notice 'ESSAIS OK (20)';
+  -- E21 : le type « feu » est un danger, avec sa durée et son rayon.
+  -- (Dans un essai à blanc sur la vraie base, schema.sql et ces essais
+  -- tournent dans la même transaction : une valeur d'enum toute neuve n'y
+  -- est pas encore utilisable. L'essai est alors sauté.)
+  begin
+    if not vigie_est_danger('feu') then raise exception 'E21 échec : le feu n''est pas un danger'; end if;
+    if vigie_duree_vie('feu') <> interval '4 hours' then raise exception 'E21 échec : durée %', vigie_duree_vie('feu'); end if;
+    if vigie_rayon_fusion_m('feu') <> 1500 then raise exception 'E21 échec : rayon %', vigie_rayon_fusion_m('feu'); end if;
+    perform set_config('request.jwt.claims', json_build_object('sub', v_e, 'role', 'authenticated')::text, true);
+    v_r := creer_signalement_v3('feu', lat0 + 0.04, lng0 - 0.04, null, null, null, 'Essai feu');
+    if v_r->>'resultat' is distinct from 'cree' then raise exception 'E21 échec : %', v_r; end if;
+  exception when others then
+    if sqlerrm like '%unsafe use of new value%' then
+      raise notice 'E21 sauté : valeur « feu » ajoutée dans cette même transaction';
+    else
+      raise;
+    end if;
+  end;
+
+  -- E22 : comptage des appareils actifs
+  perform set_config('request.jwt.claims', '', true);
+  perform vigie_presence('affiche');  -- sans session : rien n'est compté
+  if exists (select 1 from vigie_sources_jour where jour = vigie_jour_local() and source = 'affiche') then
+    raise exception 'E22 échec : comptage sans session';
+  end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_a, 'role', 'authenticated')::text, true);
+  perform vigie_presence('affiche');
+  perform vigie_presence('affiche');  -- 2e appel dans la minute : ignoré
+  perform set_config('request.jwt.claims', json_build_object('sub', v_b, 'role', 'authenticated')::text, true);
+  perform vigie_presence('Pas Valide !');  -- provenance invalide : « direct »
+  select coalesce(sum(nouveaux), 0) into v_n from vigie_sources_jour
+   where jour = vigie_jour_local() and source = 'affiche';
+  if v_n <> 1 then raise exception 'E22 échec : % nouveau(x) « affiche » au lieu de 1', v_n; end if;
+  if exists (select 1 from vigie_sources_jour where source <> 'affiche' and source <> 'direct'
+               and jour = vigie_jour_local()) then
+    raise exception 'E22 échec : provenance invalide enregistrée';
+  end if;
+  select count(*) into v_n from vigie_activite where jour = vigie_jour_local();
+  if v_n < 2 then raise exception 'E22 échec : % appareil(s) actif(s)', v_n; end if;
+
+  -- E23 : les chiffres ne se lisent qu'avec un code de modérateur
+  begin
+    perform moderation_statistiques('mauvais-code-de-test-0000');
+    raise exception 'E23 échec : chiffres lus sans code';
+  exception when others then
+    if sqlerrm not like '%code_invalide%' then raise exception 'E23 échec : %', sqlerrm; end if;
+  end;
+  perform vigie_ajouter_moderateur('Essai chiffres', code_essai);
+  v_stats := moderation_statistiques(code_essai);
+  if (v_stats->>'maintenant')::int < 2 or (v_stats->>'aujourdhui')::int < 2 then
+    raise exception 'E23 échec : %', v_stats;
+  end if;
+  if jsonb_array_length(v_stats->'courbe') <> 30 then
+    raise exception 'E23 échec : courbe de % jours', jsonb_array_length(v_stats->'courbe');
+  end if;
+  if not (v_stats->'sources' @> '[{"source": "affiche"}]'::jsonb) then
+    raise exception 'E23 échec : provenance absente %', v_stats->'sources';
+  end if;
+  delete from moderateurs where nom = 'Essai chiffres';
+
+  -- E24 : droits et purge des chiffres d'utilisation
+  if has_table_privilege('anon', 'public.vigie_activite', 'select')
+     or has_table_privilege('authenticated', 'public.vigie_activite', 'select')
+     or has_table_privilege('authenticated', 'public.vigie_stats_jour', 'select') then
+    raise exception 'E24 échec : chiffres lisibles directement';
+  end if;
+  if has_function_privilege('anon', 'vigie_presence(text)', 'execute') then
+    raise exception 'E24 échec : comptage sans session possible';
+  end if;
+  if not has_function_privilege('authenticated', 'vigie_presence(text)', 'execute') then
+    raise exception 'E24 échec : une session ne peut pas être comptée';
+  end if;
+  insert into vigie_activite (cle, jour, derniere_vue)
+  values ('essai-ancien', vigie_jour_local() - 40, now() - interval '40 days');
+  perform vigie_purger_donnees_appareil();
+  if exists (select 1 from vigie_activite where cle = 'essai-ancien') then
+    raise exception 'E24 échec : détail de plus de 35 jours non effacé';
+  end if;
+  if coalesce((select actifs from vigie_stats_jour where jour = vigie_jour_local() - 40), 0) < 1 then
+    raise exception 'E24 échec : total du jour non gardé';
+  end if;
+
+  raise notice 'ESSAIS OK (24)';
 end
 $essais$;

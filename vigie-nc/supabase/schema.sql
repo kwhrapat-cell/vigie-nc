@@ -53,6 +53,8 @@ end $$;
 alter type report_type add value if not exists 'danger';
 alter type report_type add value if not exists 'travaux';
 alter type report_type add value if not exists 'meteo';
+-- Feu de brousse ou fumée sur la route (saison des feux : septembre à décembre)
+alter type report_type add value if not exists 'feu';
 
 -- Empreinte de l'identifiant d'appareil (lib/device-id.ts). L'identifiant
 -- brut reste sur le téléphone ; la base ne garde que son empreinte.
@@ -272,6 +274,7 @@ as $$
     when 'trafic_dense'      then 500
     when 'route_coupee'      then 800
     when 'inondation'        then 1000
+    when 'feu'               then 1500  -- la fumée se voit de plusieurs points de la route
     when 'meteo'             then 2000
     when 'chaussee_degradee' then 150
     else 0  -- 'sos' et 'autre' : jamais regroupés
@@ -294,6 +297,7 @@ as $$
     when 'meteo'             then interval '3 hours'
     when 'route_coupee'      then interval '4 hours'
     when 'inondation'        then interval '4 hours'
+    when 'feu'               then interval '4 hours'
     when 'travaux'           then interval '3 days'
     when 'chaussee_degradee' then interval '3 days'
     else interval '3 hours'
@@ -399,7 +403,7 @@ language sql
 immutable
 set search_path = public
 as $$
-  select p_type::text in ('accident', 'route_coupee', 'inondation', 'danger', 'meteo');
+  select p_type::text in ('accident', 'route_coupee', 'inondation', 'feu', 'danger', 'meteo');
 $$;
 
 -- Anti-abus : 1 signalement (ou relais) par minute et 20 par jour par session.
@@ -1385,7 +1389,7 @@ $$;
 --   - chaque téléphone abonné choisit UN lieu (arrondi à ~1 km : seul ce
 --     point est gardé, sans lien avec l'empreinte du téléphone) et un
 --     rayon de 3, 5 ou 10 km ;
---   - un danger (accident, route coupée, inondation, danger, météo)
+--   - un danger (accident, route coupée, inondation, feu, danger, météo)
 --     déclenche une alerte quand une 2e personne le confirme ou qu'il est
 --     vérifié par une source officielle, une seule fois ;
 --   - la base prévient le serveur d'envoi (/api/notifier sur Vercel) via
@@ -1628,7 +1632,7 @@ declare
   v_secret text;
 begin
   if new.notifie_at is not null
-     or new.type::text not in ('accident', 'route_coupee', 'inondation', 'danger', 'meteo')
+     or new.type::text not in ('accident', 'route_coupee', 'inondation', 'feu', 'danger', 'meteo')
      or new.resolved_at is not null
      or new.expires_at <= now()
      or new.created_at < now() - interval '6 hours'
@@ -1887,6 +1891,230 @@ after truncate on moderateurs
 for each statement execute function vigie_alarme_moderateurs();
 
 -- ---------------------------------------------------------------------
+-- Chiffres d'utilisation (écran /moderation, onglet « Chiffres »)
+--   Comptage INTERNE et anonyme, sans cookie ni outil extérieur :
+--   - à l'ouverture de l'appli, puis toutes les 2 minutes tant qu'elle est
+--     affichée, le téléphone appelle vigie_presence() avec sa session
+--     anonyme. La base note le jour (heure de Nouméa) et l'heure de la
+--     dernière activité, sous l'empreinte de la session : jamais d'adresse
+--     IP, jamais de position ;
+--   - ce détail par téléphone est effacé après 35 jours (de quoi calculer
+--     les actifs du mois et la fidélité) ; il ne reste ensuite que les
+--     totaux par jour (vigie_stats_jour) ;
+--   - la provenance d'un NOUVEAU visiteur (lien ?src=affiche, ?src=partage…)
+--     est comptée par jour et par provenance, sans lien avec le téléphone ;
+--   - seuls les modérateurs lisent ces totaux (moderation_statistiques).
+-- Un « appareil » = un navigateur : sur iPhone, l'appli de l'écran
+-- d'accueil compte à part de Safari.
+-- ---------------------------------------------------------------------
+create table if not exists vigie_activite (
+  cle text not null,
+  jour date not null,
+  derniere_vue timestamptz not null default now(),
+  primary key (cle, jour)
+);
+create index if not exists vigie_activite_vue_idx on vigie_activite (derniere_vue);
+create index if not exists vigie_activite_jour_idx on vigie_activite (jour);
+
+-- Premier et dernier jour de chaque appareil : sert seulement à savoir si
+-- un visiteur est nouveau. Effacé après 90 jours sans visite (comme les
+-- sessions anonymes).
+create table if not exists vigie_visiteurs (
+  cle text primary key,
+  premier_jour date not null,
+  dernier_jour date not null
+);
+
+-- Nouveaux visiteurs par jour et par provenance (aucun lien avec un appareil)
+create table if not exists vigie_sources_jour (
+  jour date not null,
+  source text not null check (source ~ '^[a-z0-9_-]{1,30}$'),
+  nouveaux int not null default 0,
+  primary key (jour, source)
+);
+
+-- Totaux par jour, gardés pour l'historique
+create table if not exists vigie_stats_jour (
+  jour date primary key,
+  actifs int not null default 0,
+  nouveaux int not null default 0,
+  max_simultanes int not null default 0
+);
+
+-- Jour calendaire à Nouméa
+create or replace function vigie_jour_local(p_t timestamptz default now())
+returns date
+language sql
+stable
+set search_path = public
+as $$
+  select (timezone('Pacific/Noumea', p_t))::date;
+$$;
+
+-- RPC : « ce téléphone utilise l'appli ». Session anonyme obligatoire ;
+-- sans session, rien n'est compté. Au plus une écriture par minute.
+--   select vigie_presence('affiche');
+create or replace function vigie_presence(p_source text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_key text := vigie_cle_session();
+  v_jour date := vigie_jour_local();
+  v_source text := lower(btrim(coalesce(p_source, '')));
+  v_vue timestamptz;
+  v_nouveau boolean;
+  v_simultanes int;
+begin
+  if v_key is null then
+    return;
+  end if;
+
+  select derniere_vue into v_vue
+  from vigie_activite
+  where cle = v_key and jour = v_jour;
+  if v_vue is not null and v_vue > now() - interval '60 seconds' then
+    return;
+  end if;
+
+  insert into vigie_activite (cle, jour, derniere_vue)
+  values (v_key, v_jour, now())
+  on conflict (cle, jour) do update set derniere_vue = excluded.derniere_vue;
+
+  v_nouveau := not exists (select 1 from vigie_visiteurs where cle = v_key);
+  insert into vigie_visiteurs (cle, premier_jour, dernier_jour)
+  values (v_key, v_jour, v_jour)
+  on conflict (cle) do update set dernier_jour = excluded.dernier_jour;
+
+  if v_nouveau then
+    if v_source !~ '^[a-z0-9_-]{1,30}$' then
+      v_source := 'direct';
+    end if;
+    insert into vigie_sources_jour (jour, source, nouveaux)
+    values (v_jour, v_source, 1)
+    on conflict (jour, source) do update set nouveaux = vigie_sources_jour.nouveaux + 1;
+    insert into vigie_stats_jour (jour, nouveaux)
+    values (v_jour, 1)
+    on conflict (jour) do update set nouveaux = vigie_stats_jour.nouveaux + 1;
+  end if;
+
+  -- Record du jour : appareils actifs dans les 5 dernières minutes
+  select count(*) into v_simultanes
+  from vigie_activite
+  where jour >= v_jour - 1 and derniere_vue > now() - interval '5 minutes';
+  insert into vigie_stats_jour (jour, max_simultanes)
+  values (v_jour, v_simultanes)
+  on conflict (jour) do update
+    set max_simultanes = greatest(vigie_stats_jour.max_simultanes, excluded.max_simultanes);
+end;
+$$;
+
+-- RPC : chiffres pour l'écran de modération (code du modérateur vérifié).
+-- Uniquement des totaux : aucune liste d'appareils.
+create or replace function moderation_statistiques(p_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_jour date := vigie_jour_local();
+  v_res jsonb;
+begin
+  perform vigie_moderateur(p_code);
+
+  with
+    jours as (
+      select d::date as jour
+      from generate_series((v_jour - 29)::timestamp, v_jour::timestamp, interval '1 day') as d
+    ),
+    actifs_jour as (
+      select jour, count(*)::int as n
+      from vigie_activite
+      where jour > v_jour - 30
+      group by jour
+    ),
+    sig as (
+      select r.*, vigie_jour_local(r.created_at) as jour
+      from reports r
+      where r.created_at > now() - interval '31 days'
+        and r.type::text <> 'sos'
+    ),
+    sig_jour as (
+      select jour, count(*)::int as n from sig group by jour
+    ),
+    premiere_confirmation as (
+      select extract(epoch from (min(v.created_at) - s.created_at)) / 60 as minutes
+      from sig s
+      join report_votes v on v.report_id = s.id and v.vote = 'present'
+      where s.created_at > now() - interval '30 days'
+      group by s.id, s.created_at
+    ),
+    avant as (
+      select distinct cle from vigie_activite where jour between v_jour - 14 and v_jour - 8
+    ),
+    apres as (
+      select distinct cle from vigie_activite where jour between v_jour - 7 and v_jour - 1
+    )
+  select jsonb_build_object(
+    'maintenant', (select count(*) from vigie_activite
+                   where jour >= v_jour - 1 and derniere_vue > now() - interval '5 minutes'),
+    'aujourdhui', (select count(*) from vigie_activite where jour = v_jour),
+    'semaine', (select count(distinct cle) from vigie_activite where jour > v_jour - 7),
+    'mois', (select count(distinct cle) from vigie_activite where jour > v_jour - 30),
+    'nouveaux_mois', coalesce((select sum(nouveaux) from vigie_stats_jour where jour > v_jour - 30), 0),
+    'visiteurs_total', coalesce((select sum(nouveaux) from vigie_stats_jour), 0),
+    'debut', (select min(jour) from vigie_stats_jour),
+    'record', (select jsonb_build_object('nombre', max_simultanes, 'jour', jour)
+               from vigie_stats_jour
+               where max_simultanes > 0
+               order by max_simultanes desc, jour desc
+               limit 1),
+    'fidelite', jsonb_build_object(
+      'base', (select count(*) from avant),
+      'revenus', (select count(*) from avant where cle in (select cle from apres))
+    ),
+    'signalements', jsonb_build_object(
+      'aujourdhui', (select count(*) from sig where jour = v_jour),
+      'semaine', (select count(*) from sig where created_at > now() - interval '7 days'),
+      'mois', (select count(*) from sig where created_at > now() - interval '30 days'),
+      'confirmes_mois', (select count(*) from sig
+                         where created_at > now() - interval '30 days'
+                           and (confirmations >= 1 or source_officielle is not null)),
+      'delai_confirmation_min', (select round(percentile_cont(0.5) within group (order by minutes::double precision))
+                                 from premiere_confirmation),
+      'votes_mois', (select count(*) from report_votes where updated_at > now() - interval '30 days')
+    ),
+    'abonnes_alertes', (select count(*) from push_abonnements),
+    'sources', coalesce((
+      select jsonb_agg(jsonb_build_object('source', source, 'nouveaux', n) order by n desc, source)
+      from (
+        select source, sum(nouveaux)::int as n
+        from vigie_sources_jour
+        where jour > v_jour - 30
+        group by source
+      ) x), '[]'::jsonb),
+    'courbe', (
+      select jsonb_agg(jsonb_build_object(
+               'jour', j.jour,
+               'actifs', coalesce(a.n, st.actifs, 0),
+               'signalements', coalesce(sj.n, 0),
+               'max_simultanes', coalesce(st.max_simultanes, 0)
+             ) order by j.jour)
+      from jours j
+      left join actifs_jour a on a.jour = j.jour
+      left join sig_jour sj on sj.jour = j.jour
+      left join vigie_stats_jour st on st.jour = j.jour
+    )
+  ) into v_res;
+
+  return v_res;
+end;
+$$;
+
+-- ---------------------------------------------------------------------
 -- Purge (lancée chaque nuit, voir en bas du fichier) :
 --   - 30 jours après la fin d'un signalement, le lien entre l'empreinte du
 --     téléphone et ce signalement est effacé (auteur, votes, signalements
@@ -1895,7 +2123,10 @@ for each statement execute function vigie_alarme_moderateurs();
 --   - le journal de modération est gardé un an ;
 --   - la trace des alertes envoyées (anti-doublon) est gardée 7 jours ;
 --   - les sessions anonymes inactives depuis 90 jours sont supprimées ;
---   - le journal de sécurité de Supabase Auth est gardé 30 jours.
+--   - le journal de sécurité de Supabase Auth est gardé 30 jours ;
+--   - chiffres d'utilisation : le détail par appareil est ramené à des
+--     totaux par jour, puis effacé après 35 jours (90 jours sans visite
+--     pour le premier/dernier jour d'un appareil).
 -- Les signalements eux-mêmes restent, anonymes, pour l'historique.
 -- ---------------------------------------------------------------------
 create or replace function vigie_purger_donnees_appareil()
@@ -1919,6 +2150,19 @@ begin
    where p.sent_at < now() - interval '7 days';
   delete from vigie_signal s
    where s.created_at < now() - interval '1 day';
+
+  -- Chiffres d'utilisation : totaux par jour (jours terminés), puis le
+  -- détail par appareil est effacé.
+  insert into vigie_stats_jour (jour, actifs)
+  select a.jour, count(*)::int
+  from vigie_activite a
+  where a.jour < vigie_jour_local()
+  group by a.jour
+  on conflict (jour) do update set actifs = excluded.actifs;
+  delete from vigie_activite a
+   where a.jour < vigie_jour_local() - 35;
+  delete from vigie_visiteurs v
+   where v.dernier_jour < vigie_jour_local() - 90;
 
   -- Sessions anonymes sans activité depuis 90 jours : supprimées. Elles ne
   -- portent aucun nom, et leur lien avec les signalements est déjà effacé
@@ -2101,6 +2345,10 @@ alter table vigie_config enable row level security;
 alter table push_abonnements enable row level security;
 alter table push_envois enable row level security;
 alter table moderation_alertes enable row level security;
+alter table vigie_activite enable row level security;
+alter table vigie_visiteurs enable row level security;
+alter table vigie_sources_jour enable row level security;
+alter table vigie_stats_jour enable row level security;
 
 drop policy if exists "zones lecture publique" on zones;
 create policy "zones lecture publique" on zones for select using (true);
@@ -2128,6 +2376,10 @@ revoke all on vigie_config from anon, authenticated;
 revoke all on push_abonnements from anon, authenticated;
 revoke all on push_envois from anon, authenticated;
 revoke all on moderation_alertes from anon, authenticated;
+revoke all on vigie_activite from anon, authenticated;
+revoke all on vigie_visiteurs from anon, authenticated;
+revoke all on vigie_sources_jour from anon, authenticated;
+revoke all on vigie_stats_jour from anon, authenticated;
 
 revoke execute on function vigie_appliquer_vote(uuid, text, text) from public, anon, authenticated;
 revoke execute on function vigie_masquer_contenu(uuid, text) from public, anon, authenticated;
@@ -2179,6 +2431,11 @@ grant execute on function moderation_alertes_etat(text, text) to anon, authentic
 grant execute on function moderation_alertes_desactiver(text, text) to anon, authenticated;
 grant execute on function moderation_alertes_destinataires(text) to anon, authenticated;
 grant execute on function moderation_alertes_echecs(text, text[]) to anon, authenticated;
+-- Chiffres d'utilisation : comptage avec une session seulement ; lecture
+-- des totaux avec un code de modérateur.
+revoke execute on function vigie_presence(text) from public, anon;
+grant execute on function vigie_presence(text) to authenticated;
+grant execute on function moderation_statistiques(text) to anon, authenticated;
 
 -- ---------------------------------------------------------------------
 -- Photos : bucket public en lecture, dépôt réservé aux sessions (anonymes)
