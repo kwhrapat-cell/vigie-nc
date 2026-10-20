@@ -173,7 +173,8 @@ export default async function Image({ params }: { params: Promise<{ id: string }
             <div style={{ width: 12, height: 12, borderRadius: 6, background: etatCouleur, marginRight: 12 }} />
             {etat}
           </div>
-          <div style={{ fontSize: 28, color: TEXTE_DOUX }}>Signalé {quandNoumea(r.createdAt)}</div>
+          {/* Un seul texte par bloc : l'outil d'image refuse plusieurs morceaux sans « display: flex » */}
+          <div style={{ fontSize: 28, color: TEXTE_DOUX }}>{`Signalé ${quandNoumea(r.createdAt)}`}</div>
         </div>
         {pied}
       </div>
