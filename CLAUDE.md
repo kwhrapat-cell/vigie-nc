@@ -67,6 +67,10 @@ vigie-nc/
                   AnnonceBanner (bandeau des annonces générales sur l'accueil ;
                   AnnonceCard sert aussi d'aperçu), ModAnnoncesPanel (onglet
                   Annonces de /moderation),
+                  TravauxBanner (bandeau « Travaux à X km » à l'ouverture :
+                  travaux en cours à 10 km, une recherche par ouverture,
+                  nouvelle ouverture = retour après 30 min ; constantes
+                  TRAVAUX_BANDEAU_* de lib/types.ts),
                   ShareRedirect (page /s/[id] → carte)
   lib/
     types.ts         types de signalement, couleurs, icônes, durées, rayons

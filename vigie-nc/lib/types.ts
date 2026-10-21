@@ -168,6 +168,14 @@ export const ALERT_TYPES: ReportType[] = ["accident", "route_coupee", "inondatio
 // ⚠️ Doit rester aligné sur vigie_distance_temoin_m() dans supabase/schema.sql.
 export const MAX_WITNESS_DISTANCE_M = 5000;
 
+// Bandeau « Travaux près de toi » à l'ouverture de l'appli : les travaux
+// en cours dans ce rayon, quelle que soit la zone choisie sur la carte
+// (on regarde un peu plus loin que la zone, pour le trajet qui commence).
+export const TRAVAUX_BANDEAU_RAYON_M = 10_000;
+// Revenir sur l'appli après au moins ce délai compte comme une nouvelle
+// ouverture : le bandeau est recalculé et réapparaît s'il avait été fermé.
+export const TRAVAUX_BANDEAU_REOUVERTURE_MS = 30 * 60_000;
+
 // Signalement d'un contenu (photo ou texte) qui pose problème. Une info
 // fausse ou finie se traite par le vote « C'est terminé », pas ici.
 export type FlagReason = "donnee_personnelle" | "inapproprie" | "hors_sujet";

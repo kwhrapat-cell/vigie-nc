@@ -8,6 +8,7 @@ import { ReportDetail } from "./ReportDetail";
 import { BottomNav } from "./BottomNav";
 import { WelcomeNotice } from "./WelcomeNotice";
 import { AnnonceBanner } from "./AnnonceBanner";
+import { TravauxBanner } from "./TravauxBanner";
 import { Logo } from "./ui";
 import { MapStyleSwitcher, RecenterButton, ZoneSelector } from "./MapControls";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -134,6 +135,19 @@ export function CarteLive() {
     setFollow(false);
   }, []);
 
+  // Depuis le bandeau des travaux : ouvre la fiche, même hors de la zone
+  // affichée (jusqu'à 10 km), puis la rafraîchit depuis la base.
+  const openFromBanner = useCallback((r: Report) => {
+    setLinkedReport(r);
+    setSelectedId(r.id);
+    setFollow(false);
+    fetchReport(r.id)
+      .then((fresh) => {
+        if (fresh) setLinkedReport({ ...fresh, distanceM: fresh.distanceM ?? r.distanceM });
+      })
+      .catch(() => {});
+  }, []);
+
   const closeDetail = useCallback(() => setSelectedId(null), []);
 
   // « Ma position » : revient sur la zone autour de soi (dernier rayon choisi)
@@ -175,6 +189,9 @@ export function CarteLive() {
 
       {/* Annonces générales : vues par tout le monde, quelle que soit la zone */}
       <AnnonceBanner />
+
+      {/* Travaux près de toi (10 km), à l'ouverture de l'appli */}
+      <TravauxBanner position={position} onOpen={openFromBanner} />
 
       {banner && (
         <div role="status" className="mx-4 mb-2 rounded-xl border border-lagoon/30 bg-lagoon/10 px-3 py-2 text-[12px] text-mist">
