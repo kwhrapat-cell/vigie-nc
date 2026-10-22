@@ -38,7 +38,7 @@ export default function MentionsLegalesPage() {
 
       <LegalSection title="Nature du service">
         <p>
-          Vigie NC est un service <strong>gratuit et citoyen</strong> d&apos;information sur l&apos;état des routes en
+          Vigie NC est un service <strong>gratuit et citoyen</strong>{" "}d&apos;information sur l&apos;état des routes en
           Nouvelle-Calédonie. Ce n&apos;est pas un service officiel : il n&apos;est rattaché ni au gouvernement, ni
           aux communes, ni aux services de secours.
         </p>

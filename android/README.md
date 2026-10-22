@@ -6,8 +6,8 @@ Prototype pour tester le **mode conduite en arrière-plan** :
 - une fois démarré, le mode conduite tourne **même écran éteint** et pendant la
   musique : notification permanente avec le prochain danger, boutons
   « Signaler » et « Arrêter » ;
-- annonces vocales des dangers confirmés devant toi (vers 3 km puis à 500 m),
-  la musique baisse le temps de l'annonce ;
+- annonces vocales des dangers confirmés devant toi (à la portée choisie, puis
+  à 500 m), la musique baisse le temps de l'annonce ;
 - bulle flottante par-dessus les autres applis si le téléphone l'accepte
   (Android Go la refuse : la notification suffit).
 - **Réglages** : portée de la voix (3, 5 ou 10 km), voix, trafic dense ;

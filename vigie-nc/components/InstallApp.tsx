@@ -110,7 +110,7 @@ export function InstallApp() {
                 <strong className="text-mist">⋮</strong>.
               </li>
               <li>
-                Choisis <strong className="text-mist">« Installer l&apos;application »</strong> (ou « Ajouter à
+                Choisis <strong className="text-mist">« Installer l&apos;application »</strong>{" "}(ou « Ajouter à
                 l&apos;écran d&apos;accueil »), puis confirme.
               </li>
               <li>
