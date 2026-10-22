@@ -39,9 +39,42 @@ export default function ConditionsPage() {
 
       <LegalSection title="2. Pas de téléphone en conduisant">
         <p>Signale à l&apos;arrêt, en sécurité, ou demande à un passager de le faire.</p>
+        <p>
+          Le mode conduite est fait pour ne rien toucher en roulant : lance-le avant de partir, avec le téléphone
+          fixé sur un support ou tenu par un passager.
+        </p>
       </LegalSection>
 
-      <LegalSection title="3. Urgences">
+      <LegalSection title="3. Le mode conduite (annonces vocales)">
+        <LegalList>
+          <li>
+            Seuls les <strong>dangers confirmés</strong> (par une 2e personne ou une source officielle) déjà
+            signalés sur Vigie NC sont annoncés. Un danger non signalé ou pas encore confirmé n&apos;est pas annoncé :
+            <strong> le silence ne veut pas dire que la route est libre</strong>.
+          </li>
+          <li>
+            Les distances sont à vol d&apos;oiseau et « devant » est estimé d&apos;après ton sens de marche. Un danger
+            sur une route voisine peut être annoncé, et un danger sur ta route peut l&apos;être en retard (virages,
+            GPS, réseau).
+          </li>
+          <li>
+            Sur le site, les annonces ne marchent que carte ouverte et écran allumé. Dans l&apos;appli Android, elles
+            continuent écran éteint.
+          </li>
+          <li>
+            Le <strong>démarrage tout seul en voiture</strong> (appli Android, à activer toi-même) peut se
+            déclencher en bus ou en taxi, ou ne pas se déclencher (autorisations retirées, économie de batterie,
+            téléphone qui coupe l&apos;appli, pas de réseau). Tu peux l&apos;arrêter à tout moment avec « Arrêter »
+            ou le couper dans les Réglages.
+          </li>
+          <li>
+            L&apos;appli Android est pour l&apos;instant une <strong>version de test</strong> : elle peut changer ou
+            mal fonctionner.
+          </li>
+        </LegalList>
+      </LegalSection>
+
+      <LegalSection title="4. Urgences">
         <p>
           Vigie NC ne prévient pas les secours à ta place. En cas d&apos;urgence, appelle le{" "}
           <a href="tel:15">15</a> (SAMU), le <a href="tel:17">17</a> (gendarmerie, police) ou le{" "}
@@ -49,7 +82,7 @@ export default function ConditionsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="4. Ce que tu publies">
+      <LegalSection title="5. Ce que tu publies">
         <p>En publiant, tu t&apos;engages à :</p>
         <LegalList>
           <li>signaler ce que tu as vu sur place, ou relayer une info en indiquant d&apos;où elle vient ;</li>
@@ -63,7 +96,7 @@ export default function ConditionsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="5. Modération">
+      <LegalSection title="6. Modération">
         <LegalList>
           <li>
             Chacun peut <strong>signaler un contenu</strong> depuis la fiche d&apos;un signalement. Après deux
@@ -80,7 +113,7 @@ export default function ConditionsPage() {
         </LegalList>
       </LegalSection>
 
-      <LegalSection title="6. Responsabilité">
+      <LegalSection title="7. Responsabilité">
         <p>
           Vigie NC est fournie gratuitement, telle quelle. Nous faisons de notre mieux pour qu&apos;elle soit utile
           et disponible, sans pouvoir garantir l&apos;exactitude des signalements ni un fonctionnement sans
@@ -88,7 +121,7 @@ export default function ConditionsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="7. Évolution et contact">
+      <LegalSection title="8. Évolution et contact">
         <p>
           Ces conditions peuvent évoluer ; la date de mise à jour est indiquée en haut de la page. Une question,
           un problème : <a href={CONTACT_MAILTO}>{LEGAL.contact}</a>
