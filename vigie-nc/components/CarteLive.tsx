@@ -9,6 +9,7 @@ import { BottomNav } from "./BottomNav";
 import { WelcomeNotice } from "./WelcomeNotice";
 import { AnnonceBanner } from "./AnnonceBanner";
 import { TravauxBanner } from "./TravauxBanner";
+import { ModeConduite } from "./ModeConduite";
 import { Logo } from "./ui";
 import { MapStyleSwitcher, RecenterButton, ZoneSelector } from "./MapControls";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -150,6 +151,12 @@ export function CarteLive() {
 
   const closeDetail = useCallback(() => setSelectedId(null), []);
 
+  // Mode conduite : la carte suit le conducteur.
+  const startDriving = useCallback(() => {
+    setSelectedId(null);
+    setFollow(true);
+  }, []);
+
   // « Ma position » : revient sur la zone autour de soi (dernier rayon choisi)
   const recenter = useCallback(() => {
     if (!position) {
@@ -222,6 +229,7 @@ export function CarteLive() {
               label={position ? "Revenir sur ma position" : "Activer ma position"}
             />
             <MapStyleSwitcher value={mapStyle} onChange={changeMapStyle} />
+            <ModeConduite onStart={startDriving} />
           </div>
         </div>
         <Link

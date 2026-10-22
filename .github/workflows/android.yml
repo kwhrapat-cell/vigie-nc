@@ -1,0 +1,58 @@
+# Appli Android de TEST : fabriquée chez GitHub à chaque changement du
+# dossier android/. Le fichier .apk est publié dans la pré-version
+# « app-test » (lien direct, voir plus bas) et dans les « Artifacts » du
+# passage. Rien à installer sur un ordinateur.
+name: Appli Android (test)
+
+on:
+  pull_request:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+jobs:
+  apk:
+    name: Fabrication de l'APK de test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+      - name: Fabrication
+        run: gradle assembleDebug --no-daemon --stacktrace
+      - name: Nom du fichier
+        run: cp app/build/outputs/apk/debug/app-debug.apk vigie-nc-test.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vigie-nc-test
+          path: android/vigie-nc-test.apk
+          retention-days: 30
+      # Lien direct à envoyer aux testeurs (même adresse à chaque version) :
+      # https://github.com/kwhrapat-cell/vigie-nc/releases/download/app-test/vigie-nc-test.apk
+      - name: Publier le lien de téléchargement
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view app-test >/dev/null 2>&1; then
+            gh release create app-test --prerelease --target "$GITHUB_SHA" \
+              --title "Vigie NC – appli Android de test" \
+              --notes "Version de TEST du mode conduite (voix, notification, bulle). Signée avec une clé de test : pas pour le Play Store. Le fichier est remplacé à chaque nouvelle version."
+          fi
+          gh release upload app-test vigie-nc-test.apk --clobber

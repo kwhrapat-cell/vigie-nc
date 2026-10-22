@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="fond">#FF081317</color>
+    <color name="panneau">#FF0E1C21</color>
+    <color name="ligne">#FF1E363D</color>
+    <color name="lagon">#FF22B8B0</color>
+    <color name="primaire">#FF1C9890</color>
+    <color name="texte">#FFEAF6F4</color>
+    <color name="texte_doux">#FF93B0AD</color>
+</resources>
