@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icône de notification (blanche, comme l'exige Android) : le repère
+     entouré d'ondes du logo « Signal ». -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M16.85,17.39A18.5,18.5 0,0 0,16.85 38.61"
+        android:strokeWidth="4.5"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M47.15,17.39A18.5,18.5 0,0 1,47.15 38.61"
+        android:strokeWidth="4.5"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M8.8,13.2A27,27 0,0 0,8.8 42.8"
+        android:strokeWidth="4"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M55.2,13.2A27,27 0,0 1,55.2 42.8"
+        android:strokeWidth="4"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M32,15.5a12.5,12.5 0,0 1,12.5 12.5c0,9 -12.5,21.5 -12.5,21.5S19.5,37 19.5,28A12.5,12.5 0,0 1,32 15.5zM32,23a5,5 0,1 0,0 10a5,5 0,1 0,0 -10z" />
+</vector>
