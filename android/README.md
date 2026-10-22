@@ -16,8 +16,9 @@ La logique « danger devant moi » est la même que celle du site
 
 ## Fabrication
 
-Automatique sur GitHub (`.github/workflows/android.yml`) : le fichier
-`vigie-nc-test.apk` est dans les « Artifacts » du passage.
+Automatique sur GitHub (`.github/workflows/android.yml`). Lien direct, toujours
+le même, vers la dernière version :
+https://github.com/kwhrapat-cell/vigie-nc/releases/download/app-test/vigie-nc-test.apk
 
 ## À savoir
 
