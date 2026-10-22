@@ -293,7 +293,7 @@ export default function SignalerPage() {
           </div>
           {type === "feu" && (
             <p className="mt-3 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-[12px] leading-relaxed" role="note">
-              Un feu ? Appelle d&apos;abord le <a href="tel:18" className="underline font-semibold">18</a> (pompiers)
+              Un feu ? Appelle d&apos;abord le <a href="tel:18" className="underline font-semibold">18</a>{" "}(pompiers)
               si personne ne l&apos;a fait. Signale de loin et à l&apos;arrêt : ne t&apos;approche pas.
             </p>
           )}

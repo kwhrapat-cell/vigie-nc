@@ -49,9 +49,9 @@ export default function ConfidentialitePage() {
 
       <LegalSection title="L'identifiant anonyme de ton téléphone">
         <p>
-          À la première utilisation, {LEGAL.base.nom} ouvre pour ton téléphone une <strong>session anonyme</strong> :
+          À la première utilisation, {LEGAL.base.nom} ouvre pour ton téléphone une <strong>session anonyme</strong>{" "}:
           un identifiant tiré au hasard, sans nom, sans e-mail, sans numéro de téléphone. Ton navigateur le garde.
-          Les tables de Vigie NC n&apos;en gardent qu&apos;une <strong>empreinte</strong> (impossible à retourner),
+          Les tables de Vigie NC n&apos;en gardent qu&apos;une <strong>empreinte</strong>{" "}(impossible à retourner),
           que personne ne peut lire depuis l&apos;appli.
         </p>
         <p>
@@ -60,7 +60,7 @@ export default function ConfidentialitePage() {
           compter combien de téléphones utilisent l&apos;appli (voir « Chiffres d&apos;utilisation » plus bas).
         </p>
         <p>
-          Comme pour toute connexion, {LEGAL.base.nom} note avec la session l&apos;adresse IP et le type de
+          Comme pour toute connexion, {LEGAL.base.nom}{" "}note avec la session l&apos;adresse IP et le type de
           navigateur, pour bloquer les ouvertures de sessions en rafale. Si la protection Cloudflare Turnstile est
           active, Cloudflare vérifie en plus qu&apos;il s&apos;agit d&apos;une vraie personne, sans te demander qui tu
           es.
@@ -106,7 +106,7 @@ export default function ConfidentialitePage() {
             adresse. Cette trace est effacée au bout de 7 jours.
           </li>
           <li>
-            Rarement, une <strong>annonce importante pour toute la Calédonie</strong> (cyclone, évacuation…) part
+            Rarement, une <strong>annonce importante pour toute la Calédonie</strong>{" "}(cyclone, évacuation…) part
             vers tous les téléphones abonnés : ton lieu n&apos;est pas utilisé pour elle.
           </li>
           <li>
@@ -118,7 +118,7 @@ export default function ConfidentialitePage() {
 
       <LegalSection title="Le mode conduite (si tu l'actives)">
         <p>
-          Pendant le mode conduite, ta position est suivie <strong>sur ton téléphone</strong> pour savoir dans quel
+          Pendant le mode conduite, ta position est suivie <strong>sur ton téléphone</strong>{" "}pour savoir dans quel
           sens tu roules et quels dangers confirmés sont devant toi. Elle part seulement pour chercher les
           signalements autour de toi, comme sur la carte (environ toutes les 90 secondes ou tous les 1,5 km), et
           n&apos;est <strong>pas enregistrée</strong>. Le choix des dangers à annoncer et la voix se font sur le

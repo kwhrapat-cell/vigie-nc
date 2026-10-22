@@ -11,19 +11,19 @@ export default function ConditionsPage() {
       current="/conditions"
       intro={
         <p>
-          Vigie NC est une carte <strong>gratuite et citoyenne</strong> de l&apos;état des routes en
+          Vigie NC est une carte <strong>gratuite et citoyenne</strong>{" "}de l&apos;état des routes en
           Nouvelle-Calédonie. En l&apos;utilisant, tu acceptes ces règles simples.
         </p>
       }
     >
       <LegalSection title="1. Une information indicative">
         <p>
-          Les signalements sont faits par des usagers. Sauf la mention <strong>« Vérifié »</strong> (source
+          Les signalements sont faits par des usagers. Sauf la mention <strong>« Vérifié »</strong>{" "}(source
           officielle), ils ne sont pas contrôlés : ils peuvent être faux, incomplets ou déjà dépassés. Une route
           affichée sans signalement n&apos;est pas forcément dégagée.
         </p>
         <p>
-          Vigie NC <strong>ne remplace pas les consignes officielles</strong> (Sécurité civile, Météo-France
+          Vigie NC <strong>ne remplace pas les consignes officielles</strong>{" "}(Sécurité civile, Météo-France
           Nouvelle-Calédonie, gendarmerie, police, communes). En cas de doute, ne t&apos;engage pas : adapte ta
           conduite et respecte le code de la route.
         </p>
@@ -48,7 +48,7 @@ export default function ConditionsPage() {
       <LegalSection title="3. Le mode conduite (annonces vocales)">
         <LegalList>
           <li>
-            Seuls les <strong>dangers confirmés</strong> (par une 2e personne ou une source officielle) déjà
+            Seuls les <strong>dangers confirmés</strong>{" "}(par une 2e personne ou une source officielle) déjà
             signalés sur Vigie NC sont annoncés. Un danger non signalé ou pas encore confirmé n&apos;est pas annoncé :
             <strong> le silence ne veut pas dire que la route est libre</strong>.
           </li>
@@ -62,7 +62,7 @@ export default function ConditionsPage() {
             continuent écran éteint.
           </li>
           <li>
-            Le <strong>démarrage tout seul en voiture</strong> (appli Android, à activer toi-même) peut se
+            Le <strong>démarrage tout seul en voiture</strong>{" "}(appli Android, à activer toi-même) peut se
             déclencher en bus ou en taxi, ou ne pas se déclencher (autorisations retirées, économie de batterie,
             téléphone qui coupe l&apos;appli, pas de réseau). Tu peux l&apos;arrêter à tout moment avec « Arrêter »
             ou le couper dans les Réglages.
@@ -99,7 +99,7 @@ export default function ConditionsPage() {
       <LegalSection title="6. Modération">
         <LegalList>
           <li>
-            Chacun peut <strong>signaler un contenu</strong> depuis la fiche d&apos;un signalement. Après deux
+            Chacun peut <strong>signaler un contenu</strong>{" "}depuis la fiche d&apos;un signalement. Après deux
             signalements, la photo et le texte sont masqués automatiquement.
           </li>
           <li>

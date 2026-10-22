@@ -345,7 +345,7 @@ export function AlertSettings() {
         {messages}
         <Note>
           Chrome parle de « spam » ? Choisis d&apos;afficher la notification, puis{" "}
-          <strong className="text-mist">Toujours autoriser</strong> : l&apos;avertissement ne reviendra plus. Ne te
+          <strong className="text-mist">Toujours autoriser</strong>{" "}: l&apos;avertissement ne reviendra plus. Ne te
           désabonne pas, sinon les alertes s&apos;arrêtent.
         </Note>
       </Card>
@@ -421,7 +421,7 @@ export function AlertSettings() {
 
         {!zone && (
           <Note>
-            <strong className="font-semibold text-warn">Un seul endroit par téléphone :</strong> dans l&apos;appli
+            <strong className="font-semibold text-warn">Un seul endroit par téléphone :</strong>{" "}dans l&apos;appli
             installée si tu l&apos;as, sinon dans le navigateur. Activées aux deux endroits, chaque alerte arrive deux
             fois.
           </Note>
