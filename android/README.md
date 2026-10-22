@@ -10,6 +10,12 @@ Prototype pour tester le **mode conduite en arrière-plan** :
   la musique baisse le temps de l'annonce ;
 - bulle flottante par-dessus les autres applis si le téléphone l'accepte
   (Android Go la refuse : la notification suffit).
+- **Réglages** : portée de la voix (3, 5 ou 10 km), voix, trafic dense ;
+- **Démarrer tout seul en voiture** (désactivé par défaut) : la reconnaissance
+  d'activité de Google lance le mode conduite quand on monte en voiture et
+  l'arrête à la sortie (ou après 15 min sans bouger). Demande la position
+  « Toujours » et l'« Activité physique ». Sur Xiaomi : autoriser le démarrage
+  automatique et la batterie « Pas de restrictions ».
 
 La logique « danger devant moi » est la même que celle du site
 (`vigie-nc/lib/conduite.ts` ↔ `app/src/main/java/com/vigienc/app/Conduite.kt`).

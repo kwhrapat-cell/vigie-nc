@@ -89,9 +89,10 @@ vigie-nc/
     useAnnonces.ts   annonces générales en direct (temps réel
                      vigie_annonce_signal) + copie pour l'affichage sans réseau
     reliability.ts   4 niveaux : Signalement / À confirmer / Confirmé / Vérifié
-    conduite.ts      mode conduite : dangers devant (angle 40°, 5 km), paliers
-                     d'annonce 3 km / 500 m, phrases parlées. ⚠️ Même logique
-                     dans android/…/Conduite.kt : garder les deux alignées
+    conduite.ts      mode conduite : dangers devant (angle 40°), portée de la
+                     voix au choix 3 / 5 / 10 km, annonce à la portée puis à
+                     500 m (+ 3 km pour 10 km), phrases parlées. ⚠️ Même
+                     logique dans android/…/Conduite.kt : garder les deux alignées
     face-blur.ts     photo : réduction, floutage visages, suppression EXIF
     place.ts         nom du lieu via Nominatim
     map-styles.ts    fonds de carte (OpenStreetMap / Esri, sans clé — pas CARTO,
@@ -122,9 +123,14 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
                    dans l'appli + service « mode conduite » au premier plan
                    (position, voix qui baisse la musique, notification
                    permanente, bulle si le téléphone l'accepte — pas Android Go).
+                   Réglages (portée, voix, trafic dense) et « Démarrer tout seul
+                   en voiture » (reconnaissance d'activité Google, position
+                   « Toujours », arrêt à la sortie du véhicule ou après 15 min
+                   immobile ; décrit dans /confidentialite).
                    Lit signalements_proches_v3 avec la clé publique. Clé de
                    signature de test dans le dépôt : jamais pour le Play Store.
-.github/workflows/android.yml  fabrique l'APK de test (Artifacts « vigie-nc-test »)
+.github/workflows/android.yml  fabrique l'APK de test et le publie au lien fixe
+                   …/releases/download/app-test/vigie-nc-test.apk
 ```
 
 ## Conventions

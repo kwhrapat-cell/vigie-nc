@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ActivityNotFoundException
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -26,6 +27,10 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
+import android.widget.ScrollView
+import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.view.ViewCompat
@@ -44,6 +49,8 @@ class MainActivity : Activity() {
         private const val REQ_CONDUITE = 10
         private const val REQ_GEO_SITE = 11
         private const val REQ_FICHIER = 12
+        private const val REQ_AUTO_1 = 13
+        private const val REQ_AUTO_2 = 14
         private const val FOND = 0xFF081317.toInt()
         private const val PANNEAU = 0xFF0E1C21.toInt()
         private const val PRIMAIRE = 0xFF1C9890.toInt()
@@ -104,14 +111,34 @@ class MainActivity : Activity() {
             setPadding(dp(18f), 0, dp(18f), 0)
             setOnClickListener { basculerConduite() }
         }
+        val reglages = Button(this).apply {
+            isAllCaps = false
+            text = "Réglages"
+            setTextColor(TEXTE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            minHeight = dp(44f)
+            minWidth = 0
+            minimumWidth = 0
+            background = GradientDrawable().apply {
+                cornerRadius = dp(22f).toFloat()
+                setColor(PANNEAU)
+                setStroke(dp(1f), 0xFF1E363D.toInt())
+            }
+            setPadding(dp(12f), 0, dp(12f), 0)
+            contentDescription = "Réglages du mode conduite"
+            setOnClickListener { ouvrirReglages() }
+        }
         val barre = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(PANNEAU)
             setPadding(dp(14f), dp(8f), dp(10f), dp(8f))
             addView(textes, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(reglages, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(44f)).apply {
+                marginStart = dp(8f)
+            })
             addView(bouton, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(44f)).apply {
-                marginStart = dp(10f)
+                marginStart = dp(8f)
             })
         }
 
@@ -193,6 +220,8 @@ class MainActivity : Activity() {
         } else {
             web.loadUrl(adresse(intent))
         }
+        // Démarrage tout seul déjà choisi : on (ré)inscrit la détection.
+        if (Prefs.auto(this)) Auto.activer(this)
         majBarre()
     }
 
@@ -245,7 +274,11 @@ class MainActivity : Activity() {
             bouton.text = "Arrêter"
         } else {
             titre.text = "Mode conduite"
-            sousTitre.text = "Annonces vocales des dangers devant toi, même écran éteint"
+            sousTitre.text = if (Prefs.auto(this)) {
+                "Démarre tout seul en voiture · voix jusqu'à ${Prefs.portee(this)} km"
+            } else {
+                "Voix jusqu'à ${Prefs.portee(this)} km devant toi, même écran éteint"
+            }
             bouton.text = "Démarrer"
         }
     }
@@ -292,6 +325,183 @@ class MainActivity : Activity() {
                 geoCallback = null
                 geoOrigine = null
             }
+            REQ_AUTO_1 -> etapeAutoFond()
+            REQ_AUTO_2 -> terminerAuto()
+        }
+    }
+
+    // --- Réglages ---------------------------------------------------------
+
+    private fun texte(t: String, tailleSp: Float, couleur: Int = TEXTE): TextView = TextView(this).apply {
+        text = t
+        setTextColor(couleur)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, tailleSp)
+    }
+
+    private fun ouvrirReglages() {
+        val contenu = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(22f), dp(12f), dp(22f), dp(4f))
+        }
+
+        contenu.addView(texte("Portée de la voix", 15f))
+        contenu.addView(texte("Première annonce à cette distance, puis à 500 m (et à 3 km pour 10 km).", 12f, TEXTE_DOUX))
+        val groupe = RadioGroup(this).apply { orientation = RadioGroup.HORIZONTAL }
+        for (km in Conduite.PORTEES_KM) {
+            groupe.addView(RadioButton(this).apply {
+                id = 1000 + km
+                text = "$km km"
+                setTextColor(TEXTE)
+                isChecked = Prefs.portee(this@MainActivity) == km
+                minHeight = dp(44f)
+                setPadding(dp(4f), 0, dp(16f), 0)
+            })
+        }
+        groupe.setOnCheckedChangeListener { _, id -> Prefs.setPortee(this, id - 1000); majBarre() }
+        contenu.addView(groupe)
+
+        fun interrupteur(libelle: String, actif: Boolean, aide: String?, quand: (Boolean) -> Unit): Switch {
+            val sw = Switch(this).apply {
+                text = libelle
+                setTextColor(TEXTE)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+                isChecked = actif
+                minHeight = dp(48f)
+                setOnCheckedChangeListener { _, v -> quand(v) }
+            }
+            contenu.addView(sw, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = dp(10f)
+            })
+            if (aide != null) contenu.addView(texte(aide, 12f, TEXTE_DOUX))
+            return sw
+        }
+
+        interrupteur("Voix", Prefs.voix(this), null) { Prefs.setVoix(this, it) }
+        interrupteur("Annoncer le trafic dense", Prefs.trafic(this), null) { Prefs.setTrafic(this, it) }
+
+        var dialogue: AlertDialog? = null
+        interrupteur(
+            "Démarrer tout seul en voiture",
+            Prefs.auto(this),
+            "Le téléphone détecte quand tu roules en voiture : le mode conduite démarre et s'arrête tout seul, " +
+                "même appli fermée. Il faut autoriser la position « Toujours » et l'activité physique. " +
+                "En bus ou en taxi aussi : coupe ce réglage si ça te gêne.",
+        ) { v ->
+            if (v) {
+                dialogue?.dismiss()
+                activerAuto()
+            } else {
+                Prefs.setAuto(this, false)
+                Auto.desactiver(this)
+                majBarre()
+            }
+        }
+
+        val defilement = ScrollView(this).apply { addView(contenu) }
+        dialogue = AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+            .setTitle("Réglages du mode conduite")
+            .setView(defilement)
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    // --- Démarrage tout seul : permissions, une étape après l'autre --------
+
+    private fun activerAuto() {
+        val manquantes = ArrayList<String>()
+        if (!aLaPosition()) {
+            manquantes += Manifest.permission.ACCESS_FINE_LOCATION
+            manquantes += Manifest.permission.ACCESS_COARSE_LOCATION
+        }
+        if (Build.VERSION.SDK_INT >= 29 &&
+            checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED
+        ) {
+            manquantes += Manifest.permission.ACTIVITY_RECOGNITION
+        }
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            manquantes += Manifest.permission.POST_NOTIFICATIONS
+        }
+        if (manquantes.isNotEmpty()) requestPermissions(manquantes.toTypedArray(), REQ_AUTO_1) else etapeAutoFond()
+    }
+
+    /** « Toujours autoriser » se demande à part, après la position normale. */
+    private fun etapeAutoFond() {
+        if (!aLaPosition()) {
+            refuserAuto("Sans ta position, le mode conduite ne peut pas te prévenir.")
+            return
+        }
+        if (Build.VERSION.SDK_INT >= 29 &&
+            checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED
+        ) {
+            refuserAuto("Sans « Activité physique », l'appli ne sait pas quand tu es en voiture.")
+            return
+        }
+        if (Build.VERSION.SDK_INT >= 29 &&
+            checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED
+        ) {
+            AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle("Position : « Toujours autoriser »")
+                .setMessage(
+                    "Pour démarrer tout seul quand l'appli est fermée, Android demande la position « Toujours ». " +
+                        "Ta position reste sur le téléphone : elle sert seulement à chercher les dangers autour, " +
+                        "comme sur la carte. Sur l'écran suivant, choisis « Toujours autoriser ».",
+                )
+                .setPositiveButton("Continuer") { _, _ ->
+                    requestPermissions(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION), REQ_AUTO_2)
+                }
+                .setNegativeButton("Annuler") { _, _ -> refuserAuto(null) }
+                .show()
+            return
+        }
+        terminerAuto()
+    }
+
+    private fun terminerAuto() {
+        if (!Auto.aLesPermissions(this)) {
+            refuserAuto("Sans la position « Toujours », l'appli ne peut pas démarrer toute seule.")
+            return
+        }
+        Prefs.setAuto(this, true)
+        Auto.activer(this)
+        majBarre()
+        Toast.makeText(this, "C'est prêt : le mode conduite démarrera tout seul en voiture.", Toast.LENGTH_LONG).show()
+        conseilXiaomi()
+    }
+
+    private fun refuserAuto(message: String?) {
+        Prefs.setAuto(this, false)
+        Auto.desactiver(this)
+        majBarre()
+        if (message != null) Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    }
+
+    /** Xiaomi, Redmi, Poco : MIUI coupe les applis en arrière-plan si on ne l'autorise pas. */
+    private fun conseilXiaomi() {
+        val marque = Build.MANUFACTURER.lowercase()
+        if (marque !in setOf("xiaomi", "redmi", "poco")) return
+        AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+            .setTitle("Réglage Xiaomi à faire une fois")
+            .setMessage(
+                "Sur ce téléphone, autorise le « Démarrage automatique » de Vigie NC, et mets son économiseur " +
+                    "de batterie sur « Pas de restrictions ». Sinon le téléphone peut couper l'appli.",
+            )
+            .setPositiveButton("Ouvrir les réglages") { _, _ -> ouvrirReglagesXiaomi() }
+            .setNegativeButton("Plus tard", null)
+            .show()
+    }
+
+    private fun ouvrirReglagesXiaomi() {
+        val demarrageAuto = Intent().setComponent(
+            ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"),
+        )
+        try {
+            startActivity(demarrageAuto)
+        } catch (_: Exception) {
+            try {
+                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+            } catch (_: Exception) {}
         }
     }
 

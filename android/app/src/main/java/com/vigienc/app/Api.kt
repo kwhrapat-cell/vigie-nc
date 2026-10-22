@@ -82,4 +82,12 @@ object Prefs {
 
     fun bulleDemandee(ctx: Context) = p(ctx).getBoolean("bulle_demandee", false)
     fun setBulleDemandee(ctx: Context) = p(ctx).edit().putBoolean("bulle_demandee", true).apply()
+
+    /** Portée de la voix, en km : 3, 5 ou 10. */
+    fun portee(ctx: Context) = Conduite.porteeValide(p(ctx).getInt("portee", Conduite.PORTEE_DEFAUT_KM))
+    fun setPortee(ctx: Context, km: Int) = p(ctx).edit().putInt("portee", Conduite.porteeValide(km)).apply()
+
+    /** Démarrage automatique quand le téléphone détecte qu'on roule en voiture. */
+    fun auto(ctx: Context) = p(ctx).getBoolean("auto", false)
+    fun setAuto(ctx: Context, v: Boolean) = p(ctx).edit().putBoolean("auto", v).apply()
 }

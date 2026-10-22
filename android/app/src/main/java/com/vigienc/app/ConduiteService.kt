@@ -39,13 +39,21 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
     companion object {
         const val ACTION_DEMARRER = "com.vigienc.app.DEMARRER"
         const val ACTION_ARRETER = "com.vigienc.app.ARRETER"
+        // Démarrage / arrêt décidés par la détection « en voiture ».
+        const val ACTION_DEMARRER_AUTO = "com.vigienc.app.DEMARRER_AUTO"
+        const val ACTION_ARRETER_AUTO = "com.vigienc.app.ARRETER_AUTO"
         private const val CANAL = "conduite"
         private const val NOTIF_ID = 42
+        // Démarré tout seul : arrêt si l'on ne bouge plus pendant ce temps
+        // (au cas où la sortie de voiture n'aurait pas été détectée).
+        private const val ARRET_IMMOBILE_MS = 15 * 60_000L
 
         /** Lu par l'écran de l'appli (barre du mode conduite). */
         @Volatile var actif = false
             private set
         @Volatile var statut = ""
+            private set
+        @Volatile var demarreAuto = false
             private set
 
         fun demarrer(ctx: Context) {
@@ -55,6 +63,18 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
 
         fun arreter(ctx: Context) {
             ctx.startService(Intent(ctx, ConduiteService::class.java).setAction(ACTION_ARRETER))
+        }
+
+        /** Appelé quand le téléphone détecte qu'on monte en voiture. */
+        fun demarrerAuto(ctx: Context) {
+            val i = Intent(ctx, ConduiteService::class.java).setAction(ACTION_DEMARRER_AUTO)
+            androidx.core.content.ContextCompat.startForegroundService(ctx, i)
+        }
+
+        /** Appelé à la sortie de voiture : n'arrête que ce qui a démarré tout seul. */
+        fun arreterAuto(ctx: Context) {
+            if (!actif || !demarreAuto) return
+            ctx.startService(Intent(ctx, ConduiteService::class.java).setAction(ACTION_ARRETER_AUTO))
         }
     }
 
@@ -76,6 +96,9 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
     private var rechercheMs = 0L
     private var rechercheEnCours = false
     private var horsReseau = false
+    private var porteeRecherche = 0
+    private var dernierMouvementMs = 0L
+    private var lieuMouvement: Location? = null
     private val deja = HashMap<String, Double>()
     private var bulle: Bulle? = null
 
@@ -86,6 +109,10 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
 
     private val minuteur = object : Runnable {
         override fun run() {
+            if (demarreAuto && System.currentTimeMillis() - dernierMouvementMs > ARRET_IMMOBILE_MS) {
+                arreterTout()
+                return
+            }
             val pos = position
             if (pos != null && System.currentTimeMillis() - rechercheMs >= Conduite.RELANCE_MS) {
                 chercher(pos.latitude, pos.longitude)
@@ -109,25 +136,53 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_ARRETER) {
-            arreterTout()
-            return START_NOT_STICKY
+        when (intent?.action) {
+            ACTION_ARRETER -> {
+                arreterTout()
+                return START_NOT_STICKY
+            }
+            ACTION_ARRETER_AUTO -> {
+                if (!actif || demarreAuto) arreterTout()
+                return START_NOT_STICKY
+            }
         }
-        if (!actif) demarrerTout()
+        val auto = intent?.action == ACTION_DEMARRER_AUTO
+        if (actif) {
+            // Déjà en route : Android exige quand même la notification.
+            premierPlan(titreActuel, texteActuel)
+            if (!auto) demarreAuto = false // lancé à la main : plus d'arrêt automatique
+        } else {
+            demarrerTout(auto)
+        }
         return START_NOT_STICKY
     }
 
-    private fun demarrerTout() {
-        statut = "Recherche de ta position…"
+    private var titreActuel = "Mode conduite"
+    private var texteActuel = "Recherche de ta position…"
+
+    private fun premierPlan(titre: String, texte: String): Boolean {
         val type = if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0
-        try {
-            ServiceCompat.startForeground(this, NOTIF_ID, notification("Mode conduite", statut), type)
+        return try {
+            ServiceCompat.startForeground(this, NOTIF_ID, notification(titre, texte), type)
+            true
         } catch (_: Exception) {
-            // Position refusée entre-temps : impossible de démarrer.
+            false
+        }
+    }
+
+    private fun demarrerTout(auto: Boolean) {
+        statut = "Recherche de ta position…"
+        titreActuel = if (auto) "Mode conduite (démarré tout seul)" else "Mode conduite"
+        texteActuel = statut
+        if (!premierPlan(titreActuel, texteActuel)) {
+            // Position refusée (ou pas « toujours » pour un démarrage tout seul).
             stopSelf()
             return
         }
         actif = true
+        demarreAuto = auto
+        dernierMouvementMs = System.currentTimeMillis()
+        lieuMouvement = null
         deja.clear()
         tts = TextToSpeech(this, this)
         try {
@@ -146,6 +201,7 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
 
     private fun arreterTout() {
         actif = false
+        demarreAuto = false
         statut = ""
         main.removeCallbacks(minuteur)
         try { lm.removeUpdates(this) } catch (_: Exception) {}
@@ -183,7 +239,10 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
             override fun onError(id: String?) { main.post { relacherFocus() } }
         })
         ttsPret = true
-        parler("Mode conduite activé. Je te préviens des dangers confirmés devant toi, même écran éteint.")
+        parler(
+            if (demarreAuto) "Vigie NC : tu roules, je surveille la route devant toi."
+            else "Mode conduite activé. Je te préviens des dangers confirmés devant toi, même écran éteint.",
+        )
     }
 
     private fun parler(texte: String) {
@@ -228,9 +287,18 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
         }
         position = loc
 
+        // On bouge encore ? (pour l'arrêt automatique)
+        val ref = lieuMouvement
+        if ((loc.hasSpeed() && loc.speed >= 3f) || ref == null || ref.distanceTo(loc) >= 150f) {
+            dernierMouvementMs = maintenant
+            lieuMouvement = loc
+        }
+
         val d = if (rechercheMs == 0L) Double.MAX_VALUE
         else Conduite.distanceM(rechercheLat, rechercheLng, loc.latitude, loc.longitude)
-        if (d >= Conduite.RELANCE_M || maintenant - rechercheMs >= Conduite.RELANCE_MS) {
+        if (d >= Conduite.RELANCE_M || maintenant - rechercheMs >= Conduite.RELANCE_MS ||
+            porteeRecherche != Prefs.portee(this)
+        ) {
             chercher(loc.latitude, loc.longitude)
         }
         evaluer()
@@ -245,11 +313,13 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
     private fun chercher(lat: Double, lng: Double) {
         if (rechercheEnCours) return
         rechercheEnCours = true
+        val portee = Prefs.portee(this)
         reseau.execute {
             try {
-                val liste = Api.signalementsProches(lat, lng, Conduite.RAYON_RECHERCHE_M)
+                val liste = Api.signalementsProches(lat, lng, Conduite.rayonRecherche(portee))
                 main.post {
                     signalements = liste
+                    porteeRecherche = portee
                     rechercheLat = lat
                     rechercheLng = lng
                     rechercheMs = System.currentTimeMillis()
@@ -279,12 +349,13 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
             return
         }
         val maintenant = System.currentTimeMillis()
+        val portee = Prefs.portee(this)
         val devant = Conduite.dangersDevant(
-            pos.latitude, pos.longitude, cap, signalements, Prefs.trafic(this), maintenant,
+            pos.latitude, pos.longitude, cap, signalements, Prefs.trafic(this), portee, maintenant,
         )
         val ids = signalements.mapTo(HashSet()) { it.id }
         deja.keys.retainAll(ids)
-        for (d in Conduite.aAnnoncer(devant, deja).take(2)) parler(Conduite.texteAnnonce(d, cap != null))
+        for (d in Conduite.aAnnoncer(devant, deja, portee).take(2)) parler(Conduite.texteAnnonce(d, cap != null))
 
         val prochain = devant.firstOrNull()
         if (prochain != null) {
@@ -302,7 +373,7 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
             val detail = when {
                 horsReseau -> "Pas de réseau : annonces en pause"
                 cap == null -> "Je surveille 1 km autour de toi"
-                else -> "Je surveille les 5 km devant toi"
+                else -> "Je surveille les $portee km devant toi"
             }
             majAffichage("Rien de confirmé devant toi", detail, "Rien devant", Bulle.VERT)
         }
@@ -310,6 +381,8 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
 
     private fun majAffichage(titre: String, texte: String, bulleTexte: String, couleur: Int) {
         statut = "$titre · $texte"
+        titreActuel = titre
+        texteActuel = texte
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         try { nm.notify(NOTIF_ID, notification(titre, texte)) } catch (_: Exception) {}
         bulle?.maj(bulleTexte, couleur)

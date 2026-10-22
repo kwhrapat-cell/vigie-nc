@@ -41,12 +41,14 @@ data class DangerDevant(val signalement: Signalement, val distanceM: Double)
  * alignées (paliers, angle, portées, règle « confirmé »).
  */
 object Conduite {
-    const val RAYON_RECHERCHE_M = 8_000
+    // Portée de la voix au choix (km) et marge de recherche au-delà.
+    val PORTEES_KM = intArrayOf(3, 5, 10)
+    const val PORTEE_DEFAUT_KM = 5
+    private const val MARGE_RECHERCHE_M = 3_000
+    const val RAPPEL_M = 500.0
     const val RELANCE_M = 1_500.0
     const val RELANCE_MS = 90_000L
     const val ANGLE_DEVANT_DEG = 40.0
-    const val PORTEE_M = 5_000.0
-    val PALIERS_M = doubleArrayOf(3_000.0, 500.0)
     const val PORTEE_SANS_CAP_M = 1_000.0
     const val VITESSE_CAP_MIN = 2.5f
     const val DEPLACEMENT_CAP_M = 30f
@@ -55,6 +57,17 @@ object Conduite {
     private val TYPES_DANGER = setOf("accident", "route_coupee", "inondation", "feu", "danger", "meteo")
 
     private const val RAYON_TERRE_M = 6_371_008.8
+
+    fun porteeValide(km: Int): Int = if (km in PORTEES_KM) km else PORTEE_DEFAUT_KM
+
+    /** Rayon de recherche autour du conducteur (la base plafonne à 20 km). */
+    fun rayonRecherche(porteeKm: Int): Int = minOf(20_000, porteeKm * 1000 + MARGE_RECHERCHE_M)
+
+    /** Première annonce à la portée, rappel à 3 km si 10 km, puis à 500 m. */
+    fun paliers(porteeKm: Int): DoubleArray {
+        val p = porteeKm * 1000.0
+        return if (p >= 10_000) doubleArrayOf(p, 3_000.0, RAPPEL_M) else doubleArrayOf(p, RAPPEL_M)
+    }
 
     fun distanceM(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
         val dLat = Math.toRadians(lat2 - lat1)
@@ -92,8 +105,10 @@ object Conduite {
         cap: Double?,
         liste: List<Signalement>,
         avecTrafic: Boolean,
+        porteeKm: Int,
         maintenant: Long,
     ): List<DangerDevant> {
+        val portee = porteeKm * 1000.0
         val sortie = ArrayList<DangerDevant>()
         for (s in liste) {
             if (!estAnnoncable(s, avecTrafic, maintenant)) continue
@@ -102,7 +117,7 @@ object Conduite {
                 if (d <= PORTEE_SANS_CAP_M) sortie.add(DangerDevant(s, d))
                 continue
             }
-            if (d > PORTEE_M) continue
+            if (d > portee) continue
             if (d < 150 || ecartDeg(cap, capDeg(lat, lng, s.lat, s.lng)) <= ANGLE_DEVANT_DEG) {
                 sortie.add(DangerDevant(s, d))
             }
@@ -111,17 +126,19 @@ object Conduite {
         return sortie
     }
 
-    fun palierPour(distance: Double): Double? {
+    /** Plus petit palier atteint pour cette distance, ou null si trop loin. */
+    fun palierPour(distance: Double, liste: DoubleArray): Double? {
         var palier: Double? = null
-        for (p in PALIERS_M) if (distance <= p) palier = p
+        for (p in liste) if (distance <= p && (palier == null || p < palier)) palier = p
         return palier
     }
 
     /** Les dangers à annoncer maintenant (jamais deux fois le même palier). */
-    fun aAnnoncer(devant: List<DangerDevant>, deja: MutableMap<String, Double>): List<DangerDevant> {
+    fun aAnnoncer(devant: List<DangerDevant>, deja: MutableMap<String, Double>, porteeKm: Int): List<DangerDevant> {
+        val liste = paliers(porteeKm)
         val sortie = ArrayList<DangerDevant>()
         for (d in devant) {
-            val palier = palierPour(d.distanceM) ?: continue
+            val palier = palierPour(d.distanceM, liste) ?: continue
             val precedent = deja[d.signalement.id]
             if (precedent != null && precedent <= palier) continue
             deja[d.signalement.id] = palier

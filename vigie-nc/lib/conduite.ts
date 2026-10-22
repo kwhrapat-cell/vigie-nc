@@ -8,25 +8,46 @@
 import { distanceM, LatLng } from "./geo";
 import { ALERT_TYPES, Report, ReportType } from "./types";
 
-// Rayon de recherche autour du conducteur (la base plafonne à 20 km).
-export const CONDUITE_RAYON_RECHERCHE_M = 8_000;
+// Portée de la voix, au choix : jusqu'où devant on annonce les dangers.
+export const CONDUITE_PORTEES_KM = [3, 5, 10] as const;
+export type PorteeKm = (typeof CONDUITE_PORTEES_KM)[number];
+export const CONDUITE_PORTEE_DEFAUT_KM: PorteeKm = 5;
+// Marge de recherche au-delà de la portée (on avance entre deux recherches).
+// La base plafonne la recherche à 20 km.
+export const CONDUITE_MARGE_RECHERCHE_M = 3_000;
 // Nouvelle recherche après ce déplacement, ou ce délai.
 export const CONDUITE_RELANCE_M = 1_500;
 export const CONDUITE_RELANCE_MS = 90_000;
 // Un danger est « devant » s'il est dans cet angle de part et d'autre du
 // sens de marche (les routes tournent : pas trop étroit).
 export const CONDUITE_ANGLE_DEVANT_DEG = 40;
-// Portée maximale d'une annonce.
-export const CONDUITE_PORTEE_M = 5_000;
-// Paliers d'annonce : une première fois à 3 km (ou dès qu'on le voit plus
-// près), puis une dernière fois à 500 m.
-export const CONDUITE_PALIERS_M = [3_000, 500] as const;
+// Rappel à l'approche, quelle que soit la portée.
+export const CONDUITE_RAPPEL_M = 500;
 // Sans sens de marche connu (arrêt, départ), on n'annonce que tout près.
 export const CONDUITE_PORTEE_SANS_CAP_M = 1_000;
 // En dessous de cette vitesse (m/s, ~9 km/h), le cap du GPS n'est pas fiable.
 export const CONDUITE_VITESSE_CAP_MIN = 2.5;
 // Déplacement minimal pour calculer soi-même le sens de marche.
 export const CONDUITE_DEPLACEMENT_CAP_M = 30;
+
+export function estPortee(v: unknown): v is PorteeKm {
+  return (CONDUITE_PORTEES_KM as readonly unknown[]).includes(v);
+}
+
+/** Rayon de la recherche autour du conducteur pour cette portée. */
+export function rayonRecherche(porteeKm: PorteeKm): number {
+  return Math.min(20_000, porteeKm * 1000 + CONDUITE_MARGE_RECHERCHE_M);
+}
+
+/**
+ * Paliers d'annonce : une première fois à la portée choisie (ou dès qu'on
+ * découvre le danger plus près), un rappel à 3 km si la portée est de
+ * 10 km, puis une dernière fois à 500 m.
+ */
+export function paliers(porteeKm: PorteeKm): number[] {
+  const p = porteeKm * 1000;
+  return p >= 10_000 ? [p, 3_000, CONDUITE_RAPPEL_M] : [p, CONDUITE_RAPPEL_M];
+}
 
 /** Cap de a vers b, en degrés (0 = nord, 90 = est). */
 export function capDeg(a: LatLng, b: LatLng): number {
@@ -71,8 +92,10 @@ export function dangersDevant(
   cap: number | null,
   reports: Report[],
   avecTrafic: boolean,
+  porteeKm: PorteeKm,
   now = Date.now(),
 ): DangerDevant[] {
+  const portee = porteeKm * 1000;
   const out: DangerDevant[] = [];
   for (const r of reports) {
     if (!estAnnoncable(r, avecTrafic, now)) continue;
@@ -81,7 +104,7 @@ export function dangersDevant(
       if (d <= CONDUITE_PORTEE_SANS_CAP_M) out.push({ report: r, distanceM: d });
       continue;
     }
-    if (d > CONDUITE_PORTEE_M) continue;
+    if (d > portee) continue;
     // Tout près (< 150 m), on y est : l'angle ne veut plus rien dire.
     if (d < 150 || ecartDeg(cap, capDeg(position, r)) <= CONDUITE_ANGLE_DEVANT_DEG) {
       out.push({ report: r, distanceM: d });
@@ -90,11 +113,11 @@ export function dangersDevant(
   return out.sort((a, b) => a.distanceM - b.distanceM);
 }
 
-/** Palier atteint pour cette distance (3000 ou 500), ou null si trop loin. */
-export function palierPour(distance: number): number | null {
+/** Plus petit palier atteint pour cette distance, ou null si trop loin. */
+export function palierPour(distance: number, liste: number[]): number | null {
   let palier: number | null = null;
-  for (const p of CONDUITE_PALIERS_M) {
-    if (distance <= p) palier = p;
+  for (const p of liste) {
+    if (distance <= p && (palier == null || p < palier)) palier = p;
   }
   return palier;
 }
@@ -102,12 +125,17 @@ export function palierPour(distance: number): number | null {
 /**
  * Les dangers à annoncer maintenant. `deja` retient, par signalement, le
  * plus petit palier déjà annoncé : on ne répète jamais un palier, et on
- * n'annonce pas « 3 km » si l'on découvre le danger à 400 m.
+ * n'annonce pas « 5 km » si l'on découvre le danger à 400 m.
  */
-export function aAnnoncer(devant: DangerDevant[], deja: Map<string, number>): DangerDevant[] {
+export function aAnnoncer(
+  devant: DangerDevant[],
+  deja: Map<string, number>,
+  porteeKm: PorteeKm,
+): DangerDevant[] {
+  const liste = paliers(porteeKm);
   const out: DangerDevant[] = [];
   for (const d of devant) {
-    const palier = palierPour(d.distanceM);
+    const palier = palierPour(d.distanceM, liste);
     if (palier == null) continue;
     const precedent = deja.get(d.report.id);
     if (precedent != null && precedent <= palier) continue;

@@ -11,8 +11,8 @@ android {
         applicationId = "com.vigienc.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0-test"
+        versionCode = 2
+        versionName = "0.2.0-test"
 
         // Adresse du site affiché dans l'appli.
         buildConfigField("String", "SITE_URL", "\"https://vigie-nc.com\"")
@@ -59,4 +59,6 @@ android {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
+    // Reconnaissance d'activité (démarrage tout seul en voiture).
+    implementation("com.google.android.gms:play-services-location:21.3.0")
 }

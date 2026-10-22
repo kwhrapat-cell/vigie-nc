@@ -11,17 +11,22 @@ import {
   aAnnoncer,
   capDeg,
   CONDUITE_DEPLACEMENT_CAP_M,
-  CONDUITE_RAYON_RECHERCHE_M,
+  CONDUITE_PORTEE_DEFAUT_KM,
+  CONDUITE_PORTEES_KM,
   CONDUITE_RELANCE_M,
   CONDUITE_RELANCE_MS,
   CONDUITE_VITESSE_CAP_MIN,
   DangerDevant,
   dangersDevant,
+  estPortee,
+  PorteeKm,
+  rayonRecherche,
   texteAnnonce,
 } from "@/lib/conduite";
 
 // Mode conduite : téléphone sur son support, l'appli annonce à voix haute
-// les dangers confirmés devant toi (vers 3 km, puis à 500 m). Rien à
+// les dangers confirmés devant toi (jusqu'à 3, 5 ou 10 km au choix, rappel
+// à 500 m). Rien à
 // toucher en roulant. Une appli web ne peut ni parler ni suivre la
 // position en arrière-plan : l'écran reste allumé tant que le mode tourne.
 // Dans l'appli Android (repère « VigieNCApp » dans le navigateur intégré),
@@ -29,6 +34,7 @@ import {
 
 const CLE_VOIX = "vigie-nc:conduite-voix";
 const CLE_TRAFIC = "vigie-nc:conduite-trafic";
+const CLE_PORTEE = "vigie-nc:conduite-portee";
 
 type Verrou = { release: () => Promise<void> };
 type NavigatorAvecVerrou = Navigator & { wakeLock?: { request: (t: "screen") => Promise<Verrou> } };
@@ -49,6 +55,15 @@ function ecrirePref(cle: string, valeur: boolean) {
   }
 }
 
+function lirePortee(): PorteeKm {
+  try {
+    const v = Number(window.localStorage.getItem(CLE_PORTEE));
+    return estPortee(v) ? v : CONDUITE_PORTEE_DEFAUT_KM;
+  } catch {
+    return CONDUITE_PORTEE_DEFAUT_KM;
+  }
+}
+
 function parler(texte: string) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
   const u = new SpeechSynthesisUtterance(texte);
@@ -64,6 +79,7 @@ export function ModeConduite({ onStart }: { onStart?: () => void }) {
   const [actif, setActif] = useState(false);
   const [voix, setVoix] = useState(true);
   const [trafic, setTrafic] = useState(false);
+  const [portee, setPortee] = useState<PorteeKm>(CONDUITE_PORTEE_DEFAUT_KM);
   const [position, setPosition] = useState<LatLng | null>(null);
   const [cap, setCap] = useState<number | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
@@ -80,11 +96,14 @@ export function ModeConduite({ onStart }: { onStart?: () => void }) {
   const dejaAnnonce = useRef(new Map<string, number>());
   const voixRef = useRef(voix);
   voixRef.current = voix;
+  const porteeRef = useRef(portee);
+  porteeRef.current = portee;
 
   useEffect(() => {
     setDansAppli(navigator.userAgent.includes("VigieNCApp"));
     setVoix(lirePref(CLE_VOIX, true));
     setTrafic(lirePref(CLE_TRAFIC, false));
+    setPortee(lirePortee());
     setVoixDispo("speechSynthesis" in window);
     // Certaines voix se chargent après coup : on les demande tôt.
     if ("speechSynthesis" in window) window.speechSynthesis.getVoices();
@@ -177,11 +196,12 @@ export function ModeConduite({ onStart }: { onStart?: () => void }) {
   // Arrêt propre si l'on quitte la carte.
   useEffect(() => arreter, [arreter]);
 
-  // Recherche des signalements : au départ, puis tous les 1,5 km ou 90 s.
+  // Recherche des signalements : au départ, puis tous les 1,5 km ou 90 s,
+  // un peu plus loin que la portée choisie.
   const chercher = useCallback((lieu: LatLng) => {
     if (rechercheEnCours.current) return;
     rechercheEnCours.current = true;
-    fetchNearby(lieu, CONDUITE_RAYON_RECHERCHE_M)
+    fetchNearby(lieu, rayonRecherche(porteeRef.current))
       .then((liste) => {
         derniereRecherche.current = { lieu, heure: Date.now() };
         setReports(liste);
@@ -212,17 +232,17 @@ export function ModeConduite({ onStart }: { onStart?: () => void }) {
   // Dangers devant + annonces.
   useEffect(() => {
     if (!actif || !position) return;
-    const liste = dangersDevant(position, cap, reports, trafic);
+    const liste = dangersDevant(position, cap, reports, trafic, portee);
     setDevant(liste);
     // Oublie les signalements disparus de la recherche.
     const ids = new Set(reports.map((r) => r.id));
     for (const id of dejaAnnonce.current.keys()) if (!ids.has(id)) dejaAnnonce.current.delete(id);
-    const nouvelles = aAnnoncer(liste, dejaAnnonce.current);
+    const nouvelles = aAnnoncer(liste, dejaAnnonce.current, portee);
     if (voixRef.current) {
       // Deux annonces au plus d'un coup, la plus proche d'abord.
       for (const d of nouvelles.slice(0, 2)) parler(texteAnnonce(d, cap != null));
     }
-  }, [actif, position, cap, reports, trafic]);
+  }, [actif, position, cap, reports, trafic, portee]);
 
   const changerVoix = () => {
     const v = !voix;
@@ -235,6 +255,18 @@ export function ModeConduite({ onStart }: { onStart?: () => void }) {
     const t = !trafic;
     setTrafic(t);
     ecrirePref(CLE_TRAFIC, t);
+  };
+  const changerPortee = (p: PorteeKm) => {
+    if (p === portee) return;
+    setPortee(p);
+    porteeRef.current = p;
+    try {
+      window.localStorage.setItem(CLE_PORTEE, String(p));
+    } catch {
+      // stockage indisponible : le choix vaut pour cette fois
+    }
+    // Plus loin = nouvelle recherche, plus large.
+    if (actif && position) chercher(position);
   };
 
   if (dansAppli) return null;
@@ -319,8 +351,8 @@ export function ModeConduite({ onStart }: { onStart?: () => void }) {
                       {!position
                         ? "Recherche de ta position…"
                         : cap == null
-                          ? "Je surveille 1 km autour de toi. Dès que tu roules, je regarde devant, jusqu'à 5 km."
-                          : "Je surveille les 5 km devant toi."}
+                          ? `Je surveille 1 km autour de toi. Dès que tu roules, je regarde devant, jusqu'à ${portee} km.`
+                          : `Je surveille les ${portee} km devant toi.`}
                     </p>
                   </div>
                 </div>
@@ -349,6 +381,26 @@ export function ModeConduite({ onStart }: { onStart?: () => void }) {
               >
                 {trafic ? "Trafic dense : oui" : "Trafic dense : non"}
               </button>
+            </div>
+
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-[12px] text-mist-dim shrink-0">Portée de la voix</span>
+              <div role="radiogroup" aria-label="Portée de la voix" className="flex flex-1 gap-1.5">
+                {CONDUITE_PORTEES_KM.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    role="radio"
+                    aria-checked={portee === p}
+                    onClick={() => changerPortee(p)}
+                    className={`flex-1 min-h-[44px] rounded-full border text-[13px] font-semibold ${
+                      portee === p ? "bg-primary border-primary text-white" : "border-line text-mist-dim"
+                    }`}
+                  >
+                    {p} km
+                  </button>
+                ))}
+              </div>
             </div>
 
             {probleme && <p className="mt-2 text-[12px] text-ochre">{probleme}</p>}

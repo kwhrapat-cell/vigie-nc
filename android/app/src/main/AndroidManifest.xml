@@ -3,10 +3,18 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Position : seulement pendant le mode conduite (service au premier
-         plan démarré depuis l'appli ouverte). Pas de position « en arrière-plan
-         permanente » (ACCESS_BACKGROUND_LOCATION) : elle n'est pas nécessaire. -->
+         plan, notification visible). « Toujours autoriser »
+         (ACCESS_BACKGROUND_LOCATION) n'est demandée que si l'on active le
+         démarrage tout seul en voiture : sans elle, Android interdit de
+         démarrer appli fermée. Les calculs restent sur le téléphone. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <!-- « Activité physique » : savoir qu'on monte ou descend de voiture. -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" />
+    <!-- Réinscrire la détection après un redémarrage du téléphone. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -37,5 +45,18 @@
             android:name=".ConduiteService"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <receiver
+            android:name=".TransitionReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".DemarrageReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

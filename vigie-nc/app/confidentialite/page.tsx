@@ -116,6 +116,34 @@ export default function ConfidentialitePage() {
         </LegalList>
       </LegalSection>
 
+      <LegalSection title="Le mode conduite (si tu l'actives)">
+        <p>
+          Pendant le mode conduite, ta position est suivie <strong>sur ton téléphone</strong> pour savoir dans quel
+          sens tu roules et quels dangers confirmés sont devant toi. Elle part seulement pour chercher les
+          signalements autour de toi, comme sur la carte (environ toutes les 90 secondes ou tous les 1,5 km), et
+          n&apos;est <strong>pas enregistrée</strong>. Le choix des dangers à annoncer et la voix se font sur le
+          téléphone.
+        </p>
+        <LegalList>
+          <li>
+            Sur le site, tout s&apos;arrête quand tu touches « Arrêter » ou quittes la carte. L&apos;écran reste allumé
+            pendant ce temps.
+          </li>
+          <li>
+            Dans l&apos;appli Android, le mode conduite continue écran éteint. Une notification reste affichée tant
+            qu&apos;il tourne, avec un bouton « Arrêter ».
+          </li>
+          <li>
+            Si tu actives « Démarrer tout seul en voiture » (appli Android), la détection d&apos;activité des services
+            Google du téléphone prévient l&apos;appli quand tu montes dans un véhicule ou en descends. Il faut alors
+            autoriser la position « Toujours » et l&apos;« Activité physique ». La position n&apos;est utilisée que
+            pendant que tu roules, de la même façon. L&apos;appli s&apos;arrête quand tu sors du véhicule, ou après 15
+            minutes sans bouger. Tu peux couper ce réglage à tout moment.
+          </li>
+          <li>Tes réglages (voix, portée, trafic dense, démarrage tout seul) restent sur ton téléphone.</li>
+        </LegalList>
+      </LegalSection>
+
       <LegalSection title="Ce qui reste sur ton téléphone">
         <LegalList>
           <li>Tes contacts d&apos;urgence (SOS) : jamais envoyés à Vigie NC.</li>
@@ -187,6 +215,10 @@ export default function ConfidentialitePage() {
             ajoutes une photo. La photo, elle, est floutée sur ton téléphone et ne leur est pas envoyée.
           </li>
           <li>Google Maps : seulement si tu touches « Voir dans Maps ».</li>
+          <li>
+            Services Google du téléphone (appli Android) : détection « en voiture », seulement si tu actives le
+            démarrage tout seul du mode conduite.
+          </li>
           <li>WhatsApp : seulement si tu touches « WhatsApp » pour partager l&apos;appli.</li>
           <li>Google, Apple ou Mozilla : acheminent les alertes jusqu&apos;à ton téléphone, si tu les actives.</li>
           <li>Cloudflare (Turnstile) : vérifie qu&apos;une vraie personne ouvre la session anonyme, si cette protection est active.</li>
