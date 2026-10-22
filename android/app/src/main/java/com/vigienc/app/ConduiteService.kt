@@ -292,7 +292,12 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
             val ou = "${Conduite.distanceCourte(prochain.distanceM)}${if (cap != null) " devant" else " autour de toi"}"
             val lieu = prochain.signalement.lieu?.let { " · $it" } ?: ""
             val couleur = if (prochain.signalement.type == "trafic_dense") Bulle.ORANGE else Bulle.ROUGE
-            majAffichage("$nom à $ou", "Confirmé$lieu", "$nom · ${Conduite.distanceCourte(prochain.distanceM)}", couleur)
+            majAffichage(
+                "$nom à $ou",
+                "${prochain.signalement.fiabilite()}$lieu",
+                "$nom · ${Conduite.distanceCourte(prochain.distanceM)}",
+                couleur,
+            )
         } else {
             val detail = when {
                 horsReseau -> "Pas de réseau : annonces en pause"

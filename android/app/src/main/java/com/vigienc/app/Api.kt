@@ -56,6 +56,7 @@ object Api {
                         expireLeMs = OffsetDateTime.parse(o.getString("expires_at")).toInstant().toEpochMilli(),
                         actif = if (o.isNull("actif")) true else o.optBoolean("actif", true),
                         lieu = texteOuNull(o, "lieu"),
+                        relaisSource = texteOuNull(o, "relais_source"),
                     ),
                 )
             } catch (_: Exception) {

@@ -295,7 +295,7 @@ export function ModeConduite({ onStart }: { onStart?: () => void }) {
                         : `${(prochain.distanceM / 1000).toFixed(1).replace(".", ",")} km`}
                       {cap != null ? " devant" : " autour de toi"}
                       {" · "}
-                      {getReliability(prochain.report).label}
+                      {getReliability(prochain.report).detail}
                     </p>
                     {devant.length > 1 && (
                       <p className="text-[12px] text-mist-dim">

@@ -21,7 +21,15 @@ data class Signalement(
     val expireLeMs: Long,
     val actif: Boolean,
     val lieu: String?,
-)
+    val relaisSource: String?,
+) {
+    /** Comme getReliability() du site : « 2 personnes », ou la source officielle. */
+    fun fiabilite(): String {
+        if (!sourceOfficielle.isNullOrBlank()) return "Source officielle"
+        val personnes = confirmations + if (relaisSource.isNullOrBlank()) 1 else 0
+        return if (personnes > 1) "$personnes personnes" else "1 personne"
+    }
+}
 
 data class DangerDevant(val signalement: Signalement, val distanceM: Double)
 
