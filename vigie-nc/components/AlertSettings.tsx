@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { InstallApp } from "@/components/InstallApp";
+import { OuvrirDansNavigateur } from "@/components/OuvrirDansNavigateur";
+import { appliIntegree } from "@/lib/navigateur-integre";
 import { PositionPicker } from "@/components/PositionPicker";
 import { PrimaryButton, SecondaryButton } from "@/components/ui";
 import { LatLng } from "@/lib/geo";
@@ -244,6 +246,18 @@ export function AlertSettings() {
   }
 
   // ---- Cas où les alertes ne peuvent pas marcher ici ----
+  // Lien ouvert depuis Facebook, Messenger… : pas d'alertes dans leur navigateur.
+  const integree = appliIntegree();
+  if (integree) {
+    return (
+      <Card>
+        <Title>Alertes sur ton téléphone</Title>
+        <div className="mt-2">
+          <OuvrirDansNavigateur appli={integree} pour="recevoir les alertes" />
+        </div>
+      </Card>
+    );
+  }
   if (support === "iphone-a-installer") {
     return (
       <Card>

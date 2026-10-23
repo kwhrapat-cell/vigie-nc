@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { OuvrirDansNavigateur } from "./OuvrirDansNavigateur";
+import { AppliIntegree, appliIntegree } from "@/lib/navigateur-integre";
 
 // Événement propre à Chrome / Edge / Samsung Internet sur Android : il
 // permet d'ouvrir la fenêtre « Installer l'application » depuis un bouton.
@@ -33,10 +35,12 @@ export function InstallApp() {
   const [installed, setInstalled] = useState(false);
   const [promptEvent, setPromptEvent] = useState<InstallPromptEvent | null>(null);
   const [showSteps, setShowSteps] = useState(false);
+  const [integree, setIntegree] = useState<AppliIntegree | null>(null);
 
   useEffect(() => {
     setPlatform(detectPlatform());
     setInstalled(isInstalled());
+    setIntegree(appliIntegree());
 
     const onPrompt = (e: Event) => {
       e.preventDefault(); // on garde la fenêtre pour notre bouton
@@ -58,6 +62,11 @@ export function InstallApp() {
 
   if (installed) {
     return <p className="text-[12px] text-ok">Vigie NC est installée sur ce téléphone.</p>;
+  }
+
+  // Lien ouvert depuis Facebook, Messenger… : l'installation n'y marche pas.
+  if (integree) {
+    return <OuvrirDansNavigateur appli={integree} pour="installer Vigie NC sur ton écran d'accueil" />;
   }
 
   async function install() {
