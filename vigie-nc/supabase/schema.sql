@@ -116,6 +116,11 @@ alter table reports add column if not exists contenu_masque_at timestamptz;
 -- Rempli quand l'alerte (notification) de ce signalement est partie :
 -- un signalement ne déclenche qu'une seule fois.
 alter table reports add column if not exists notifie_at timestamptz;
+-- Chantier de longue durée (travaux seulement) : date de fin annoncée par
+-- une source officielle (mairie, Province…), fixée par la modération avec
+-- moderation_chantier(). Le signalement reste sur la carte jusqu'au soir
+-- de ce jour, heure de Nouméa ; les « C'est terminé » ne l'effacent pas.
+alter table reports add column if not exists fin_annoncee date;
 
 do $$
 begin
@@ -303,6 +308,15 @@ as $$
     else interval '3 hours'
   end;
 $$;
+
+-- Chantier : date de fin au plus 6 mois après aujourd'hui.
+-- ⚠️ Doit rester aligné sur CHANTIER_JOURS_MAX dans lib/chantier.ts.
+create or replace function vigie_chantier_jours_max()
+returns int
+language sql
+immutable
+set search_path = public
+as $$ select 183 $$;
 
 -- Ordre des niveaux de risque saisis par les usagers
 create or replace function vigie_rang_risque(p_niveau text)
@@ -756,6 +770,9 @@ $$;
 -- lecture marche aussi (est_auteur et mon_vote restent vides).
 --   select * from signalements_proches_v3(-22.27, 166.45, 5000);
 -- ---------------------------------------------------------------------
+-- Colonne fin_annoncee ajoutée (chantiers) : le type renvoyé change, il
+-- faut supprimer l'ancienne version avant (droits redonnés en bas).
+drop function if exists signalements_proches_v3(double precision, double precision, integer);
 create or replace function signalements_proches_v3(
   p_lat double precision default null,
   p_lng double precision default null,
@@ -780,7 +797,8 @@ returns table (
   distance_m double precision,
   est_auteur boolean,
   mon_vote text,
-  actif boolean
+  actif boolean,
+  fin_annoncee date
 )
 language sql
 stable
@@ -802,7 +820,8 @@ as $$
     case when c.pt is null then null else st_distance(r.geom, c.pt) end as distance_m,
     coalesce(a.device_key = m.cle, false) as est_auteur,
     v.vote as mon_vote,
-    true as actif
+    true as actif,
+    r.fin_annoncee
   from reports r
   cross join moi m
   cross join centre c
@@ -823,6 +842,7 @@ $$;
 -- RPC : un signalement précis (lien partagé), même terminé
 --   select * from signalement_detail_v3('<uuid>');
 -- ---------------------------------------------------------------------
+drop function if exists signalement_detail_v3(uuid);
 create or replace function signalement_detail_v3(p_id uuid)
 returns table (
   id uuid,
@@ -843,7 +863,8 @@ returns table (
   distance_m double precision,
   est_auteur boolean,
   mon_vote text,
-  actif boolean
+  actif boolean,
+  fin_annoncee date
 )
 language sql
 stable
@@ -860,7 +881,8 @@ as $$
     null::double precision as distance_m,
     coalesce(a.device_key = m.cle, false) as est_auteur,
     v.vote as mon_vote,
-    (r.resolved_at is null and r.expires_at > now()) as actif
+    (r.resolved_at is null and r.expires_at > now()) as actif,
+    r.fin_annoncee
   from reports r
   cross join moi m
   left join report_authors a on a.report_id = r.id
@@ -1276,8 +1298,11 @@ end;
 $$;
 
 -- RPC : liste à modérer
---   'signales' : signalés ou masqués, 30 derniers jours
+--   'signales' : signalés ou masqués, 30 derniers jours, et chantiers en
+--                cours que des usagers disent terminés
 --   'recents'  : tous les signalements des dernières 48 h (sauf SOS)
+--   'travaux'  : travaux en cours ou terminés depuis moins de 7 jours
+--                (pour fixer ou changer la date de fin d'un chantier)
 -- Le contenu masqué reste visible ici (et seulement ici) pour juger.
 create or replace function moderation_liste(p_code text, p_filtre text default 'signales')
 returns jsonb
@@ -1301,6 +1326,7 @@ begin
       m.description as description_masquee,
       m.photo_url as photo_masquee,
       r.source_officielle, r.relais_source, r.confirmations, r.infirmations,
+      r.fin_annoncee,
       coalesce(f.nb, 0) as nb_signalements,
       coalesce(f.motifs, '{}'::jsonb) as motifs,
       coalesce(f.dernier, r.contenu_masque_at, r.created_at) as tri
@@ -1318,9 +1344,13 @@ begin
     where case
       when p_filtre = 'recents' then
         r.created_at > now() - interval '48 hours' and r.type::text <> 'sos'
+      when p_filtre = 'travaux' then
+        r.type::text = 'travaux' and r.expires_at > now() - interval '7 days'
       else
-        (coalesce(f.nb, 0) > 0 or r.contenu_masque_at is not null)
-        and r.created_at > now() - interval '30 days'
+        ((coalesce(f.nb, 0) > 0 or r.contenu_masque_at is not null)
+          and r.created_at > now() - interval '30 days')
+        or (r.fin_annoncee is not null and r.infirmations > 0
+            and r.resolved_at is null and r.expires_at > now())
     end
     order by tri desc
     limit 100
@@ -1372,7 +1402,14 @@ begin
     end if;
     update reports set source_officielle = v_source where id = p_report_id;
   elsif p_action = 'deverifier' then
-    update reports set source_officielle = null where id = p_report_id;
+    -- Un chantier perd aussi sa date de fin : il redevient un signalement
+    -- ordinaire, qui s'efface sans nouvelle confirmation.
+    update reports
+    set source_officielle = null,
+        expires_at = case when fin_annoncee is null then expires_at
+                          else least(expires_at, now() + vigie_duree_vie(type)) end,
+        fin_annoncee = null
+    where id = p_report_id;
   else
     raise exception 'action_invalide';
   end if;
@@ -1381,6 +1418,58 @@ begin
   values (v_nom, p_report_id, p_action, v_source);
 
   return jsonb_build_object('ok', true);
+end;
+$$;
+
+-- RPC : chantier de longue durée (travaux seulement). La modération donne
+-- la source (mairie, Province…) et la date de fin annoncée, au plus 6 mois
+-- après aujourd'hui : le signalement devient « Vérifié » et reste sur la
+-- carte jusqu'au soir de ce jour (heure de Nouméa), même s'il était déjà
+-- effacé. Rappeler la fonction change la date.
+create or replace function moderation_chantier(
+  p_code text,
+  p_report_id uuid,
+  p_source text,
+  p_fin date
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_nom text;
+  v_source text := left(nullif(btrim(p_source), ''), 60);
+  v_type text;
+  v_aujourdhui date := vigie_jour_local();
+begin
+  v_nom := vigie_moderateur(p_code);
+  select type::text into v_type from reports where id = p_report_id;
+  if v_type is null then
+    raise exception 'signalement_introuvable';
+  end if;
+  if v_type <> 'travaux' then
+    raise exception 'chantier_type_invalide';
+  end if;
+  if v_source is null then
+    raise exception 'source_manquante';
+  end if;
+  if p_fin is null or p_fin < v_aujourdhui or p_fin > v_aujourdhui + vigie_chantier_jours_max() then
+    raise exception 'chantier_date_invalide';
+  end if;
+
+  update reports
+  set source_officielle = v_source,
+      fin_annoncee = p_fin,
+      -- minuit à la fin du jour annoncé, heure de Nouméa
+      expires_at = (p_fin + 1)::timestamp at time zone 'Pacific/Noumea',
+      resolved_at = null
+  where id = p_report_id;
+
+  insert into moderation_journal (moderateur, report_id, action, detail)
+  values (v_nom, p_report_id, 'chantier', v_source || ' · jusqu''au ' || to_char(p_fin, 'DD/MM/YYYY'));
+
+  return jsonb_build_object('ok', true, 'fin_annoncee', p_fin);
 end;
 $$;
 
@@ -2323,7 +2412,7 @@ $$;
 drop trigger if exists trg_vigie_signal on reports;
 create trigger trg_vigie_signal
 after insert or update of confirmations, infirmations, expires_at, resolved_at,
-  photo_url, description, source_officielle, lat, lng
+  photo_url, description, source_officielle, fin_annoncee, lat, lng
 on reports
 for each row execute function vigie_emettre_signal();
 
@@ -2743,6 +2832,7 @@ grant execute on function signaler_contenu_v3(uuid, text) to authenticated;
 grant execute on function moderation_verifier(text) to anon, authenticated;
 grant execute on function moderation_liste(text, text) to anon, authenticated;
 grant execute on function moderation_action(text, uuid, text, text) to anon, authenticated;
+grant execute on function moderation_chantier(text, uuid, text, date) to anon, authenticated;
 grant execute on function notif_abonner(text, text, text, double precision, double precision, integer, text) to anon, authenticated;
 grant execute on function notif_mon_abonnement(text) to anon, authenticated;
 grant execute on function notif_desabonner(text) to anon, authenticated;

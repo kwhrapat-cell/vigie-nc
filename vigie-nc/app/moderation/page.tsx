@@ -6,11 +6,13 @@ import { ModAnnoncesPanel } from "@/components/ModAnnoncesPanel";
 import { ModStatsPanel } from "@/components/ModStatsPanel";
 import { SecurityAlarm } from "@/components/SecurityAlarm";
 import { PrimaryButton, ScreenHeader, TypeTile } from "@/components/ui";
+import { ajouterJours, aujourdhuiNoumea, CHANTIER_JOURS_MAX, libelleFinChantier } from "@/lib/chantier";
 import { formatAge } from "@/lib/geo";
 import {
   errorMessage,
   modAct,
   ModAction,
+  modChantier,
   ModFilter,
   ModItem,
   modList,
@@ -54,8 +56,8 @@ export default function ModerationPage() {
   const [input, setInput] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  // Onglets : les deux listes à modérer, les annonces générales, puis les
-  // chiffres d'utilisation
+  // Onglets : les listes à modérer (dont les travaux, pour les chantiers),
+  // les annonces générales, puis les chiffres d'utilisation
   const [filter, setFilter] = useState<Onglet>("signales");
   const [items, setItems] = useState<ModItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -175,11 +177,12 @@ export default function ModerationPage() {
 
       <SecurityAlarm code={code} />
 
-      <div className="mx-4 grid grid-cols-4 gap-1.5" role="tablist">
+      <div className="mx-4 grid grid-cols-5 gap-1" role="tablist">
         {(
           [
             ["signales", "Signalés"],
             ["recents", "Récents"],
+            ["travaux", "Travaux"],
             ["annonces", "Annonces"],
             ["chiffres", "Chiffres"],
           ] as [Onglet, string][]
@@ -190,7 +193,7 @@ export default function ModerationPage() {
             role="tab"
             aria-selected={filter === f}
             onClick={() => setFilter(f)}
-            className={`rounded-lg py-2.5 text-[12.5px] font-medium border ${
+            className={`rounded-lg py-2.5 text-[11.5px] font-medium border ${
               filter === f ? "bg-primary border-primary text-white" : "border-line bg-panel-2 text-mist-dim"
             }`}
           >
@@ -203,7 +206,7 @@ export default function ModerationPage() {
 
       {filter === "annonces" && <ModAnnoncesPanel code={code} />}
 
-      {(filter === "signales" || filter === "recents") && (
+      {(filter === "signales" || filter === "recents" || filter === "travaux") && (
         <>
           <div className="mx-4 mt-2 flex items-center justify-between text-[11.5px] text-mist-dim">
             <span>
@@ -211,12 +214,22 @@ export default function ModerationPage() {
                 ? "Chargement…"
                 : filter === "signales"
                   ? `${items.length} à regarder (30 derniers jours)`
-                  : `${items.length} signalement${items.length > 1 ? "s" : ""} (48 dernières heures)`}
+                  : filter === "travaux"
+                    ? `${items.length} travaux (en cours, ou finis depuis moins de 7 jours)`
+                    : `${items.length} signalement${items.length > 1 ? "s" : ""} (48 dernières heures)`}
             </span>
             <button type="button" onClick={load} disabled={loading} className="py-2 underline disabled:opacity-50">
               Actualiser
             </button>
           </div>
+
+          {filter === "travaux" && (
+            <p className="mx-4 mt-2 rounded-lg border border-line bg-panel px-3 py-2 text-[11.5px] leading-relaxed text-mist-dim">
+              Chantier annoncé par une mairie, la Province ou la DITTT ? Mets sa date de fin : il reste sur la carte
+              jusque-là. S&apos;il n&apos;est pas encore sur la carte, signale-le d&apos;abord depuis l&apos;appli (+ ›
+              Travaux), puis reviens ici.
+            </p>
+          )}
 
           {listError && (
             <p className="mx-4 mt-2 text-[12px] text-danger" role="alert">
@@ -226,7 +239,11 @@ export default function ModerationPage() {
 
           {!loading && !listError && items.length === 0 && (
             <p className="mx-4 mt-6 text-center text-[12.5px] text-mist-dim">
-              {filter === "signales" ? "Rien à modérer pour l'instant." : "Aucun signalement ces dernières 48 h."}
+              {filter === "signales"
+                ? "Rien à modérer pour l'instant."
+                : filter === "travaux"
+                  ? "Aucun travaux en cours."
+                  : "Aucun signalement ces dernières 48 h."}
             </p>
           )}
 
@@ -248,6 +265,11 @@ function ModCard({ item, code, onDone }: { item: ModItem; code: string; onDone: 
   const [error, setError] = useState<string | null>(null);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [source, setSource] = useState("");
+  // Chantier : source et date de fin (AAAA-MM-JJ)
+  const [chantierOpen, setChantierOpen] = useState(false);
+  const [chantierSource, setChantierSource] = useState("");
+  const [chantierFin, setChantierFin] = useState("");
+  const [chantierBusy, setChantierBusy] = useState(false);
 
   const masque = item.masqueAt !== null;
   const photo = item.photoUrl ?? item.photoMasquee;
@@ -270,7 +292,29 @@ function ModCard({ item, code, onDone }: { item: ModItem; code: string; onDone: 
     }
   }
 
+  function ouvrirChantier() {
+    const aujourdhui = aujourdhuiNoumea();
+    setChantierSource(item.sourceOfficielle ?? "");
+    setChantierFin(item.finAnnoncee && item.finAnnoncee >= aujourdhui ? item.finAnnoncee : ajouterJours(aujourdhui, 30));
+    setChantierOpen(true);
+  }
+
+  async function validerChantier() {
+    setChantierBusy(true);
+    setError(null);
+    try {
+      await modChantier(code, item.id, chantierSource, chantierFin);
+      setChantierOpen(false);
+      onDone();
+    } catch (e) {
+      setError(errorMessage(e, "La date de fin n'a pas pu être enregistrée — vérifie ta connexion."));
+    } finally {
+      setChantierBusy(false);
+    }
+  }
+
   const motifs = Object.entries(item.motifs) as [FlagReason, number][];
+  const aujourdhui = aujourdhuiNoumea();
 
   return (
     <article className="mx-4 rounded-xl border border-line bg-panel px-3.5 py-3">
@@ -297,6 +341,11 @@ function ModCard({ item, code, onDone }: { item: ModItem; code: string; onDone: 
             Relayé · {RELAY_SOURCE_LABELS[item.relaisSource]}
           </span>
         )}
+        {item.finAnnoncee && (
+          <span className="rounded-full bg-ochre/15 px-2 py-0.5 text-ochre">
+            Chantier · {libelleFinChantier(item.finAnnoncee)}
+          </span>
+        )}
         <span className="rounded-full bg-white/10 px-2 py-0.5 text-mist-dim">
           {item.confirmations} « toujours là » · {item.infirmations} « terminé »
         </span>
@@ -306,6 +355,13 @@ function ModCard({ item, code, onDone }: { item: ModItem; code: string; onDone: 
         <p className="mt-2 rounded-lg border border-warn/30 bg-warn/10 px-2.5 py-1.5 text-[11.5px] text-warn">
           Signalé {item.nbSignalements} fois :{" "}
           {motifs.map(([m, n]) => `${MOTIFS_COURTS[m] ?? m}${n > 1 ? ` ×${n}` : ""}`).join(", ")}
+        </p>
+      )}
+
+      {item.finAnnoncee && item.actif && item.infirmations > 0 && (
+        <p className="mt-2 rounded-lg border border-warn/30 bg-warn/10 px-2.5 py-1.5 text-[11.5px] text-warn">
+          {item.infirmations} personne{item.infirmations > 1 ? "s disent" : " dit"} que le chantier est terminé.
+          Vérifie auprès de la source, puis retire-le de la carte ou change la date.
         </p>
       )}
 
@@ -353,7 +409,51 @@ function ModCard({ item, code, onDone }: { item: ModItem; code: string; onDone: 
         </div>
       )}
 
+      {chantierOpen && (
+        <div className="mt-2.5 rounded-lg border border-line bg-panel-2 p-2.5">
+          <label className="block text-[11.5px] text-mist-dim">
+            Source officielle
+            <input
+              value={chantierSource}
+              onChange={(e) => setChantierSource(e.target.value)}
+              maxLength={60}
+              placeholder="ex. Province Sud, Mairie de Païta"
+              className="mt-1 w-full rounded-lg border border-line bg-panel px-2.5 py-2 text-[12.5px] text-mist focus:outline-none focus:border-lagoon"
+            />
+          </label>
+          <label className="mt-2 block text-[11.5px] text-mist-dim">
+            Fin annoncée (6 mois au plus)
+            <input
+              type="date"
+              value={chantierFin}
+              min={aujourdhui}
+              max={ajouterJours(aujourdhui, CHANTIER_JOURS_MAX)}
+              onChange={(e) => setChantierFin(e.target.value)}
+              className="mt-1 w-full min-h-[44px] rounded-lg border border-line bg-panel px-2.5 py-2 text-[12.5px] text-mist [color-scheme:dark] focus:outline-none focus:border-lagoon"
+            />
+          </label>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <ActionButton disabled={chantierBusy} onClick={() => setChantierOpen(false)}>
+              Annuler
+            </ActionButton>
+            <ActionButton
+              tone="info"
+              busy={chantierBusy}
+              disabled={chantierBusy || !chantierSource.trim() || !chantierFin}
+              onClick={validerChantier}
+            >
+              Valider
+            </ActionButton>
+          </div>
+        </div>
+      )}
+
       <div className="mt-3 grid grid-cols-2 gap-2">
+        {item.type === "travaux" && !chantierOpen && (
+          <ActionButton tone="info" disabled={busy !== null} onClick={ouvrirChantier}>
+            {item.finAnnoncee ? "Changer la date de fin" : "Chantier : date de fin"}
+          </ActionButton>
+        )}
         {aContenu && !masque && (
           <ActionButton tone="danger" busy={busy === "masquer"} disabled={busy !== null} onClick={() => act("masquer")}>
             Masquer photo et texte
@@ -371,7 +471,7 @@ function ModCard({ item, code, onDone }: { item: ModItem; code: string; onDone: 
         )}
         {item.sourceOfficielle ? (
           <ActionButton busy={busy === "deverifier"} disabled={busy !== null} onClick={() => act("deverifier")}>
-            Retirer « Vérifié »
+            {item.finAnnoncee ? "Retirer « Vérifié » et la date" : "Retirer « Vérifié »"}
           </ActionButton>
         ) : (
           !verifyOpen &&

@@ -173,7 +173,8 @@ export const MAX_WITNESS_DISTANCE_M = 5000;
 // (on regarde un peu plus loin que la zone, pour le trajet qui commence).
 export const TRAVAUX_BANDEAU_RAYON_M = 10_000;
 // Revenir sur l'appli après au moins ce délai compte comme une nouvelle
-// ouverture : le bandeau est recalculé et réapparaît s'il avait été fermé.
+// ouverture : le bandeau est recalculé et réapparaît pour les travaux pas
+// encore montrés aujourd'hui (chaque travaux : une fois par jour au plus).
 export const TRAVAUX_BANDEAU_REOUVERTURE_MS = 30 * 60_000;
 
 // Signalement d'un contenu (photo ou texte) qui pose problème. Une info
@@ -229,6 +230,7 @@ export interface Report {
   officialSource?: string | null; // renseigné par l'équipe : niveau « Vérifié »
   relaySource?: RelaySource | null; // info relayée, pas vue sur place par l'auteur
   active?: boolean;
+  endDate?: string | null; // chantier : date de fin annoncée (AAAA-MM-JJ), voir lib/chantier.ts
 }
 
 export interface EmergencyContact {
