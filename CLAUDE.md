@@ -57,6 +57,11 @@ vigie-nc/
                   WelcomeNotice (avertissement à la 1re ouverture), LegalPage,
                   ShareApp (partager l'appli : WhatsApp ou menu du téléphone),
                   InstallApp (installer l'appli : bouton Android, étapes iPhone),
+                  OuvrirDansNavigateur (lien ouvert dans Facebook, Messenger,
+                  Instagram ou TikTok : explique comment l'ouvrir dans Chrome /
+                  Safari, bouton « Copier le lien » ; repère dans
+                  lib/navigateur-integre.ts ; affiché par InstallApp et
+                  AlertSettings, car ni installation ni alertes n'y marchent),
                   ShareAffiche (partager le lien de l'affiche),
                   AlertSettings (écran Alertes : activer les notifications),
                   ServiceWorkerRegister (enregistre public/sw.js),
@@ -112,7 +117,8 @@ vigie-nc/
     push-server.ts   envoi des notifications (web-push, clés VAPID), texte des alertes
   app/opengraph-image.png  aperçu du lien (WhatsApp, Facebook…), app/icon.png +
                        app/apple-icon.png : icônes (écran d'accueil, onglet)
-  app/manifest.ts  rend l'appli installable (display standalone, nécessaire aux
+  app/manifest.ts  rend l'appli installable + raccourcis par appui long sur
+                   l'icône (Signaler, Alertes, SOS) (display standalone, nécessaire aux
                    notifications sur iPhone ; là, l'appli de l'écran d'accueil a
                    ses propres données, à part de Safari) ; icônes dans public/icons/
   public/sw.js     service worker : notifications + ouverture sans réseau
