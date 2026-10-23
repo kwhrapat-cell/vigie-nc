@@ -119,10 +119,9 @@ export function TravauxBanner({
   if (closed || travaux.length === 0) return null;
 
   const t = travaux[i];
-  const detail = [
-    t.place,
-    estChantier(t) && t.endDate ? `chantier ${libelleFinChantier(t.endDate)}` : `signalé ${formatAge(t.createdAt)}`,
-  ]
+  const chantier = estChantier(t) && t.endDate ? t.endDate : null;
+  // Chantier : la date de fin d'abord, c'est l'info utile pour la route.
+  const detail = (chantier ? [libelleFinChantier(chantier), t.place] : [t.place, `signalé ${formatAge(t.createdAt)}`])
     .filter(Boolean)
     .join(" · ");
 
@@ -140,7 +139,7 @@ export function TravauxBanner({
           <TypeTile type="travaux" size={30} />
           <span className="flex-1 min-w-0">
             <span className="block truncate text-[13px] font-semibold text-mist">
-              Travaux {formatDistance(t.distanceM) ?? "près de toi"}
+              {chantier ? "Chantier" : "Travaux"} {formatDistance(t.distanceM) ?? "près de toi"}
             </span>
             <span className="block truncate text-[11px] text-mist-dim">{detail}</span>
           </span>
