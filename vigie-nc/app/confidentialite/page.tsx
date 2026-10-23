@@ -39,11 +39,34 @@ export default function ConfidentialitePage() {
             Pour une info relayée (Facebook, radio, SMS) : seulement le type, le lieu, l&apos;heure et la provenance.
             Le texte que tu colles reste sur ton téléphone.
           </li>
+          <li>
+            Quand plusieurs personnes décrivent le même événement : un résumé automatique de leurs textes (voir
+            « Le résumé automatique » plus bas).
+          </li>
         </LegalList>
         <p>Ces informations sont publiques : tout le monde peut les voir sur la carte. Jamais qui les a envoyées.</p>
         <p>
           Le <strong>SOS ne publie rien</strong> : ta position est seulement mise dans le message que tu envoies
           toi-même à tes contacts (SMS ou autre appli). Vigie NC ne la reçoit pas.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Le résumé automatique (IA)">
+        <p>
+          Si le même événement est déjà signalé tout près, ton signalement compte comme une confirmation et ton
+          texte est gardé à part, comme <strong>témoignage</strong>{" "}: personne ne peut le lire depuis
+          l&apos;appli. Le premier texte reste affiché sur la fiche.
+        </p>
+        <p>
+          Dès que 2 personnes au moins ont écrit, leurs textes sont envoyés à <strong>Anthropic</strong>{" "}
+          (États-Unis), l&apos;entreprise qui fait l&apos;intelligence artificielle Claude, avec le type
+          d&apos;événement, le nom du lieu et l&apos;heure, pour écrire le résumé d&apos;une ou deux phrases affiché
+          sur la fiche. <strong>Jamais qui les a écrits</strong>, ni photo, ni position. Anthropic ne s&apos;en sert
+          pas pour entraîner ses modèles et les efface sous 30 jours (plus longtemps seulement en cas d&apos;abus).
+        </p>
+        <p>
+          Le résumé est public, comme la description, et présenté comme « résumé automatique ». Il est masqué en même
+          temps que la photo et le texte si un contenu est signalé.
         </p>
       </LegalSection>
 
@@ -192,6 +215,10 @@ export default function ConfidentialitePage() {
             Une photo ou un texte masqué par la modération n&apos;est plus affiché. Le texte est gardé à part 90 jours
             au plus, au cas où le masquage serait une erreur ; la photo est effacée comme les autres.
           </li>
+          <li>
+            Les témoignages (le texte de chaque personne, qui sert au résumé automatique) : effacés 7 jours après leur
+            envoi. Le résumé reste avec le signalement, comme la description.
+          </li>
         </LegalList>
       </LegalSection>
 
@@ -223,6 +250,10 @@ export default function ConfidentialitePage() {
           <li>WhatsApp : seulement si tu touches « WhatsApp » pour partager l&apos;appli.</li>
           <li>Google, Apple ou Mozilla : acheminent les alertes jusqu&apos;à ton téléphone, si tu les actives.</li>
           <li>Cloudflare (Turnstile) : vérifie qu&apos;une vraie personne ouvre la session anonyme, si cette protection est active.</li>
+          <li>
+            Anthropic (intelligence artificielle Claude) : écrit le résumé automatique à partir des textes des témoins,
+            sans savoir qui les a écrits.
+          </li>
         </LegalList>
       </LegalSection>
 

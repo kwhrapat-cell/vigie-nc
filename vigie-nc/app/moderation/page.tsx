@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ModAnnoncesPanel } from "@/components/ModAnnoncesPanel";
+import { ModIaPanel } from "@/components/ModIaPanel";
 import { ModStatsPanel } from "@/components/ModStatsPanel";
 import { SecurityAlarm } from "@/components/SecurityAlarm";
 import { PrimaryButton, ScreenHeader, TypeTile } from "@/components/ui";
@@ -23,7 +24,7 @@ import { FlagReason, RELAY_SOURCE_LABELS, REPORT_TYPE_LABELS } from "@/lib/types
 // Le code reste sur ce téléphone, jamais affiché.
 const CODE_KEY = "vigie-nc:code-moderation";
 
-type Onglet = ModFilter | "annonces" | "chiffres";
+type Onglet = ModFilter | "annonces" | "chiffres" | "ia";
 
 const MOTIFS_COURTS: Record<FlagReason, string> = {
   donnee_personnelle: "visage, plaque ou nom",
@@ -57,7 +58,8 @@ export default function ModerationPage() {
   const [loginError, setLoginError] = useState<string | null>(null);
 
   // Onglets : les listes à modérer (dont les travaux, pour les chantiers),
-  // les annonces générales, puis les chiffres d'utilisation
+  // les annonces générales, les chiffres d'utilisation, puis l'essai du
+  // résumé automatique (IA)
   const [filter, setFilter] = useState<Onglet>("signales");
   const [items, setItems] = useState<ModItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -80,7 +82,7 @@ export default function ModerationPage() {
   }, []);
 
   const load = useCallback(async () => {
-    if (!code || filter === "chiffres" || filter === "annonces") return;
+    if (!code || filter === "chiffres" || filter === "annonces" || filter === "ia") return;
     setLoading(true);
     setListError(null);
     try {
@@ -177,7 +179,7 @@ export default function ModerationPage() {
 
       <SecurityAlarm code={code} />
 
-      <div className="mx-4 grid grid-cols-5 gap-1" role="tablist">
+      <div className="mx-4 grid grid-cols-3 gap-1" role="tablist">
         {(
           [
             ["signales", "Signalés"],
@@ -185,6 +187,7 @@ export default function ModerationPage() {
             ["travaux", "Travaux"],
             ["annonces", "Annonces"],
             ["chiffres", "Chiffres"],
+            ["ia", "IA"],
           ] as [Onglet, string][]
         ).map(([f, label]) => (
           <button
@@ -205,6 +208,8 @@ export default function ModerationPage() {
       {filter === "chiffres" && <ModStatsPanel code={code} />}
 
       {filter === "annonces" && <ModAnnoncesPanel code={code} />}
+
+      {filter === "ia" && <ModIaPanel code={code} />}
 
       {(filter === "signales" || filter === "recents" || filter === "travaux") && (
         <>
@@ -380,6 +385,14 @@ function ModCard({ item, code, onDone }: { item: ModItem; code: string; onDone: 
         <p className={`mt-2 text-[12.5px] leading-relaxed whitespace-pre-line ${masque ? "text-mist-dim italic" : ""}`}>
           {masque && <span className="not-italic text-danger text-[10.5px] block">Texte masqué :</span>}
           {texte}
+        </p>
+      )}
+      {item.resumeIa && (
+        <p className="mt-2 rounded-lg border border-lagoon/30 bg-lagoon/10 px-2.5 py-1.5 text-[12px] leading-relaxed">
+          <span className="block text-[10.5px] font-semibold text-lagoon">
+            Résumé IA · {item.resumeIaNb ?? 2} témoignages (masqué avec la photo et le texte)
+          </span>
+          {item.resumeIa}
         </p>
       )}
 

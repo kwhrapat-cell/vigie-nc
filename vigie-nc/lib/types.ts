@@ -209,6 +209,14 @@ export const RISK_LABELS: Record<RiskLevel, string> = {
   eleve: "Élevé",
 };
 
+// ---------------------------------------------------------------------
+// Résumé automatique (IA) des témoignages : voir lib/ia.ts (serveur) et
+// « Résumé automatique » dans supabase/schema.sql.
+// ---------------------------------------------------------------------
+// Essai depuis /moderation (onglet « IA ») : de 2 à 8 témoignages inventés.
+export const IA_ESSAI_TEMOIGNAGES_MIN = 2;
+export const IA_ESSAI_TEMOIGNAGES_MAX = 8;
+
 export interface Report {
   id: string;
   type: ReportType;
@@ -231,6 +239,8 @@ export interface Report {
   relaySource?: RelaySource | null; // info relayée, pas vue sur place par l'auteur
   active?: boolean;
   endDate?: string | null; // chantier : date de fin annoncée (AAAA-MM-JJ), voir lib/chantier.ts
+  aiSummary?: string | null; // résumé automatique des témoignages (IA), 2 témoins au moins
+  aiSummaryCount?: number | null; // nombre de témoignages résumés
 }
 
 export interface EmergencyContact {

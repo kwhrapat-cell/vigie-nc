@@ -50,6 +50,29 @@ function Row({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   );
 }
 
+/**
+ * Résumé automatique (IA) de ce qu'ont écrit les témoins (2 au moins) :
+ * toujours présenté comme tel, avec le nombre de témoignages.
+ */
+function AiSummary({ text, count }: { text: string; count?: number | null }) {
+  const n = Math.max(count ?? 2, 2);
+  return (
+    <section aria-label="Résumé des témoignages" className="mt-2 rounded-xl border border-lagoon/30 bg-lagoon/10 px-3 py-2.5">
+      <p className="flex items-center gap-1.5 text-[11px] font-semibold text-lagoon">
+        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+          <path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z" />
+          <path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" />
+        </svg>
+        Ce que disent les témoins
+      </p>
+      <p className="mt-1 text-[13px] leading-relaxed">{text}</p>
+      <p className="mt-1.5 text-[10.5px] leading-snug text-mist-dim">
+        Résumé automatique (IA) de {n} témoignages : il peut se tromper, vérifie sur place.
+      </p>
+    </section>
+  );
+}
+
 /** Fiche d'un signalement (maquette « Détail d'un signalement »). */
 export function ReportDetail({
   report,
@@ -131,7 +154,7 @@ export function ReportDetail({
       const out = await flagReport(report.id, flagReason);
       setFlagMessage(FLAG_MESSAGES[out.resultat]);
       setFlagOpen(false);
-      if (out.masque) onUpdated({ photoUrl: null, description: null });
+      if (out.masque) onUpdated({ photoUrl: null, description: null, aiSummary: null, aiSummaryCount: null });
     } catch (e) {
       setFlagError(errorMessage(e, "Le signalement n'a pas pu être envoyé — vérifie ta connexion."));
     } finally {
@@ -141,7 +164,7 @@ export function ReportDetail({
 
   // On ne signale que ce qu'une personne a écrit ou photographié : le
   // type et le lieu, eux, se corrigent avec « C'est terminé ».
-  const canFlag = !isSos && !report.isMine && Boolean(report.photoUrl || report.description);
+  const canFlag = !isSos && !report.isMine && Boolean(report.photoUrl || report.description || report.aiSummary);
 
   // Lien /s/<id> : WhatsApp, Facebook… affichent un aperçu du signalement
   // (type, lieu, fiabilité, heure) ; « src=partage » compte, sans savoir
@@ -243,9 +266,15 @@ export function ReportDetail({
             ? `Info relayée depuis ${RELAY_SOURCE_LABELS[report.relaySource]} · ${formatAge(report.createdAt)}`
             : `Signalé anonymement · ${formatAge(report.createdAt)}`}
         </p>
-        {report.description && (
-          <p className="mt-1.5 text-[13px] leading-relaxed whitespace-pre-line">{report.description}</p>
-        )}
+        {report.aiSummary && <AiSummary text={report.aiSummary} count={report.aiSummaryCount} />}
+        {report.description &&
+          (report.aiSummary ? (
+            <p className="mt-2 text-[11.5px] leading-relaxed text-mist-dim whitespace-pre-line">
+              <span className="font-medium">Premier témoignage :</span> {report.description}
+            </p>
+          ) : (
+            <p className="mt-1.5 text-[13px] leading-relaxed whitespace-pre-line">{report.description}</p>
+          ))}
 
         {report.type === "feu" && active && (
           <p className="mt-3 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-[12px] leading-relaxed">
