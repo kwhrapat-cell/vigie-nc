@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { TypeTile } from "./ui";
+import { RoundButton } from "./MapControls";
 import { distanceM, LatLng } from "@/lib/geo";
 import { fetchNearby } from "@/lib/reports-api";
 import { getReliability } from "@/lib/reliability";
@@ -26,15 +26,23 @@ import {
 
 // Mode conduite : téléphone sur son support, l'appli annonce à voix haute
 // les dangers confirmés devant toi (jusqu'à 3, 5 ou 10 km au choix, rappel
-// à 500 m). Rien à
-// toucher en roulant. Une appli web ne peut ni parler ni suivre la
-// position en arrière-plan : l'écran reste allumé tant que le mode tourne.
+// à 500 m). Rien à toucher en roulant. Une appli web ne peut ni parler ni
+// suivre la position en arrière-plan : l'écran reste allumé tant que le
+// mode tourne.
+//
+// Pendant la conduite, la carte prend tout l'écran (CarteLive masque la
+// liste, la barre du bas et les bandeaux) : il ne reste en haut qu'un
+// bandeau compact (prochain danger + Arrêter) et, sur la carte, deux petits
+// boutons (voix, réglages). Les réglages sont repliés par défaut.
+//
 // Dans l'appli Android (repère « VigieNCApp » dans le navigateur intégré),
-// c'est la barre native qui gère le mode conduite : ce bouton se cache.
+// c'est la barre native qui gère le mode conduite : le bouton se cache.
 
 const CLE_VOIX = "vigie-nc:conduite-voix";
 const CLE_TRAFIC = "vigie-nc:conduite-trafic";
 const CLE_PORTEE = "vigie-nc:conduite-portee";
+// Durée d'affichage du rappel « téléphone sur un support » au départ.
+const RAPPEL_DEPART_MS = 12_000;
 
 type Verrou = { release: () => Promise<void> };
 type NavigatorAvecVerrou = Navigator & { wakeLock?: { request: (t: "screen") => Promise<Verrou> } };
@@ -74,7 +82,14 @@ function parler(texte: string) {
   window.speechSynthesis.speak(u);
 }
 
-export function ModeConduite({ onStart }: { onStart?: () => void }) {
+function distanceAffichee(m: number): string {
+  return m < 1000
+    ? `${Math.max(100, Math.round(m / 100) * 100)} m`
+    : `${(m / 1000).toFixed(1).replace(".", ",")} km`;
+}
+
+/** Tout le mode conduite (position, recherche, voix) ; l'écran se compose avec les éléments plus bas. */
+export function useModeConduite() {
   const [dansAppli, setDansAppli] = useState(false);
   const [actif, setActif] = useState(false);
   const [voix, setVoix] = useState(true);
@@ -147,7 +162,6 @@ export function ModeConduite({ onStart }: { onStart?: () => void }) {
     }
     setActif(true);
     setProbleme(null);
-    onStart?.();
     // Annonce de départ, dans le geste du doigt : elle « débloque » la voix
     // sur les téléphones qui l'exigent.
     if (voixRef.current) parler("Mode conduite activé. Je te préviens des dangers confirmés devant toi.");
@@ -181,7 +195,7 @@ export function ModeConduite({ onStart }: { onStart?: () => void }) {
       },
       { enableHighAccuracy: true, maximumAge: 2_000, timeout: 20_000 },
     );
-  }, [garderEcranAllume, onStart]);
+  }, [garderEcranAllume]);
 
   // Le verrou d'écran saute quand on quitte l'appli : on le reprend au retour.
   useEffect(() => {
@@ -244,179 +258,245 @@ export function ModeConduite({ onStart }: { onStart?: () => void }) {
     }
   }, [actif, position, cap, reports, trafic, portee]);
 
-  const changerVoix = () => {
-    const v = !voix;
+  const changerVoix = useCallback(() => {
+    const v = !voixRef.current;
     setVoix(v);
     ecrirePref(CLE_VOIX, v);
     if (!v && "speechSynthesis" in window) window.speechSynthesis.cancel();
     if (v) parler("Voix activée.");
-  };
-  const changerTrafic = () => {
-    const t = !trafic;
-    setTrafic(t);
-    ecrirePref(CLE_TRAFIC, t);
-  };
-  const changerPortee = (p: PorteeKm) => {
-    if (p === portee) return;
-    setPortee(p);
-    porteeRef.current = p;
-    try {
-      window.localStorage.setItem(CLE_PORTEE, String(p));
-    } catch {
-      // stockage indisponible : le choix vaut pour cette fois
-    }
-    // Plus loin = nouvelle recherche, plus large.
-    if (actif && position) chercher(position);
-  };
+  }, []);
+  const changerTrafic = useCallback(() => {
+    setTrafic((t) => {
+      ecrirePref(CLE_TRAFIC, !t);
+      return !t;
+    });
+  }, []);
+  const changerPortee = useCallback(
+    (p: PorteeKm) => {
+      if (p === porteeRef.current) return;
+      setPortee(p);
+      porteeRef.current = p;
+      try {
+        window.localStorage.setItem(CLE_PORTEE, String(p));
+      } catch {
+        // stockage indisponible : le choix vaut pour cette fois
+      }
+      // Plus loin = nouvelle recherche, plus large.
+      if (actif && position) chercher(position);
+    },
+    [actif, position, chercher],
+  );
 
-  if (dansAppli) return null;
+  return {
+    dansAppli,
+    actif,
+    voix,
+    trafic,
+    portee,
+    position,
+    cap,
+    devant,
+    probleme,
+    ecranAllume,
+    voixDispo,
+    demarrer,
+    arreter,
+    changerVoix,
+    changerTrafic,
+    changerPortee,
+  };
+}
 
+export type ModeConduiteEtat = ReturnType<typeof useModeConduite>;
+
+/** Bouton volant sur la carte : lance le mode conduite. */
+export function BoutonConduite({ onClick }: { onClick: () => void }) {
+  return (
+    <RoundButton active={false} label="Mode conduite : annonces vocales des dangers devant toi" onClick={onClick}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" className="w-5 h-5">
+        <circle cx="12" cy="12" r="8.5" />
+        <circle cx="12" cy="12" r="2" />
+        <path d="M3.8 10.5c2.6-.9 5.3-1.2 8.2-1.2s5.6.3 8.2 1.2M10.2 13.6L7 19.6M13.8 13.6l3.2 6" />
+      </svg>
+    </RoundButton>
+  );
+}
+
+/** Pendant la conduite, sur la carte : couper / remettre la voix. */
+export function BoutonVoix({ conduite }: { conduite: ModeConduiteEtat }) {
+  if (!conduite.voixDispo) return null;
+  return (
+    <RoundButton
+      active={conduite.voix}
+      label={conduite.voix ? "Couper la voix" : "Remettre la voix"}
+      onClick={conduite.changerVoix}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+        <path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" />
+        {conduite.voix ? <path d="M15.5 9a4.2 4.2 0 0 1 0 6M18.3 6.3a8 8 0 0 1 0 11.4" /> : <path d="M16 9.5l5 5M21 9.5l-5 5" />}
+      </svg>
+    </RoundButton>
+  );
+}
+
+/** Pendant la conduite, sur la carte : ouvre les réglages (portée, trafic dense). */
+export function BoutonReglagesConduite({ ouvert, onClick }: { ouvert: boolean; onClick: () => void }) {
+  return (
+    <RoundButton active={ouvert} label="Réglages du mode conduite" onClick={onClick} expanded={ouvert}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" className="w-5 h-5">
+        <path d="M4 7h9M17 7h3M4 17h3M11 17h9" />
+        <circle cx="15" cy="7" r="2.2" />
+        <circle cx="9" cy="17" r="2.2" />
+      </svg>
+    </RoundButton>
+  );
+}
+
+/**
+ * Bandeau compact en haut de l'écran pendant la conduite : le prochain
+ * danger et le bouton Arrêter. Les réglages s'ouvrent dessous, à la demande.
+ */
+export function BandeauConduite({
+  conduite,
+  reglagesOuverts,
+  onFermerReglages,
+}: {
+  conduite: ModeConduiteEtat;
+  reglagesOuverts: boolean;
+  onFermerReglages: () => void;
+}) {
+  const { devant, cap, position, portee, voix, voixDispo, trafic, probleme, ecranAllume } = conduite;
   const prochain = devant[0] ?? null;
 
+  // Rappel de sécurité quelques secondes au départ, puis il laisse la place à la carte.
+  const [rappel, setRappel] = useState(true);
+  useEffect(() => {
+    const t = window.setTimeout(() => setRappel(false), RAPPEL_DEPART_MS);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  const messages: string[] = [];
+  if (probleme) messages.push(probleme);
+  if (!voixDispo) messages.push("La voix n'est pas disponible sur ce navigateur.");
+  if (!ecranAllume) messages.push("Garde l'écran allumé : écran éteint, l'appli ne peut plus te prévenir.");
+
   return (
-    <>
-      <button
-        type="button"
-        onClick={actif ? arreter : demarrer}
-        aria-label={actif ? "Arrêter le mode conduite" : "Mode conduite : annonces vocales des dangers devant toi"}
-        aria-pressed={actif}
-        title="Mode conduite"
-        className={`w-11 h-11 rounded-full flex items-center justify-center border backdrop-blur shadow-[0_6px_16px_-8px_rgba(0,0,0,0.7)] ${
-          actif ? "bg-primary border-primary text-white" : "bg-void/90 border-line text-mist"
-        }`}
-      >
-        {/* Volant */}
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" className="w-5 h-5">
-          <circle cx="12" cy="12" r="8.5" />
-          <circle cx="12" cy="12" r="2" />
-          <path d="M3.8 10.5c2.6-.9 5.3-1.2 8.2-1.2s5.6.3 8.2 1.2M10.2 13.6L7 19.6M13.8 13.6l3.2 6" />
-        </svg>
-      </button>
+    <section
+      aria-label="Mode conduite"
+      className="shrink-0 relative z-[13] px-3 pb-2 pt-[max(env(safe-area-inset-top),10px)] bg-void/95 border-b border-line"
+    >
+      <p className="flex items-center gap-1.5 font-mono text-[9.5px] tracking-wider uppercase text-lagoon-dim">
+        <span className="w-1.5 h-1.5 rounded-full bg-lagoon animate-blink" />
+        Mode conduite · {voix && voixDispo ? `voix jusqu'à ${portee} km` : "voix coupée"}
+      </p>
 
-      {actif &&
-        createPortal(
-          <section
-            aria-label="Mode conduite"
-            className="fixed inset-x-0 top-0 z-[30] px-3 pb-3 pt-[max(env(safe-area-inset-top),12px)] bg-void/95 border-b border-line backdrop-blur"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="flex items-center gap-2 font-display font-bold text-[15px] text-mist">
-                <span className="w-2 h-2 rounded-full bg-lagoon animate-blink" />
-                Mode conduite
-              </span>
-              <button
-                type="button"
-                onClick={arreter}
-                className="min-h-[44px] px-4 rounded-full border border-line text-[13px] font-semibold text-mist"
-              >
-                Arrêter
-              </button>
-            </div>
-
-            <div aria-live="polite" className="mt-2 rounded-2xl border border-line bg-panel px-3 py-3">
-              {prochain ? (
-                <div className="flex items-center gap-3">
-                  <TypeTile type={prochain.report.type} size={48} />
-                  <div className="min-w-0">
-                    <p className="font-display font-bold text-[20px] leading-tight text-mist truncate">
-                      {REPORT_TYPE_LABELS[prochain.report.type]}
-                    </p>
-                    <p className="text-[14px] text-mist">
-                      {prochain.distanceM < 1000
-                        ? `${Math.max(100, Math.round(prochain.distanceM / 100) * 100)} m`
-                        : `${(prochain.distanceM / 1000).toFixed(1).replace(".", ",")} km`}
-                      {cap != null ? " devant" : " autour de toi"}
-                      {" · "}
-                      {getReliability(prochain.report).detail}
-                    </p>
-                    {devant.length > 1 && (
-                      <p className="text-[12px] text-mist-dim">
-                        + {devant.length - 1} autre{devant.length > 2 ? "s" : ""} plus loin
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <span className="w-12 h-12 rounded-xl bg-ok/15 text-ok flex items-center justify-center shrink-0">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} className="w-6 h-6">
-                      <path d="M5 12.5l4.5 4.5L19 7.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </span>
-                  <div>
-                    <p className="font-display font-bold text-[18px] leading-tight text-mist">
-                      Rien de confirmé devant toi
-                    </p>
-                    <p className="text-[12px] text-mist-dim">
-                      {!position
-                        ? "Recherche de ta position…"
-                        : cap == null
-                          ? `Je surveille 1 km autour de toi. Dès que tu roules, je regarde devant, jusqu'à ${portee} km.`
-                          : `Je surveille les ${portee} km devant toi.`}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-2 flex gap-2">
-              <button
-                type="button"
-                onClick={changerVoix}
-                aria-pressed={voix}
-                disabled={!voixDispo}
-                className={`flex-1 min-h-[44px] rounded-full border text-[13px] font-semibold disabled:opacity-40 ${
-                  voix ? "bg-primary border-primary text-white" : "border-line text-mist-dim"
-                }`}
-              >
-                {voix ? "Voix activée" : "Voix coupée"}
-              </button>
-              <button
-                type="button"
-                onClick={changerTrafic}
-                aria-pressed={trafic}
-                className={`flex-1 min-h-[44px] rounded-full border text-[13px] font-semibold ${
-                  trafic ? "bg-primary border-primary text-white" : "border-line text-mist-dim"
-                }`}
-              >
-                {trafic ? "Trafic dense : oui" : "Trafic dense : non"}
-              </button>
-            </div>
-
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-[12px] text-mist-dim shrink-0">Portée de la voix</span>
-              <div role="radiogroup" aria-label="Portée de la voix" className="flex flex-1 gap-1.5">
-                {CONDUITE_PORTEES_KM.map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    role="radio"
-                    aria-checked={portee === p}
-                    onClick={() => changerPortee(p)}
-                    className={`flex-1 min-h-[44px] rounded-full border text-[13px] font-semibold ${
-                      portee === p ? "bg-primary border-primary text-white" : "border-line text-mist-dim"
-                    }`}
-                  >
-                    {p} km
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {probleme && <p className="mt-2 text-[12px] text-ochre">{probleme}</p>}
-            {!voixDispo && <p className="mt-2 text-[12px] text-ochre">La voix n&apos;est pas disponible sur ce navigateur.</p>}
-            {!ecranAllume && (
-              <p className="mt-2 text-[12px] text-ochre">
-                Garde l&apos;écran allumé : écran éteint, l&apos;appli ne peut plus te prévenir.
-              </p>
-            )}
-            <p className="mt-2 text-[11px] text-mist-dim">
-              Téléphone sur un support, ou tenu par un passager. Ne touche pas l&apos;écran en roulant. Seuls les
-              dangers confirmés sont annoncés, à vol d&apos;oiseau.
-            </p>
-          </section>,
-          document.body,
+      <div className="mt-1 flex items-center gap-2.5">
+        {prochain ? (
+          <TypeTile type={prochain.report.type} size={44} />
+        ) : (
+          <span className="w-11 h-11 rounded-xl bg-ok/15 text-ok flex items-center justify-center shrink-0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} className="w-6 h-6">
+              <path d="M5 12.5l4.5 4.5L19 7.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
         )}
-    </>
+
+        <div aria-live="polite" className="flex-1 min-w-0">
+          {prochain ? (
+            <>
+              <p className="font-display font-bold text-[17px] leading-tight text-mist truncate">
+                {REPORT_TYPE_LABELS[prochain.report.type]}
+              </p>
+              <p className="text-[12.5px] text-mist truncate">
+                {distanceAffichee(prochain.distanceM)}
+                {cap != null ? " devant" : " autour"}
+                {" · "}
+                {getReliability(prochain.report).detail}
+                {devant.length > 1 && <span className="text-mist-dim"> · +{devant.length - 1}</span>}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-display font-bold text-[16px] leading-tight text-mist truncate">
+                Rien de confirmé devant
+              </p>
+              <p className="text-[12px] text-mist-dim truncate">
+                {!position
+                  ? "Recherche de ta position…"
+                  : cap == null
+                    ? "À l'arrêt : je surveille 1 km autour"
+                    : `Je surveille les ${portee} km devant toi`}
+              </p>
+            </>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={conduite.arreter}
+          className="shrink-0 min-h-[44px] px-4 rounded-full border border-line bg-panel text-[13px] font-semibold text-mist"
+        >
+          Arrêter
+        </button>
+      </div>
+
+      {messages.map((m) => (
+        <p key={m} className="mt-1.5 text-[12px] leading-snug text-ochre">
+          {m}
+        </p>
+      ))}
+      {rappel && !reglagesOuverts && (
+        <p className="mt-1.5 text-[11.5px] leading-snug text-mist-dim">
+          Téléphone sur un support, ou tenu par un passager. Ne touche pas l&apos;écran en roulant.
+        </p>
+      )}
+
+      {reglagesOuverts && (
+        <div id="reglages-conduite" className="mt-2 rounded-2xl border border-line bg-panel p-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] text-mist-dim shrink-0">Portée de la voix</span>
+            <div role="radiogroup" aria-label="Portée de la voix" className="flex flex-1 gap-1.5">
+              {CONDUITE_PORTEES_KM.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  role="radio"
+                  aria-checked={portee === p}
+                  onClick={() => conduite.changerPortee(p)}
+                  className={`flex-1 min-h-[44px] rounded-full border text-[13px] font-semibold ${
+                    portee === p ? "bg-primary border-primary text-white" : "border-line text-mist-dim"
+                  }`}
+                >
+                  {p} km
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={conduite.changerTrafic}
+              aria-pressed={trafic}
+              className={`flex-1 min-h-[44px] rounded-full border text-[13px] font-semibold ${
+                trafic ? "bg-primary border-primary text-white" : "border-line text-mist-dim"
+              }`}
+            >
+              {trafic ? "Trafic dense : oui" : "Trafic dense : non"}
+            </button>
+            <button
+              type="button"
+              onClick={onFermerReglages}
+              className="min-h-[44px] px-5 rounded-full border border-line text-[13px] font-semibold text-mist"
+            >
+              OK
+            </button>
+          </div>
+          <p className="mt-2 text-[11px] leading-snug text-mist-dim">
+            Téléphone sur un support, ou tenu par un passager. Ne touche pas l&apos;écran en roulant. Seuls les
+            dangers confirmés sont annoncés, à vol d&apos;oiseau.
+          </p>
+        </div>
+      )}
+    </section>
   );
 }

@@ -50,7 +50,7 @@ export function ZoneSelector({
   );
 }
 
-function RoundButton({
+export function RoundButton({
   active,
   label,
   onClick,
