@@ -11,6 +11,19 @@ export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl as string, supabaseAnonKey as string)
   : null;
 
+/**
+ * Côté serveur (routes /api/*) : un client qui agit avec la session
+ * anonyme d'un téléphone (jeton reçu dans l'en-tête Authorization), pour
+ * que la base applique ses limites à CE téléphone (vigie_cle_session()).
+ */
+export function supabaseAvecJeton(jeton: string) {
+  if (!isSupabaseConfigured) return null;
+  return createClient(supabaseUrl as string, supabaseAnonKey as string, {
+    global: { headers: { Authorization: `Bearer ${jeton}` } },
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+}
+
 // Jamais de mode démo en production : des signalements fictifs montrés au
 // public (faux accidents, fausses inondations) seraient dangereux. Si la
 // configuration manque sur le site en ligne, app/layout.tsx affiche

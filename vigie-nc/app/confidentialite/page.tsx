@@ -164,6 +164,14 @@ export default function ConfidentialitePage() {
             minutes sans bouger. Tu peux couper ce réglage à tout moment.
           </li>
           <li>Tes réglages (voix, portée, trafic dense, démarrage tout seul) restent sur ton téléphone.</li>
+          <li>
+            <strong>Point route</strong>{" "}(site) : au démarrage, ou quand tu touches le bouton « route »,
+            ton téléphone choisit les signalements sur les 10 km devant toi et envoie à notre serveur seulement
+            leur identifiant et leur distance, avec ta session anonyme (pour limiter les abus : un par minute, 40 par
+            jour). Le serveur demande à Anthropic (intelligence artificielle Claude) d&apos;en faire une phrase à
+            lire, à partir d&apos;informations déjà publiques sur la carte : type, lieu, distance, fiabilité et
+            résumé des témoins. <strong>Ta position ne part pas.</strong>
+          </li>
         </LegalList>
       </LegalSection>
 
@@ -219,6 +227,10 @@ export default function ConfidentialitePage() {
             Les témoignages (le texte de chaque personne, qui sert au résumé automatique) : effacés 7 jours après leur
             envoi. Le résumé reste avec le signalement, comme la description.
           </li>
+          <li>
+            La trace des points route demandés (empreinte de ta session anonyme et heure, pour limiter les abus) :
+            effacée après 24 heures.
+          </li>
         </LegalList>
       </LegalSection>
 
@@ -252,7 +264,8 @@ export default function ConfidentialitePage() {
           <li>Cloudflare (Turnstile) : vérifie qu&apos;une vraie personne ouvre la session anonyme, si cette protection est active.</li>
           <li>
             Anthropic (intelligence artificielle Claude) : écrit le résumé automatique à partir des textes des témoins,
-            sans savoir qui les a écrits.
+            et le point route du mode conduite à partir des signalements devant toi, sans savoir qui tu es ni où tu
+            es.
           </li>
         </LegalList>
       </LegalSection>

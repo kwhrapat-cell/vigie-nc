@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TypeTile } from "./ui";
 import { RoundButton } from "./MapControls";
 import { distanceM, LatLng } from "@/lib/geo";
-import { fetchNearby } from "@/lib/reports-api";
+import { fetchNearby, fetchPointRouteIa } from "@/lib/reports-api";
 import { getReliability } from "@/lib/reliability";
 import { Report, REPORT_TYPE_LABELS } from "@/lib/types";
 import {
@@ -19,9 +19,16 @@ import {
   DangerDevant,
   dangersDevant,
   estPortee,
+  evenementsDevant,
+  palierPour,
+  paliers,
+  POINT_ROUTE_AFFICHAGE_MS,
+  POINT_ROUTE_INTERVALLE_MS,
+  POINT_ROUTE_KM,
   PorteeKm,
-  rayonRecherche,
+  rayonRechercheSite,
   texteAnnonce,
+  textePointRoute,
 } from "@/lib/conduite";
 
 // Mode conduite : téléphone sur son support, l'appli annonce à voix haute
@@ -32,8 +39,15 @@ import {
 //
 // Pendant la conduite, la carte prend tout l'écran (CarteLive masque la
 // liste, la barre du bas et les bandeaux) : il ne reste en haut qu'un
-// bandeau compact (prochain danger + Arrêter) et, sur la carte, deux petits
-// boutons (voix, réglages). Les réglages sont repliés par défaut.
+// bandeau compact (prochain danger + Arrêter) et, sur la carte, trois petits
+// boutons (point route, voix, réglages). Les réglages sont repliés par défaut.
+//
+// Point route : au démarrage, puis à la demande (bouton), la voix dit ce qui
+// est signalé sur les 10 km devant (tous les types, confirmés ou non),
+// en une à trois phrases écrites par l'IA si elle est branchée
+// (/api/point-route : seuls les identifiants et distances partent, jamais
+// la position), sinon par textePointRoute(). Ces événements sont mis en
+// évidence sur la carte tant qu'on roule.
 //
 // Dans l'appli Android (repère « VigieNCApp » dans le navigateur intégré),
 // c'est la barre native qui gère le mode conduite : le bouton se cache.
@@ -102,6 +116,9 @@ export function useModeConduite() {
   const [probleme, setProbleme] = useState<string | null>(null);
   const [ecranAllume, setEcranAllume] = useState(true);
   const [voixDispo, setVoixDispo] = useState(true);
+  const [rechercheFaite, setRechercheFaite] = useState(false);
+  const [pointRoute, setPointRoute] = useState<{ texte: string; ia: boolean; heure: number } | null>(null);
+  const [pointRouteEnCours, setPointRouteEnCours] = useState(false);
 
   const watchId = useRef<number | null>(null);
   const verrou = useRef<Verrou | null>(null);
@@ -113,6 +130,18 @@ export function useModeConduite() {
   voixRef.current = voix;
   const porteeRef = useRef(portee);
   porteeRef.current = portee;
+  const actifRef = useRef(actif);
+  actifRef.current = actif;
+  const positionRef = useRef(position);
+  positionRef.current = position;
+  const capRef = useRef(cap);
+  capRef.current = cap;
+  const reportsRef = useRef(reports);
+  reportsRef.current = reports;
+  // Point route : déjà dit au démarrage ? heure du dernier demandé à l'IA ?
+  const pointRouteDit = useRef(false);
+  const dernierPointRouteIa = useRef(0);
+  const pointRouteJeton = useRef(0);
 
   useEffect(() => {
     setDansAppli(navigator.userAgent.includes("VigieNCApp"));
@@ -147,6 +176,11 @@ export function useModeConduite() {
     precedent.current = null;
     derniereRecherche.current = null;
     dejaAnnonce.current.clear();
+    pointRouteDit.current = false;
+    pointRouteJeton.current += 1; // un point route en route ne parlera plus
+    setRechercheFaite(false);
+    setPointRoute(null);
+    setPointRouteEnCours(false);
     setActif(false);
     setPosition(null);
     setCap(null);
@@ -215,10 +249,12 @@ export function useModeConduite() {
   const chercher = useCallback((lieu: LatLng) => {
     if (rechercheEnCours.current) return;
     rechercheEnCours.current = true;
-    fetchNearby(lieu, rayonRecherche(porteeRef.current))
+    // Au moins 13 km : les 10 km du point route, quelle que soit la portée.
+    fetchNearby(lieu, rayonRechercheSite(porteeRef.current))
       .then((liste) => {
         derniereRecherche.current = { lieu, heure: Date.now() };
         setReports(liste);
+        setRechercheFaite(true);
       })
       .catch(() => setProbleme("Pas de réseau : les annonces reprendront avec la connexion."))
       .finally(() => {
@@ -258,6 +294,70 @@ export function useModeConduite() {
     }
   }, [actif, position, cap, reports, trafic, portee]);
 
+  // Point route : les 10 km devant, dits à voix haute. L'IA les résume si
+  // elle répond à temps ; sinon (pas de réseau, IA pas branchée, déjà
+  // demandé il y a moins d'une minute), le texte est composé ici.
+  const demanderPointRoute = useCallback(async () => {
+    const ici = positionRef.current;
+    if (!actifRef.current || !ici) return;
+    const capIci = capRef.current;
+    const liste = evenementsDevant(ici, capIci, reportsRef.current);
+    const jeton = ++pointRouteJeton.current;
+    setPointRouteEnCours(true);
+
+    let texte = textePointRoute(liste, capIci != null);
+    let ia = false;
+    if (liste.length > 0 && Date.now() - dernierPointRouteIa.current >= POINT_ROUTE_INTERVALLE_MS) {
+      dernierPointRouteIa.current = Date.now();
+      const deLia = await fetchPointRouteIa(
+        liste.map((d) => ({ id: d.report.id, distanceM: Math.round(d.distanceM) })),
+        capIci != null,
+      );
+      if (deLia) {
+        texte = deLia;
+        ia = true;
+      }
+    }
+    // Arrêté, ou un autre point route demandé entre-temps : on se tait.
+    if (!actifRef.current || jeton !== pointRouteJeton.current) return;
+
+    setPointRoute({ texte, ia, heure: Date.now() });
+    setPointRouteEnCours(false);
+    if (voixRef.current) parler(texte);
+
+    // Les dangers devant qui viennent d'être cités ne sont pas réannoncés
+    // tout de suite à la portée : seulement aux paliers plus proches.
+    if (capIci != null) {
+      const liste2 = paliers(porteeRef.current);
+      for (const d of liste) {
+        const p = palierPour(d.distanceM, liste2);
+        if (p == null) continue;
+        const avant = dejaAnnonce.current.get(d.report.id);
+        if (avant == null || p < avant) dejaAnnonce.current.set(d.report.id, p);
+      }
+    }
+  }, []);
+
+  // Au démarrage : un point route dès que la position et la première
+  // recherche sont là.
+  useEffect(() => {
+    if (!actif || !position || !rechercheFaite || pointRouteDit.current) return;
+    pointRouteDit.current = true;
+    demanderPointRoute();
+  }, [actif, position, rechercheFaite, demanderPointRoute]);
+
+  // Événements des 10 km devant, mis en évidence sur la carte. L'ensemble
+  // ne change que si la liste change (pas à chaque point GPS), pour ne pas
+  // redessiner les marqueurs sans arrêt.
+  const cleDevant = useMemo(() => {
+    if (!actif || !position) return "";
+    return evenementsDevant(position, cap, reports)
+      .map((d) => d.report.id)
+      .sort()
+      .join(",");
+  }, [actif, position, cap, reports]);
+  const idsDevant = useMemo(() => new Set(cleDevant ? cleDevant.split(",") : []), [cleDevant]);
+
   const changerVoix = useCallback(() => {
     const v = !voixRef.current;
     setVoix(v);
@@ -296,11 +396,16 @@ export function useModeConduite() {
     position,
     cap,
     devant,
+    reports,
+    idsDevant,
+    pointRoute,
+    pointRouteEnCours,
     probleme,
     ecranAllume,
     voixDispo,
     demarrer,
     arreter,
+    demanderPointRoute,
     changerVoix,
     changerTrafic,
     changerPortee,
@@ -317,6 +422,24 @@ export function BoutonConduite({ onClick }: { onClick: () => void }) {
         <circle cx="12" cy="12" r="8.5" />
         <circle cx="12" cy="12" r="2" />
         <path d="M3.8 10.5c2.6-.9 5.3-1.2 8.2-1.2s5.6.3 8.2 1.2M10.2 13.6L7 19.6M13.8 13.6l3.2 6" />
+      </svg>
+    </RoundButton>
+  );
+}
+
+/** Pendant la conduite, sur la carte : redemander le point route des 10 km devant. */
+export function BoutonPointRoute({ conduite }: { conduite: ModeConduiteEtat }) {
+  return (
+    <RoundButton
+      active={conduite.pointRouteEnCours}
+      label={`Point route : ce qui est signalé sur les ${POINT_ROUTE_KM} km devant`}
+      onClick={() => {
+        if (!conduite.pointRouteEnCours) conduite.demanderPointRoute();
+      }}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+        <path d="M7 21l3-18M17 21l-3-18" />
+        <path d="M12 5.5v2M12 11v2M12 16.5v2" />
       </svg>
     </RoundButton>
   );
@@ -365,8 +488,21 @@ export function BandeauConduite({
   reglagesOuverts: boolean;
   onFermerReglages: () => void;
 }) {
-  const { devant, cap, position, portee, voix, voixDispo, trafic, probleme, ecranAllume } = conduite;
+  const { devant, cap, position, portee, voix, voixDispo, trafic, probleme, ecranAllume, pointRoute } = conduite;
   const prochain = devant[0] ?? null;
+
+  // Le texte du point route reste affiché 45 s (pour un passager), puis
+  // laisse la place à la carte.
+  const [pointRouteVisible, setPointRouteVisible] = useState(false);
+  useEffect(() => {
+    if (!pointRoute) {
+      setPointRouteVisible(false);
+      return;
+    }
+    setPointRouteVisible(true);
+    const t = window.setTimeout(() => setPointRouteVisible(false), POINT_ROUTE_AFFICHAGE_MS);
+    return () => window.clearTimeout(t);
+  }, [pointRoute]);
 
   // Rappel de sécurité quelques secondes au départ, puis il laisse la place à la carte.
   const [rappel, setRappel] = useState(true);
@@ -440,6 +576,20 @@ export function BandeauConduite({
         </button>
       </div>
 
+      {conduite.pointRouteEnCours && !pointRouteVisible && (
+        <p className="mt-1.5 text-[12px] text-mist-dim" role="status">
+          Point route des {POINT_ROUTE_KM} km en préparation…
+        </p>
+      )}
+      {pointRoute && pointRouteVisible && !reglagesOuverts && (
+        <div className="mt-2 rounded-xl border border-lagoon/30 bg-lagoon/10 px-3 py-2" role="status">
+          <p className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-lagoon">
+            Point route · {POINT_ROUTE_KM} km{pointRoute.ia ? " · résumé par l'IA" : ""}
+          </p>
+          <p className="mt-0.5 text-[12.5px] leading-snug text-mist">{pointRoute.texte}</p>
+        </div>
+      )}
+
       {messages.map((m) => (
         <p key={m} className="mt-1.5 text-[12px] leading-snug text-ochre">
           {m}
@@ -493,7 +643,9 @@ export function BandeauConduite({
           </div>
           <p className="mt-2 text-[11px] leading-snug text-mist-dim">
             Téléphone sur un support, ou tenu par un passager. Ne touche pas l&apos;écran en roulant. Seuls les
-            dangers confirmés sont annoncés, à vol d&apos;oiseau.
+            dangers confirmés sont annoncés, à vol d&apos;oiseau. Le point route (au départ, ou bouton « route » sur
+            la carte) cite tout ce qui est signalé sur les {POINT_ROUTE_KM} km devant ; il peut être écrit par
+            l&apos;IA et se tromper.
           </p>
         </div>
       )}

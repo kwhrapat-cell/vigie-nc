@@ -2288,7 +2288,8 @@ $$;
 --   - le journal de modération et les annonces générales sont gardés un an ;
 --   - la trace des alertes envoyées (anti-doublon) est gardée 7 jours ;
 --   - les témoignages (textes de chaque personne, servant au résumé
---     automatique) et la trace des appels à l'IA : 7 jours ;
+--     automatique) et la trace des appels à l'IA : 7 jours (24 heures pour
+--     les points route, qui gardent l'empreinte de la session) ;
 --   - les sessions anonymes inactives depuis 90 jours sont supprimées ;
 --   - le journal de sécurité de Supabase Auth est gardé 30 jours ;
 --   - chiffres d'utilisation : le détail par appareil est ramené à des
@@ -2318,7 +2319,8 @@ begin
   delete from report_temoignages t
    where t.created_at < now() - interval '7 days';
   delete from vigie_ia_appels i
-   where i.created_at < now() - interval '7 days';
+   where i.created_at < now() - interval '7 days'
+      or (i.device_key is not null and i.created_at < now() - interval '24 hours');
   delete from vigie_signal s
    where s.created_at < now() - interval '1 day';
   delete from vigie_annonce_signal s
@@ -2829,11 +2831,19 @@ $$;
 -- ---------------------------------------------------------------------
 create table if not exists vigie_ia_appels (
   id bigint generated always as identity primary key,
-  report_id uuid,  -- nul pour un essai depuis /moderation
-  origine text not null default 'resume' check (origine in ('resume', 'essai')),
+  report_id uuid,  -- nul pour un essai depuis /moderation ou un point route
+  origine text not null default 'resume',
   created_at timestamptz not null default now()
 );
 create index if not exists vigie_ia_appels_created_idx on vigie_ia_appels (created_at);
+-- Point route (mode conduite) : empreinte de la session, pour limiter les
+-- abus (1 par minute, 40 par jour). Effacé après 24 heures par la purge.
+alter table vigie_ia_appels add column if not exists device_key text;
+alter table vigie_ia_appels drop constraint if exists vigie_ia_appels_origine_check;
+alter table vigie_ia_appels add constraint vigie_ia_appels_origine_check
+  check (origine in ('resume', 'essai', 'point_route'));
+create index if not exists vigie_ia_appels_session_idx
+  on vigie_ia_appels (device_key, created_at) where device_key is not null;
 
 create or replace function vigie_ia_active()
 returns boolean
@@ -2858,6 +2868,7 @@ as $$
     60), 1), 1000);
 $$;
 
+-- Résumés et essais (les points route ont leur propre limite, plus bas).
 create or replace function vigie_ia_quota_ok()
 returns boolean
 language sql
@@ -2865,7 +2876,8 @@ stable
 security definer
 set search_path = public
 as $$
-  select (select count(*) from vigie_ia_appels where created_at > now() - interval '1 hour')
+  select (select count(*) from vigie_ia_appels
+          where origine in ('resume', 'essai') and created_at > now() - interval '1 hour')
          < vigie_ia_max_heure();
 $$;
 
@@ -3086,9 +3098,100 @@ begin
   return jsonb_build_object(
     'ok', true,
     'nom', v_nom,
-    'appels_heure', (select count(*) from vigie_ia_appels where created_at > now() - interval '1 hour'),
+    'appels_heure', (select count(*) from vigie_ia_appels
+                     where origine in ('resume', 'essai') and created_at > now() - interval '1 hour'),
     'max_heure', vigie_ia_max_heure()
   );
+end;
+$$;
+
+-- ---------------------------------------------------------------------
+-- Point route (mode conduite) : au démarrage et à la demande, l'IA dit ce
+-- qui est signalé sur les 10 km devant le conducteur.
+--   - le téléphone choisit lui-même les événements devant lui (sa position
+--     ne part pas) et envoie leurs identifiants et leurs distances à
+--     /api/point-route, avec sa session anonyme ;
+--   - ia_point_route_preparer vérifie la session et les limites, puis
+--     renvoie le contenu PUBLIC de ces signalements (celui de la carte) :
+--     l'IA ne peut parler que de vrais signalements en cours ;
+--   - limites : 1 point route par minute et 40 par jour par session ;
+--     vigie_ia_point_route_max_heure() pour toute la base (300 par heure par
+--     défaut, clé 'ia_point_route_max_heure') ; interrupteur 'ia_resume'
+--     commun avec le résumé ;
+--   - la trace (empreinte de session + heure) est effacée après 24 heures.
+-- ---------------------------------------------------------------------
+create or replace function vigie_ia_point_route_max_heure()
+returns int
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select least(greatest(coalesce(
+    (select case when valeur ~ '^[0-9]{1,5}$' then valeur::int end
+     from vigie_config where cle = 'ia_point_route_max_heure'),
+    300), 1), 10000);
+$$;
+
+create or replace function ia_point_route_preparer(p_ids uuid[])
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_key text := vigie_cle_session();
+begin
+  if v_key is null then
+    raise exception 'connexion_requise';
+  end if;
+  if not vigie_ia_active() then
+    raise exception 'ia_coupee';
+  end if;
+  if p_ids is null or cardinality(p_ids) = 0 or cardinality(p_ids) > 10 then
+    raise exception 'point_route_invalide';
+  end if;
+  if exists (
+    select 1 from vigie_ia_appels
+    where origine = 'point_route' and device_key = v_key and created_at > now() - interval '1 minute'
+  ) then
+    raise exception 'point_route_trop_tot';
+  end if;
+  if (
+    select count(*) from vigie_ia_appels
+    where origine = 'point_route' and device_key = v_key and created_at > now() - interval '24 hours'
+  ) >= 40 then
+    raise exception 'point_route_jour';
+  end if;
+  if (
+    select count(*) from vigie_ia_appels
+    where origine = 'point_route' and created_at > now() - interval '1 hour'
+  ) >= vigie_ia_point_route_max_heure() then
+    raise exception 'ia_quota';
+  end if;
+
+  insert into vigie_ia_appels (report_id, origine, device_key) values (null, 'point_route', v_key);
+
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'id', r.id,
+      'type', r.type,
+      'lieu', r.lieu,
+      'minutes', floor(extract(epoch from now() - r.created_at) / 60)::int,
+      'confirmations', r.confirmations,
+      'infirmations', r.infirmations,
+      'source_officielle', r.source_officielle,
+      'relais_source', r.relais_source,
+      'description', case when r.contenu_masque_at is null then r.description end,
+      'resume_ia', case when r.contenu_masque_at is null then r.resume_ia end,
+      'fin_annoncee', r.fin_annoncee
+    ))
+    from reports r
+    where r.id = any(p_ids)
+      and r.type::text <> 'sos'
+      and r.resolved_at is null
+      and r.expires_at > now()
+  ), '[]'::jsonb);
 end;
 $$;
 
@@ -3239,6 +3342,10 @@ revoke execute on function vigie_ia_quota_ok() from public, anon, authenticated;
 grant execute on function ia_temoignages(text, uuid) to anon, authenticated;
 grant execute on function ia_enregistrer_resume(text, uuid, text, int, timestamptz) to anon, authenticated;
 grant execute on function moderation_ia_essai(text) to anon, authenticated;
+-- Point route : seulement avec une session (anonyme) Supabase.
+revoke execute on function vigie_ia_point_route_max_heure() from public, anon, authenticated;
+revoke execute on function ia_point_route_preparer(uuid[]) from public, anon;
+grant execute on function ia_point_route_preparer(uuid[]) to authenticated;
 
 -- ---------------------------------------------------------------------
 -- Photos : bucket public en lecture, dépôt réservé aux sessions (anonymes)

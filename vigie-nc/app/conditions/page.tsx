@@ -68,6 +68,12 @@ export default function ConditionsPage() {
             continuent écran éteint.
           </li>
           <li>
+            Le <strong>point route</strong>{" "}(au démarrage, ou bouton « route ») cite ce qui est signalé sur
+            Vigie NC sur les 10 km devant toi, confirmé ou non. Il peut être écrit par une intelligence artificielle :
+            il peut se tromper ou oublier un détail, et ne remplace pas les annonces des dangers confirmés. « Rien de
+            signalé » ne veut pas dire que la route est libre.
+          </li>
+          <li>
             Le <strong>démarrage tout seul en voiture</strong>{" "}(appli Android, à activer toi-même) peut se
             déclencher en bus ou en taxi, ou ne pas se déclencher (autorisations retirées, économie de batterie,
             téléphone qui coupe l&apos;appli, pas de réseau). Tu peux l&apos;arrêter à tout moment avec « Arrêter »

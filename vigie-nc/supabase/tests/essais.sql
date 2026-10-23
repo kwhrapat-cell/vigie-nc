@@ -1,7 +1,7 @@
 -- =====================================================================
 -- Essais de schema.sql : identité anonyme, votes, SOS, photos, droits,
 -- type « feu », chiffres d'utilisation, annonces générales, chantiers,
--- témoignages et résumé automatique (IA).
+-- témoignages et résumé automatique (IA), point route (mode conduite).
 -- À lancer APRÈS schema.sql. Chaque essai qui échoue arrête tout avec un
 -- message « Ex échec : … ». Rien n'est envoyé : l'adresse d'envoi des
 -- alertes est retirée pendant l'essai.
@@ -40,6 +40,9 @@ declare
   v_ia uuid;
   v_version timestamptz;
   code_ia constant text := 'code-essai-resume-ia-000000000';
+  v_k uuid := gen_random_uuid();
+  v_l uuid := gen_random_uuid();
+  sig_point_route constant text := 'ia_point_route_preparer(uuid[])';
 begin
   delete from vigie_config where cle in ('notif_url', 'securite_url', 'ia_url');
   insert into vigie_config (cle, valeur) values ('photo_host', 'essai.supabase.co')
@@ -653,6 +656,66 @@ begin
   end if;
   delete from moderateurs where nom = 'Essai IA';
 
-  raise notice 'ESSAIS OK (33)';
+  -- E34 : point route — session obligatoire, seulement de vrais
+  -- signalements en cours (contenu public), 1 par minute, limite par heure
+  perform set_config('request.jwt.claims', '', true);
+  begin
+    perform ia_point_route_preparer(array[v_ia]);
+    raise exception 'E34 échec : point route sans session';
+  exception when others then
+    if sqlerrm not like '%connexion_requise%' then raise exception 'E34 échec : %', sqlerrm; end if;
+  end;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_k, 'role', 'authenticated')::text, true);
+  begin
+    perform ia_point_route_preparer(array_fill(v_ia, array[11]));
+    raise exception 'E34 échec : 11 événements acceptés';
+  exception when others then
+    if sqlerrm not like '%point_route_invalide%' then raise exception 'E34 échec : %', sqlerrm; end if;
+  end;
+  -- v_ia : inondation en cours ; v_id : terminée (E10) ; un identifiant inconnu
+  v_r := ia_point_route_preparer(array[v_ia, v_id, gen_random_uuid()]);
+  if jsonb_array_length(v_r) <> 1 or v_r->0->>'id' <> v_ia::text or v_r->0->>'type' <> 'inondation' then
+    raise exception 'E34 échec : %', v_r;
+  end if;
+  if v_r::text like '%' || vigie_device_key('auth:' || v_h::text) || '%' then
+    raise exception 'E34 échec : empreinte d''un auteur transmise';
+  end if;
+  begin
+    perform ia_point_route_preparer(array[v_ia]);
+    raise exception 'E34 échec : 2e point route dans la minute';
+  exception when others then
+    if sqlerrm not like '%point_route_trop_tot%' then raise exception 'E34 échec : %', sqlerrm; end if;
+  end;
+  insert into vigie_config (cle, valeur) values ('ia_point_route_max_heure', '1')
+  on conflict (cle) do update set valeur = excluded.valeur;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_l, 'role', 'authenticated')::text, true);
+  begin
+    perform ia_point_route_preparer(array[v_ia]);
+    raise exception 'E34 échec : limite par heure non appliquée';
+  exception when others then
+    if sqlerrm not like '%ia_quota%' then raise exception 'E34 échec : %', sqlerrm; end if;
+  end;
+  delete from vigie_config where cle = 'ia_point_route_max_heure';
+  insert into vigie_config (cle, valeur) values ('ia_resume', 'non');
+  begin
+    perform ia_point_route_preparer(array[v_ia]);
+    raise exception 'E34 échec : IA coupée mais point route accepté';
+  exception when others then
+    if sqlerrm not like '%ia_coupee%' then raise exception 'E34 échec : %', sqlerrm; end if;
+  end;
+  delete from vigie_config where cle = 'ia_resume';
+  if has_function_privilege('anon', sig_point_route, 'execute')
+     or not has_function_privilege('authenticated', sig_point_route, 'execute') then
+    raise exception 'E34 échec : droits du point route';
+  end if;
+  -- la trace avec l'empreinte de session part après 24 heures
+  update vigie_ia_appels set created_at = now() - interval '25 hours'
+   where origine = 'point_route' and device_key = vigie_device_key('auth:' || v_k::text);
+  perform vigie_purger_donnees_appareil();
+  if exists (select 1 from vigie_ia_appels where device_key = vigie_device_key('auth:' || v_k::text)) then
+    raise exception 'E34 échec : trace du point route gardée plus de 24 heures';
+  end if;
+
+  raise notice 'ESSAIS OK (34)';
 end
 $essais$;

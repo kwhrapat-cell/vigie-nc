@@ -34,6 +34,20 @@ export const CONDUITE_DEPLACEMENT_CAP_M = 30;
 // après ce délai.
 export const CONDUITE_RECENTRAGE_MS = 20_000;
 
+// Point route (site seulement pour l'instant, pas dans Conduite.kt) : au
+// démarrage et à la demande, ce qui est signalé sur les 10 km devant (tous
+// les types, confirmés ou non), dit en une ou deux phrases — écrites par
+// l'IA si elle est branchée (lib/ia.ts, /api/point-route), sinon par
+// textePointRoute() ci-dessous. Ces événements sont aussi mis en évidence
+// sur la carte pendant la conduite.
+export const POINT_ROUTE_KM = 10;
+// Événements envoyés au plus (les plus proches).
+export const POINT_ROUTE_MAX = 10;
+// Entre deux points route demandés au bouton.
+export const POINT_ROUTE_INTERVALLE_MS = 60_000;
+// Durée d'affichage du texte du point route dans le bandeau.
+export const POINT_ROUTE_AFFICHAGE_MS = 45_000;
+
 export function estPortee(v: unknown): v is PorteeKm {
   return (CONDUITE_PORTEES_KM as readonly unknown[]).includes(v);
 }
@@ -41,6 +55,14 @@ export function estPortee(v: unknown): v is PorteeKm {
 /** Rayon de la recherche autour du conducteur pour cette portée. */
 export function rayonRecherche(porteeKm: PorteeKm): number {
   return Math.min(20_000, porteeKm * 1000 + CONDUITE_MARGE_RECHERCHE_M);
+}
+
+/**
+ * Rayon de la recherche sur le site : au moins les 10 km du point route,
+ * quelle que soit la portée de la voix.
+ */
+export function rayonRechercheSite(porteeKm: PorteeKm): number {
+  return Math.max(rayonRecherche(porteeKm), rayonRecherche(POINT_ROUTE_KM));
 }
 
 /**
@@ -157,6 +179,9 @@ const NOMS_PARLES: Partial<Record<ReportType, string>> = {
   danger: "danger",
   meteo: "météo dangereuse",
   trafic_dense: "trafic dense",
+  travaux: "travaux",
+  chaussee_degradee: "chaussée dégradée",
+  autre: "signalement",
 };
 
 /** « à 2,8 kilomètres », « à 500 mètres » : écrit pour être lu à voix haute. */
@@ -174,4 +199,66 @@ export function distanceParlee(m: number): string {
 export function texteAnnonce(d: DangerDevant, avecCap: boolean): string {
   const nom = NOMS_PARLES[d.report.type] ?? "danger";
   return `Attention, ${nom} ${distanceParlee(d.distanceM)}${avecCap ? " devant" : ""}.`;
+}
+
+// ---------------------------------------------------------------------
+// Point route : les 10 km devant (ou autour, à l'arrêt)
+// ---------------------------------------------------------------------
+
+/**
+ * Tous les événements en cours (sauf SOS) sur les 10 km devant, confirmés
+ * ou non, du plus proche au plus loin. Sans sens de marche (arrêt,
+ * départ) : tout ce qui est à moins de 10 km, dans toutes les directions.
+ */
+export function evenementsDevant(
+  position: LatLng,
+  cap: number | null,
+  reports: Report[],
+  now = Date.now(),
+): DangerDevant[] {
+  const portee = POINT_ROUTE_KM * 1000;
+  const out: DangerDevant[] = [];
+  for (const r of reports) {
+    if (r.type === "sos" || r.active === false) continue;
+    if (new Date(r.expiresAt).getTime() <= now) continue;
+    const d = distanceM(position, r);
+    if (d > portee) continue;
+    if (cap == null || d < 150 || ecartDeg(cap, capDeg(position, r)) <= CONDUITE_ANGLE_DEVANT_DEG) {
+      out.push({ report: r, distanceM: d });
+    }
+  }
+  return out.sort((a, b) => a.distanceM - b.distanceM).slice(0, POINT_ROUTE_MAX);
+}
+
+/** Confirmé par une 2e personne ou une source officielle. */
+export function estConfirme(r: Report): boolean {
+  return r.confirmations >= 1 || Boolean(r.officialSource);
+}
+
+const GRAVES: ReportType[] = ["route_coupee", "inondation", "accident", "feu", "danger", "meteo"];
+
+/**
+ * Point route sans IA (pas de réseau, IA pas branchée ou trop lente) :
+ * « Sur les 10 prochains kilomètres : inondation à 2,3 kilomètres ;
+ * travaux à 6 kilomètres, à confirmer. » Les dangers d'abord.
+ */
+export function textePointRoute(liste: DangerDevant[], avecCap: boolean): string {
+  const debut = avecCap ? "Sur les 10 prochains kilomètres" : "À moins de 10 kilomètres";
+  if (liste.length === 0) {
+    return `Rien de signalé sur Vigie NC ${
+      avecCap ? "sur les 10 prochains kilomètres" : "à moins de 10 kilomètres"
+    }. Reste prudent : tout n'est pas forcément signalé.`;
+  }
+  const tries = [...liste].sort((a, b) => {
+    const ga = GRAVES.includes(a.report.type) ? 0 : 1;
+    const gb = GRAVES.includes(b.report.type) ? 0 : 1;
+    return ga - gb || a.distanceM - b.distanceM;
+  });
+  const dits = tries.slice(0, 4).map((d) => {
+    const nom = NOMS_PARLES[d.report.type] ?? "signalement";
+    return `${nom} ${distanceParlee(d.distanceM)}${estConfirme(d.report) ? "" : ", à confirmer"}`;
+  });
+  const reste = tries.length - dits.length;
+  const fin = reste > 0 ? ` ; et ${reste} autre${reste > 1 ? "s" : ""} signalement${reste > 1 ? "s" : ""}` : "";
+  return `${debut} : ${dits.join(" ; ")}${fin}.`;
 }

@@ -12,6 +12,7 @@ import { TravauxBanner } from "./TravauxBanner";
 import {
   BandeauConduite,
   BoutonConduite,
+  BoutonPointRoute,
   BoutonReglagesConduite,
   BoutonVoix,
   useModeConduite,
@@ -131,18 +132,27 @@ export function CarteLive() {
     if (!selectedId) return null;
     const found =
       reports.find((r) => r.id === selectedId) ??
+      conduite.reports.find((r) => r.id === selectedId) ??
       (linkedReport?.id === selectedId ? linkedReport : null);
     if (found) selectedSnapshot.current = found;
     return found ?? (selectedSnapshot.current?.id === selectedId ? selectedSnapshot.current : null);
-  }, [reports, selectedId, linkedReport]);
+  }, [reports, conduite.reports, selectedId, linkedReport]);
 
-  // Pour la carte : ajoute le signalement ouvert par lien s'il est hors zone.
+  // Pour la carte : en conduite, ajoute ce que le mode conduite a trouvé
+  // jusqu'à 13 km (les 10 km du point route peuvent dépasser la zone) ; et
+  // le signalement ouvert par lien s'il est hors zone.
   const mapReports = useMemo(() => {
-    if (selectedReport && selectedReport.active !== false && !visible.some((r) => r.id === selectedReport.id)) {
-      return [...visible, selectedReport];
+    let liste = visible;
+    if (enConduite && conduite.reports.length > 0) {
+      const ids = new Set(liste.map((r) => r.id));
+      const enPlus = conduite.reports.filter((r) => r.type !== "sos" && !ids.has(r.id));
+      if (enPlus.length > 0) liste = [...liste, ...enPlus];
     }
-    return visible;
-  }, [visible, selectedReport]);
+    if (selectedReport && selectedReport.active !== false && !liste.some((r) => r.id === selectedReport.id)) {
+      return [...liste, selectedReport];
+    }
+    return liste;
+  }, [visible, selectedReport, enConduite, conduite.reports]);
 
   const selectFromList = useCallback((id: string) => {
     setSelectedId(id);
@@ -256,6 +266,7 @@ export function CarteLive() {
           follow={follow}
           onSelect={setSelectedId}
           onFollowChange={setFollow}
+          highlightIds={enConduite ? conduite.idsDevant : undefined}
         />
         <div className="absolute top-2.5 left-3 right-3 z-10 flex items-start justify-between gap-2 pointer-events-none">
           <div className="pointer-events-auto">
@@ -270,6 +281,7 @@ export function CarteLive() {
             <MapStyleSwitcher value={mapStyle} onChange={changeMapStyle} />
             {enConduite ? (
               <>
+                <BoutonPointRoute conduite={conduite} />
                 <BoutonVoix conduite={conduite} />
                 <BoutonReglagesConduite
                   ouvert={reglagesConduite}
