@@ -29,6 +29,10 @@ export const CONDUITE_PORTEE_SANS_CAP_M = 1_000;
 export const CONDUITE_VITESSE_CAP_MIN = 2.5;
 // Déplacement minimal pour calculer soi-même le sens de marche.
 export const CONDUITE_DEPLACEMENT_CAP_M = 30;
+// Site seulement (pas dans Conduite.kt) : pendant la conduite, si l'on a
+// déplacé la carte à la main, elle revient toute seule sur le conducteur
+// après ce délai.
+export const CONDUITE_RECENTRAGE_MS = 20_000;
 
 export function estPortee(v: unknown): v is PorteeKm {
   return (CONDUITE_PORTEES_KM as readonly unknown[]).includes(v);

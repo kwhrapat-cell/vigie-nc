@@ -72,9 +72,15 @@ vigie-nc/
                   nouvelle ouverture = retour après 30 min ; constantes
                   TRAVAUX_BANDEAU_* de lib/types.ts),
                   ShareRedirect (page /s/[id] → carte),
-                  ModeConduite (bouton volant sur la carte : annonces vocales
-                  des dangers confirmés devant, écran gardé allumé ; caché
-                  dans l'appli Android, repère « VigieNCApp » du navigateur)
+                  ModeConduite (useModeConduite + BoutonConduite, BoutonVoix,
+                  BoutonReglagesConduite, BandeauConduite : annonces vocales
+                  des dangers confirmés devant, écran gardé allumé. Pendant la
+                  conduite, CarteLive passe la carte en plein écran : liste,
+                  barre du bas et bandeaux masqués (pas démontés), bandeau
+                  compact en haut, réglages repliés, vue « autour de moi »
+                  forcée, recentrage tout seul après 20 s si on a déplacé la
+                  carte. Bouton caché dans l'appli Android, repère
+                  « VigieNCApp » du navigateur)
   lib/
     types.ts         types de signalement, couleurs, icônes, durées, rayons
     reports-api.ts   SEUL point d'accès aux données depuis le navigateur (RPC

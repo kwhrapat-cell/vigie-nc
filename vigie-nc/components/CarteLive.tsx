@@ -9,9 +9,16 @@ import { BottomNav } from "./BottomNav";
 import { WelcomeNotice } from "./WelcomeNotice";
 import { AnnonceBanner } from "./AnnonceBanner";
 import { TravauxBanner } from "./TravauxBanner";
-import { ModeConduite } from "./ModeConduite";
+import {
+  BandeauConduite,
+  BoutonConduite,
+  BoutonReglagesConduite,
+  BoutonVoix,
+  useModeConduite,
+} from "./ModeConduite";
 import { Logo } from "./ui";
 import { MapStyleSwitcher, RecenterButton, ZoneSelector } from "./MapControls";
+import { CONDUITE_RECENTRAGE_MS } from "@/lib/conduite";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { distanceM, LatLng } from "@/lib/geo";
 import {
@@ -43,6 +50,11 @@ export function CarteLive() {
   const [banner, setBanner] = useState<string | null>(null);
   const selectedSnapshot = useRef<Report | null>(null);
 
+  // Mode conduite : la carte prend tout l'écran et suit le conducteur.
+  const conduite = useModeConduite();
+  const enConduite = conduite.actif;
+  const [reglagesConduite, setReglagesConduite] = useState(false);
+
   useEffect(() => {
     setZone(readZoneChoice());
     setMapStyle(readMapStyle());
@@ -57,8 +69,9 @@ export function CarteLive() {
     saveMapStyle(s);
   }, []);
 
-  const isNc = zone === "nc";
-  const radiusKm = isNc ? readRadiusKm() : zone;
+  // En conduite, toujours la vue autour de soi (la vue Calédonie ne suit pas).
+  const isNc = zone === "nc" && !enConduite;
+  const radiusKm = zone === "nc" ? readRadiusKm() : zone;
 
   // Lien partagé (?signalement=<id>) : ouvre directement la fiche.
   useEffect(() => {
@@ -151,11 +164,23 @@ export function CarteLive() {
 
   const closeDetail = useCallback(() => setSelectedId(null), []);
 
-  // Mode conduite : la carte suit le conducteur.
-  const startDriving = useCallback(() => {
-    setSelectedId(null);
-    setFollow(true);
-  }, []);
+  // Au départ du mode conduite : fiche fermée, la carte suit le conducteur.
+  useEffect(() => {
+    if (enConduite) {
+      setSelectedId(null);
+      setFollow(true);
+    } else {
+      setReglagesConduite(false);
+    }
+  }, [enConduite]);
+
+  // En conduite, si l'on a déplacé la carte à la main, elle revient toute
+  // seule sur le conducteur (sauf pendant la lecture d'une fiche).
+  useEffect(() => {
+    if (!enConduite || follow || selectedId) return;
+    const t = window.setTimeout(() => setFollow(true), CONDUITE_RECENTRAGE_MS);
+    return () => window.clearTimeout(t);
+  }, [enConduite, follow, selectedId]);
 
   // « Ma position » : revient sur la zone autour de soi (dernier rayon choisi)
   const recenter = useCallback(() => {
@@ -168,7 +193,20 @@ export function CarteLive() {
   }, [position, retry, isNc, changeZone]);
 
   return (
-    <div className="h-[100dvh] flex flex-col pb-nav">
+    <div
+      className={`h-[100dvh] flex flex-col ${enConduite ? "" : "pb-nav"}`}
+      style={enConduite ? { paddingBottom: "env(safe-area-inset-bottom, 0px)" } : undefined}
+    >
+      {enConduite && (
+        <BandeauConduite
+          conduite={conduite}
+          reglagesOuverts={reglagesConduite}
+          onFermerReglages={() => setReglagesConduite(false)}
+        />
+      )}
+
+      {/* Masqués (pas démontés) pendant la conduite, pour laisser la carte. */}
+      <div className={enConduite ? "hidden" : "contents"}>
       <header className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
         <Logo />
         <div className="flex items-center gap-2">
@@ -205,6 +243,7 @@ export function CarteLive() {
           {banner}
         </div>
       )}
+      </div>
 
       <div className="relative flex-1 min-h-[180px]">
         <LiveMap
@@ -220,7 +259,7 @@ export function CarteLive() {
         />
         <div className="absolute top-2.5 left-3 right-3 z-10 flex items-start justify-between gap-2 pointer-events-none">
           <div className="pointer-events-auto">
-            <ZoneSelector value={zone} onChange={changeZone} hasPosition={Boolean(position)} />
+            {!enConduite && <ZoneSelector value={zone} onChange={changeZone} hasPosition={Boolean(position)} />}
           </div>
           <div className="pointer-events-auto flex flex-col gap-2">
             <RecenterButton
@@ -229,7 +268,17 @@ export function CarteLive() {
               label={position ? "Revenir sur ma position" : "Activer ma position"}
             />
             <MapStyleSwitcher value={mapStyle} onChange={changeMapStyle} />
-            <ModeConduite onStart={startDriving} />
+            {enConduite ? (
+              <>
+                <BoutonVoix conduite={conduite} />
+                <BoutonReglagesConduite
+                  ouvert={reglagesConduite}
+                  onClick={() => setReglagesConduite((o) => !o)}
+                />
+              </>
+            ) : (
+              !conduite.dansAppli && <BoutonConduite onClick={conduite.demarrer} />
+            )}
           </div>
         </div>
         <Link
@@ -242,6 +291,7 @@ export function CarteLive() {
         </Link>
       </div>
 
+      <div className={enConduite ? "hidden" : "contents"}>
       <HomeSheet
         allReports={reports}
         reports={visible}
@@ -259,6 +309,7 @@ export function CarteLive() {
       />
 
       <BottomNav />
+      </div>
 
       {selectedReport && (
         <ReportDetail
