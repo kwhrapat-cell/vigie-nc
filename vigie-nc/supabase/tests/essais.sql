@@ -1,6 +1,6 @@
 -- =====================================================================
 -- Essais de schema.sql : identité anonyme, votes, SOS, photos, droits,
--- type « feu », chiffres d'utilisation, annonces générales.
+-- type « feu », chiffres d'utilisation, annonces générales, chantiers.
 -- À lancer APRÈS schema.sql. Chaque essai qui échoue arrête tout avec un
 -- message « Ex échec : … ». Rien n'est envoyé : l'adresse d'envoi des
 -- alertes est retirée pendant l'essai.
@@ -29,6 +29,10 @@ declare
   code_annonce constant text := 'code-essai-annonces-00000000';
   v_annonce uuid;
   v_secret text;
+  v_f uuid := gen_random_uuid();
+  v_g uuid := gen_random_uuid();
+  v_chantier uuid;
+  code_chantier constant text := 'code-essai-chantiers-000000000';
 begin
   delete from vigie_config where cle in ('notif_url', 'securite_url');
   insert into vigie_config (cle, valeur) values ('photo_host', 'essai.supabase.co')
@@ -404,6 +408,90 @@ begin
   delete from push_abonnements where endpoint like '%essai-annonce%';
   delete from moderateurs where nom = 'Essai annonces';
 
-  raise notice 'ESSAIS OK (27)';
+  -- E28 : chantier de longue durée (travaux seulement, fin à 6 mois au plus)
+  perform set_config('request.jwt.claims', json_build_object('sub', v_f, 'role', 'authenticated')::text, true);
+  v_r := creer_signalement_v3('travaux', lat0 - 0.03, lng0, null, 'Essai chantier', null, 'Essai');
+  if v_r->>'resultat' is distinct from 'cree' then raise exception 'E28 échec : %', v_r; end if;
+  v_chantier := (v_r->>'id')::uuid;
+  perform vigie_ajouter_moderateur('Essai chantiers', code_chantier);
+  begin
+    perform moderation_chantier('mauvais-code-de-test-0000', v_chantier, 'Mairie', vigie_jour_local() + 30);
+    raise exception 'E28 échec : chantier fixé sans code';
+  exception when others then
+    if sqlerrm not like '%code_invalide%' then raise exception 'E28 échec : %', sqlerrm; end if;
+  end;
+  begin
+    perform moderation_chantier(code_chantier, v_id, 'Mairie', vigie_jour_local() + 30);
+    raise exception 'E28 échec : date de fin acceptée pour une inondation';
+  exception when others then
+    if sqlerrm not like '%chantier_type_invalide%' then raise exception 'E28 échec : %', sqlerrm; end if;
+  end;
+  begin
+    perform moderation_chantier(code_chantier, v_chantier, '   ', vigie_jour_local() + 30);
+    raise exception 'E28 échec : chantier sans source accepté';
+  exception when others then
+    if sqlerrm not like '%source_manquante%' then raise exception 'E28 échec : %', sqlerrm; end if;
+  end;
+  begin
+    perform moderation_chantier(code_chantier, v_chantier, 'Mairie', vigie_jour_local() - 1);
+    raise exception 'E28 échec : date de fin passée acceptée';
+  exception when others then
+    if sqlerrm not like '%chantier_date_invalide%' then raise exception 'E28 échec : %', sqlerrm; end if;
+  end;
+  begin
+    perform moderation_chantier(code_chantier, v_chantier, 'Mairie', vigie_jour_local() + vigie_chantier_jours_max() + 1);
+    raise exception 'E28 échec : date de fin à plus de 6 mois acceptée';
+  exception when others then
+    if sqlerrm not like '%chantier_date_invalide%' then raise exception 'E28 échec : %', sqlerrm; end if;
+  end;
+  perform moderation_chantier(code_chantier, v_chantier, ' Province Sud ', vigie_jour_local() + 60);
+  select expires_at into v_t from reports where id = v_chantier;
+  if v_t is distinct from ((vigie_jour_local() + 61)::timestamp at time zone 'Pacific/Noumea') then
+    raise exception 'E28 échec : fin du chantier à %', v_t;
+  end if;
+  if not exists (select 1 from signalements_proches_v3(lat0, lng0, 20000) s
+                 where s.id = v_chantier and s.fin_annoncee = vigie_jour_local() + 60
+                   and s.source_officielle = 'Province Sud') then
+    raise exception 'E28 échec : chantier absent de la carte ou sans date de fin';
+  end if;
+  if not exists (select 1 from signalement_detail_v3(v_chantier) s where s.fin_annoncee = vigie_jour_local() + 60) then
+    raise exception 'E28 échec : date de fin absente de la fiche';
+  end if;
+  if not (moderation_liste(code_chantier, 'travaux') @> jsonb_build_array(jsonb_build_object('id', v_chantier))) then
+    raise exception 'E28 échec : chantier absent de l''onglet Travaux';
+  end if;
+  if not exists (select 1 from moderation_journal where report_id = v_chantier and action = 'chantier'
+                 and detail like 'Province Sud · jusqu''au %') then
+    raise exception 'E28 échec : chantier non noté dans le journal';
+  end if;
+
+  -- E29 : « C'est terminé » ne l'efface pas (il remonte à la modération) ;
+  -- « Retirer vérifié » en refait un signalement ordinaire ; un chantier
+  -- retiré peut être remis
+  perform set_config('request.jwt.claims', json_build_object('sub', v_g, 'role', 'authenticated')::text, true);
+  v_r := voter_signalement_v3(v_chantier, 'termine', lat0 - 0.03, lng0);
+  if v_r->>'resultat' is distinct from 'verifie' or (v_r->>'resolu')::boolean then
+    raise exception 'E29 échec : vote %', v_r;
+  end if;
+  if not (moderation_liste(code_chantier, 'signales') @> jsonb_build_array(jsonb_build_object('id', v_chantier))) then
+    raise exception 'E29 échec : chantier contesté absent de l''onglet Signalés';
+  end if;
+  perform moderation_action(code_chantier, v_chantier, 'deverifier');
+  select expires_at into v_t from reports where id = v_chantier;
+  if v_t > now() + vigie_duree_vie('travaux') + interval '1 minute'
+     or (select fin_annoncee from reports where id = v_chantier) is not null then
+    raise exception 'E29 échec : chantier gardé après « Retirer vérifié » (fin %)', v_t;
+  end if;
+  perform moderation_action(code_chantier, v_chantier, 'retirer');
+  perform moderation_chantier(code_chantier, v_chantier, 'Mairie', vigie_jour_local());
+  if not exists (select 1 from signalements_proches_v3(lat0, lng0, 20000) s where s.id = v_chantier) then
+    raise exception 'E29 échec : chantier remis absent de la carte';
+  end if;
+  if not has_function_privilege('anon', 'moderation_chantier(text, uuid, text, date)', 'execute') then
+    raise exception 'E29 échec : la modération ne peut pas appeler moderation_chantier';
+  end if;
+  delete from moderateurs where nom = 'Essai chantiers';
+
+  raise notice 'ESSAIS OK (29)';
 end
 $essais$;

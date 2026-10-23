@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { errorMessage, flagReport, FlagResult, voteOnReport, VoteResult } from "@/lib/reports-api";
+import { libelleFinChantier } from "@/lib/chantier";
 import { distanceM, formatAge, formatDistance, formatDuration, LatLng } from "@/lib/geo";
 import { getReliability, RELIABILITY_HEX } from "@/lib/reliability";
 import {
@@ -291,7 +292,22 @@ export function ReportDetail({
                 Source officielle ({report.officialSource})
               </Row>
             )}
-            {active && minutesLeft > 0 && (
+            {active && report.endDate && report.type === "travaux" && (
+              <Row
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+                    <rect x="4" y="5.5" width="16" height="14" rx="2" />
+                    <path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" />
+                  </svg>
+                }
+              >
+                Chantier {libelleFinChantier(report.endDate)}
+                <span className="block text-[11px] text-mist-dim">
+                  Date annoncée par la source officielle : il reste sur la carte jusque-là.
+                </span>
+              </Row>
+            )}
+            {active && minutesLeft > 0 && !(report.endDate && report.type === "travaux") && (
               <Row
                 icon={
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>

@@ -150,7 +150,8 @@ export default function ConfidentialitePage() {
           <li>Tes réglages (rayon, fond de carte) et le texte collé pour relayer une info.</li>
           <li>
             Les derniers signalements et annonces affichés et quelques morceaux de carte, pour pouvoir les revoir
-            sans réseau (ce sont des informations publiques), et les annonces que tu as réduites.
+            sans réseau (ce sont des informations publiques), les annonces que tu as réduites et les travaux
+            déjà montrés aujourd&apos;hui dans le bandeau (pour ne pas te les remontrer avant demain).
           </li>
           <li>
             Sur iPhone, l&apos;appli ajoutée à l&apos;écran d&apos;accueil garde ses propres réglages et contacts, à

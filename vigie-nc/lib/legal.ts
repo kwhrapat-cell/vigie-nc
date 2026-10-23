@@ -10,7 +10,7 @@ export const LEGAL = {
   ridet: "",
   lieu: "Nouvelle-Calédonie",
   // À changer à chaque modification des textes légaux.
-  miseAJour: "22 octobre 2026",
+  miseAJour: "23 octobre 2026",
   hebergeur: {
     nom: "Vercel Inc.",
     adresse: "440 N Barranca Avenue #4133, Covina, CA 91723, États-Unis",

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { TypeTile } from "./ui";
+import { aujourdhuiNoumea, estChantier, libelleFinChantier } from "@/lib/chantier";
 import { distanceM, formatAge, formatDistance, LatLng } from "@/lib/geo";
 import { fetchNearby } from "@/lib/reports-api";
 import { Report, TRAVAUX_BANDEAU_RAYON_M, TRAVAUX_BANDEAU_REOUVERTURE_MS } from "@/lib/types";
@@ -12,6 +13,36 @@ import { Report, TRAVAUX_BANDEAU_RAYON_M, TRAVAUX_BANDEAU_REOUVERTURE_MS } from 
 // soit la zone choisie sur la carte. Il ne suit pas un trajet : l'appli ne
 // connaît pas ta route. Fermé, il ne revient qu'à la prochaine ouverture.
 // Rien de nouveau n'est envoyé : la même recherche que la carte, plus large.
+// Des travaux déjà montrés aujourd'hui ne reviennent pas avant demain (un
+// chantier qui dure ne doit pas lasser ceux qui passent devant chaque
+// jour) : la liste des travaux vus reste sur ce téléphone.
+
+const VUS_KEY = "vigie-nc:travaux-vus";
+const VUS_MAX = 50;
+
+/** Travaux déjà montrés : identifiant → jour (AAAA-MM-JJ, heure de Nouméa). */
+function lireVus(): Record<string, string> {
+  try {
+    const raw = window.localStorage.getItem(VUS_KEY);
+    const o = raw ? (JSON.parse(raw) as unknown) : {};
+    return o && typeof o === "object" && !Array.isArray(o) ? (o as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function noterVu(id: string): void {
+  try {
+    const jour = aujourdhuiNoumea();
+    // On ne garde que les travaux vus aujourd'hui : demain, ils reviennent.
+    const garde = Object.entries(lireVus())
+      .filter(([cle, j]) => j === jour && cle !== id)
+      .slice(-(VUS_MAX - 1));
+    window.localStorage.setItem(VUS_KEY, JSON.stringify(Object.fromEntries([...garde, [id, jour]])));
+  } catch {
+    // stockage indisponible : le bandeau reviendra à chaque ouverture
+  }
+}
 
 export function TravauxBanner({
   position,
@@ -62,8 +93,11 @@ export function TravauxBanner({
       .then((list) => {
         if (id !== requestId.current) return;
         const now = Date.now();
+        const vus = lireVus();
+        const jour = aujourdhuiNoumea();
         const found = list
           .filter((r) => r.type === "travaux" && r.active !== false && new Date(r.expiresAt).getTime() > now)
+          .filter((r) => vus[r.id] !== jour)
           .map((r) => ({ ...r, distanceM: r.distanceM ?? distanceM(from, r) }))
           .sort((a, b) => (a.distanceM ?? 0) - (b.distanceM ?? 0));
         setTravaux(found);
@@ -75,11 +109,22 @@ export function TravauxBanner({
       });
   }, [hasPosition, opening]);
 
+  // Travaux affiché à l'écran : noté comme vu pour aujourd'hui.
+  const i = Math.min(index, Math.max(0, travaux.length - 1));
+  const shownId = !closed && travaux.length > 0 ? travaux[i].id : null;
+  useEffect(() => {
+    if (shownId) noterVu(shownId);
+  }, [shownId]);
+
   if (closed || travaux.length === 0) return null;
 
-  const i = Math.min(index, travaux.length - 1);
   const t = travaux[i];
-  const detail = [t.place, `signalé ${formatAge(t.createdAt)}`].filter(Boolean).join(" · ");
+  const detail = [
+    t.place,
+    estChantier(t) && t.endDate ? `chantier ${libelleFinChantier(t.endDate)}` : `signalé ${formatAge(t.createdAt)}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="mx-4 mb-2">

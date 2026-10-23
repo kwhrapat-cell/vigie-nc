@@ -6,6 +6,7 @@
 // l'appli sur un téléphone sans base de données. Tout est perdu au
 // rechargement de la page.
 
+import { ajouterJours, aujourdhuiNoumea } from "./chantier";
 import { distanceM, GRAND_NOUMEA, LatLng, offsetKm } from "./geo";
 import type { ReportRow } from "./reports-api";
 import {
@@ -39,6 +40,7 @@ interface DemoReport {
   votes: Map<string, Vote>;
   flags: Map<string, FlagReason>; // signalements de contenu, par appareil
   contentHiddenAt: number | null; // photo + texte masqués par la modération
+  endDate?: string | null; // chantier : date de fin annoncée (AAAA-MM-JJ)
 }
 
 const MIN = 60_000;
@@ -137,6 +139,15 @@ function seed(center: LatLng | null) {
     flags: new Map<string, FlagReason>([["demo-f-0", "hors_sujet"]]),
   });
   add("travaux", -3.9, 0.6, 60, 0, { riskLevel: "faible" });
+  // Chantier de longue durée : vérifié, avec une date de fin annoncée
+  const finChantier = ajouterJours(aujourdhuiNoumea(), 45);
+  add("travaux", 2.6, -1.4, 9 * 24 * 60, 2, {
+    description: "Réfection de la chaussée, circulation alternée.",
+    place: "Chantier (démo)",
+    officialSource: "Province Sud",
+    endDate: finChantier,
+    expiresAt: now + 45 * 24 * 60 * MIN,
+  });
   add("meteo", 3.2, -3.5, 40, 2, { description: "Fortes pluies, visibilité réduite." });
   add("trafic_dense", 1.8, 1.4, 8, 0);
   add("route_coupee", 4.6, 3.2, 15, 0, { relaySource: "facebook", place: "Info relayée (démo)" });
@@ -181,6 +192,7 @@ function toRow(r: DemoReport, deviceId: string, center: LatLng | null): ReportRo
     est_auteur: r.author === deviceId,
     mon_vote: r.votes.get(deviceId) ?? null,
     actif: isActive(r, Date.now()),
+    fin_annoncee: r.endDate ?? null,
   };
 }
 

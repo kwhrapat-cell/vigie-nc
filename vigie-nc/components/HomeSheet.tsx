@@ -1,5 +1,6 @@
 "use client";
 
+import { estChantier, libelleFinChantier } from "@/lib/chantier";
 import { formatAgeShort, formatDistance } from "@/lib/geo";
 import { getReliability } from "@/lib/reliability";
 import {
@@ -165,7 +166,9 @@ export function HomeSheet({
                     {[where, r.place && dist ? dist : null].filter(Boolean).join(" · ")}
                   </span>
                   <span className="block font-mono text-[10px] text-mist-dim opacity-70">
-                    il y a {formatAgeShort(r.createdAt)}
+                    {estChantier(r) && r.endDate
+                      ? `chantier ${libelleFinChantier(r.endDate)}`
+                      : `il y a ${formatAgeShort(r.createdAt)}`}
                   </span>
                 </span>
                 {r.type !== "sos" && rel.people > 0 && (

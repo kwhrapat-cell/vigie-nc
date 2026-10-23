@@ -93,6 +93,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   trop_de_notifications:
     "3 annonces sont déjà parties en notification ces dernières 24 h : publie celle-ci sans notification.",
   annonce_introuvable: "Cette annonce n'existe plus.",
+  chantier_type_invalide: "Seuls les travaux peuvent avoir une date de fin.",
+  chantier_date_invalide: "Choisis une date de fin entre aujourd'hui et dans 6 mois.",
 };
 
 export class ReportsApiError extends Error {
@@ -153,6 +155,7 @@ export interface ReportRow {
   est_auteur: boolean;
   mon_vote: Vote | null;
   actif: boolean;
+  fin_annoncee?: string | null;
 }
 
 export function mapRow(row: ReportRow): Report {
@@ -177,6 +180,7 @@ export function mapRow(row: ReportRow): Report {
     officialSource: row.source_officielle,
     relaySource: row.relais_source ?? null,
     active: row.actif,
+    endDate: row.fin_annoncee ?? null,
   };
 }
 
@@ -417,7 +421,7 @@ export async function uploadReportPhoto(file: File): Promise<string> {
 // du modérateur ; le serveur le vérifie (voir moderation_* dans le SQL).
 // ---------------------------------------------------------------------
 
-export type ModFilter = "signales" | "recents";
+export type ModFilter = "signales" | "recents" | "travaux";
 export type ModAction = "masquer" | "retablir" | "ignorer" | "retirer" | "verifier" | "deverifier";
 
 export interface ModItem {
@@ -435,6 +439,7 @@ export interface ModItem {
   relaisSource: RelaySource | null;
   confirmations: number;
   infirmations: number;
+  finAnnoncee: string | null;
   nbSignalements: number;
   motifs: Partial<Record<FlagReason, number>>;
 }
@@ -454,6 +459,7 @@ interface ModRow {
   relais_source: RelaySource | null;
   confirmations: number;
   infirmations: number;
+  fin_annoncee: string | null;
   nb_signalements: number;
   motifs: Partial<Record<FlagReason, number>> | null;
 }
@@ -489,6 +495,7 @@ export async function modList(code: string, filter: ModFilter): Promise<ModItem[
     relaisSource: r.relais_source,
     confirmations: r.confirmations,
     infirmations: r.infirmations,
+    finAnnoncee: r.fin_annoncee ?? null,
     nbSignalements: r.nb_signalements,
     motifs: r.motifs ?? {},
   }));
@@ -500,6 +507,19 @@ export async function modAct(code: string, reportId: string, action: ModAction, 
     p_report_id: reportId,
     p_action: action,
     p_valeur: valeur ?? null,
+  });
+}
+
+/**
+ * Chantier de longue durée (travaux seulement) : source officielle et date
+ * de fin annoncée (AAAA-MM-JJ, 6 mois au plus). Rappeler change la date.
+ */
+export async function modChantier(code: string, reportId: string, source: string, fin: string): Promise<void> {
+  await liveRpc("moderation_chantier", {
+    p_code: code,
+    p_report_id: reportId,
+    p_source: source,
+    p_fin: fin,
   });
 }
 

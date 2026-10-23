@@ -47,6 +47,7 @@ vigie-nc/
                   + pages légales (/conditions, /confidentialite, /mentions-legales)
                   + /affiche (l'affiche à envoyer par lien ; images dans public/affiche/)
                   + /moderation (écran des modérateurs, code personnel ; lien discret en bas du Profil ;
+                    onglet « Travaux » : date de fin des chantiers (moderation_chantier) ;
                     onglet « Annonces » : message pour toute la Calédonie ;
                     onglet « Chiffres » : utilisateurs actifs, connectés en direct, provenances)
                   + /s/[id] (lien partagé d'un signalement : aperçu WhatsApp/Facebook via
@@ -74,8 +75,9 @@ vigie-nc/
                   Annonces de /moderation),
                   TravauxBanner (bandeau « Travaux à X km » à l'ouverture :
                   travaux en cours à 10 km, une recherche par ouverture,
-                  nouvelle ouverture = retour après 30 min ; constantes
-                  TRAVAUX_BANDEAU_* de lib/types.ts),
+                  nouvelle ouverture = retour après 30 min ; chaque travaux
+                  montré une fois par jour au plus, liste « vigie-nc:travaux-vus »
+                  sur le téléphone ; constantes TRAVAUX_BANDEAU_* de lib/types.ts),
                   ShareRedirect (page /s/[id] → carte),
                   ModeConduite (useModeConduite + BoutonConduite, BoutonVoix,
                   BoutonReglagesConduite, BandeauConduite : annonces vocales
@@ -100,6 +102,9 @@ vigie-nc/
     useAnnonces.ts   annonces générales en direct (temps réel
                      vigie_annonce_signal) + copie pour l'affichage sans réseau
     reliability.ts   4 niveaux : Signalement / À confirmer / Confirmé / Vérifié
+    chantier.ts      chantiers de longue durée (date de fin annoncée), dates
+                     de Nouméa, CHANTIER_JOURS_MAX aligné sur
+                     vigie_chantier_jours_max() du SQL
     conduite.ts      mode conduite : dangers devant (angle 40°), portée de la
                      voix au choix 3 / 5 / 10 km, annonce à la portée puis à
                      500 m (+ 3 km pour 10 km), phrases parlées. ⚠️ Même
@@ -127,8 +132,8 @@ vigie-nc/
   supabase/schema.sql  schéma complet, ré-exécutable
   supabase/functions/purge-photos  fonction Supabase (Deno) : photos > 7 jours
   supabase/tests/  shim-supabase.sql (faux Supabase pour Postgres + PostGIS)
-                   et essais.sql (27 essais : identité, votes, SOS, photos, droits,
-                   type « feu », chiffres d'utilisation, annonces générales)
+                   et essais.sql (29 essais : identité, votes, SOS, photos, droits,
+                   type « feu », chiffres d'utilisation, annonces générales, chantiers)
 .github/workflows/verification.yml  à chaque PR : build + types, schema.sql
                    deux fois puis essais.sql sur Postgres + PostGIS
 android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le site
@@ -229,6 +234,15 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   dépôt). `notif_destinataires` note les envois (`push_envois`, 7 jours,
   5 alertes/heure max). Clés VAPID : variables Vercel
   `NEXT_PUBLIC_VAPID_PUBLIC_KEY` et `VAPID_PRIVATE_KEY`.
+- Chantiers de longue durée (travaux seulement) : `moderation_chantier(code,
+  id, source, fin)` met la source officielle (« Vérifié »), `fin_annoncee`
+  (6 mois au plus, `vigie_chantier_jours_max()`) et `expires_at` à minuit
+  après ce jour, heure de Nouméa ; remet aussi sur la carte un travaux
+  effacé. Les « C'est terminé » ne l'effacent pas (règle des vérifiés) : il
+  remonte dans l'onglet « Signalés » de /moderation. « Retirer vérifié »
+  enlève aussi la date (redevient un travaux ordinaire de 3 jours). La date
+  est renvoyée par `signalements_proches_v3` / `signalement_detail_v3`
+  (colonne `fin_annoncee`, ajoutée en fin de liste : l'appli Android l'ignore).
 - Annonces générales (vues par tout le monde, quelle que soit la zone) :
   table privée `annonces`, lecture par `annonces_actives()` (sans session),
   temps réel sans contenu par `vigie_annonce_signal`. Publication et retrait
