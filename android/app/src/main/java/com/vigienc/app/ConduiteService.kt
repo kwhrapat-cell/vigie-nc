@@ -48,6 +48,12 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
         // (au cas où la sortie de voiture n'aurait pas été détectée).
         private const val ARRET_IMMOBILE_MS = 15 * 60_000L
 
+        // Dangers déjà annoncés, gardés 30 min après l'arrêt : un arrêt puis
+        // un redémarrage en route (détection « en voiture » qui hésite, arrêt
+        // à un feu…) ne fait pas tout réannoncer.
+        private val dejaMemoire = HashMap<String, Double>()
+        private var arretMs = 0L
+
         /** Lu par l'écran de l'appli (barre du mode conduite). */
         @Volatile var actif = false
             private set
@@ -99,7 +105,9 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
     private var porteeRecherche = 0
     private var dernierMouvementMs = 0L
     private var lieuMouvement: Location? = null
-    private val deja = HashMap<String, Double>()
+    private val deja = dejaMemoire
+    // Relancé moins de 30 min après un arrêt : pas de phrase d'accueil en démarrage tout seul.
+    private var relanceRecente = false
     private var bulle: Bulle? = null
 
     private val attributsVoix = AudioAttributes.Builder()
@@ -183,7 +191,9 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
         demarreAuto = auto
         dernierMouvementMs = System.currentTimeMillis()
         lieuMouvement = null
-        deja.clear()
+        relanceRecente = arretMs > 0 && System.currentTimeMillis() - arretMs < Conduite.MEMOIRE_MS
+        if (!relanceRecente) deja.clear()
+        arretMs = 0L
         tts = TextToSpeech(this, this)
         try {
             lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2_000L, 10f, this, Looper.getMainLooper())
@@ -200,6 +210,7 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
     }
 
     private fun arreterTout() {
+        if (actif) arretMs = System.currentTimeMillis()
         actif = false
         demarreAuto = false
         statut = ""
@@ -242,10 +253,12 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
             override fun onError(id: String?) { main.post { relacherFocus() } }
         })
         ttsPret = true
-        parler(
-            if (demarreAuto) "Vigie NC : tu roules, je surveille la route devant toi."
-            else "Mode conduite activé. Je te préviens des dangers confirmés devant toi, même écran éteint.",
-        )
+        if (!(demarreAuto && relanceRecente)) {
+            parler(
+                if (demarreAuto) "Vigie NC : tu roules, je surveille la route devant toi."
+                else "Mode conduite activé. Je te préviens des dangers confirmés devant toi, même écran éteint.",
+            )
+        }
     }
 
     /**
@@ -340,6 +353,10 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
             try {
                 val liste = Api.signalementsProches(lat, lng, Conduite.rayonRecherche(portee))
                 main.post {
+                    // Oublie les signalements disparus de la recherche (pas
+                    // avant la première : au redémarrage, la mémoire reste).
+                    val ids = liste.mapTo(HashSet()) { it.id }
+                    deja.keys.retainAll(ids)
                     signalements = liste
                     porteeRecherche = portee
                     rechercheLat = lat
@@ -375,8 +392,6 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
         val devant = Conduite.dangersDevant(
             pos.latitude, pos.longitude, cap, signalements, Prefs.trafic(this), portee, maintenant,
         )
-        val ids = signalements.mapTo(HashSet()) { it.id }
-        deja.keys.retainAll(ids)
         for (d in Conduite.aAnnoncer(devant, deja, portee).take(2)) parler(Conduite.texteAnnonce(d, cap != null))
 
         val prochain = devant.firstOrNull()

@@ -52,6 +52,9 @@ object Conduite {
     const val PORTEE_SANS_CAP_M = 1_000.0
     const val VITESSE_CAP_MIN = 2.5f
     const val DEPLACEMENT_CAP_M = 30f
+    // Les dangers déjà annoncés sont gardés ce temps après l'arrêt du mode
+    // conduite : l'arrêter puis le relancer en route ne fait pas tout répéter.
+    const val MEMOIRE_MS = 30 * 60_000L
 
     // Même liste que ALERT_TYPES (lib/types.ts) et vigie_est_danger() (SQL).
     private val TYPES_DANGER = setOf("accident", "route_coupee", "inondation", "feu", "danger", "meteo")
@@ -136,11 +139,14 @@ object Conduite {
     /** Les dangers à annoncer maintenant (jamais deux fois le même palier). */
     fun aAnnoncer(devant: List<DangerDevant>, deja: MutableMap<String, Double>, porteeKm: Int): List<DangerDevant> {
         val liste = paliers(porteeKm)
+        // Déjà annoncé à une portée plus grande (portée réduite en route) :
+        // compte comme annoncé à la nouvelle portée.
+        val plafond = liste.first()
         val sortie = ArrayList<DangerDevant>()
         for (d in devant) {
             val palier = palierPour(d.distanceM, liste) ?: continue
             val precedent = deja[d.signalement.id]
-            if (precedent != null && precedent <= palier) continue
+            if (precedent != null && minOf(precedent, plafond) <= palier) continue
             deja[d.signalement.id] = palier
             sortie.add(d)
         }

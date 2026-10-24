@@ -11,10 +11,13 @@ import { Report, REPORT_TYPE_LABELS } from "@/lib/types";
 import {
   aAnnoncer,
   capDeg,
+  citesPointRoute,
   CONDUITE_DEPLACEMENT_CAP_M,
+  CONDUITE_MEMOIRE_MS,
   CONDUITE_PORTEE_DEFAUT_KM,
   CONDUITE_PORTEES_KM,
   CONDUITE_RELANCE_M,
+  CONDUITE_RAPPEL_M,
   CONDUITE_RELANCE_MS,
   CONDUITE_VITESSE_CAP_MIN,
   DangerDevant,
@@ -24,6 +27,7 @@ import {
   palierPour,
   paliers,
   POINT_ROUTE_AFFICHAGE_MS,
+  POINT_ROUTE_ATTENTE_MS,
   POINT_ROUTE_INTERVALLE_MS,
   POINT_ROUTE_KM,
   PorteeKm,
@@ -58,6 +62,11 @@ const CLE_TRAFIC = "vigie-nc:conduite-trafic";
 const CLE_PORTEE = "vigie-nc:conduite-portee";
 // Durée d'affichage du rappel « téléphone sur un support » au départ.
 const RAPPEL_DEPART_MS = 12_000;
+
+// Dangers déjà annoncés (palier le plus proche dit, par signalement). Gardés
+// hors de l'écran : arrêter puis relancer le mode conduite, ou passer par un
+// autre écran, ne fait pas tout répéter. Oubliés 30 min après l'arrêt.
+const memoireAnnonces = { deja: new Map<string, number>(), arretMs: 0 };
 
 type Verrou = { release: () => Promise<void> };
 type NavigatorAvecVerrou = Navigator & { wakeLock?: { request: (t: "screen") => Promise<Verrou> } };
@@ -123,7 +132,10 @@ export function useModeConduite() {
   const precedent = useRef<LatLng | null>(null);
   const derniereRecherche = useRef<{ lieu: LatLng; heure: number } | null>(null);
   const rechercheEnCours = useRef(false);
-  const dejaAnnonce = useRef(new Map<string, number>());
+  const dejaAnnonce = useRef(memoireAnnonces.deja);
+  // Au démarrage : heure jusqu'à laquelle les annonces à la portée attendent
+  // le point route (0 = n'attend plus).
+  const attentePointRoute = useRef(0);
   const voixRef = useRef(voix);
   voixRef.current = voix;
   const porteeRef = useRef(portee);
@@ -182,7 +194,9 @@ export function useModeConduite() {
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     precedent.current = null;
     derniereRecherche.current = null;
-    dejaAnnonce.current.clear();
+    // Les dangers annoncés restent en mémoire (30 min) : pas de répétition au redémarrage.
+    if (actifRef.current) memoireAnnonces.arretMs = Date.now();
+    attentePointRoute.current = 0;
     pointRouteDit.current = false;
     pointRouteJeton.current += 1; // un point route en route ne parlera plus
     setRechercheFaite(false);
@@ -201,6 +215,11 @@ export function useModeConduite() {
       setProbleme("Ce téléphone ne donne pas sa position à l'appli.");
       return;
     }
+    if (memoireAnnonces.arretMs && Date.now() - memoireAnnonces.arretMs > CONDUITE_MEMOIRE_MS) {
+      memoireAnnonces.deja.clear();
+    }
+    memoireAnnonces.arretMs = 0;
+    attentePointRoute.current = Date.now() + POINT_ROUTE_ATTENTE_MS;
     setActif(true);
     setProbleme(null);
     // Annonce de départ, dans le geste du doigt : elle « débloque » la voix
@@ -259,6 +278,10 @@ export function useModeConduite() {
     // Au moins 13 km : les 10 km du point route, quelle que soit la portée.
     fetchNearby(lieu, rayonRechercheSite(porteeRef.current))
       .then((liste) => {
+        // Oublie les signalements disparus de la recherche (pas avant la
+        // première : au redémarrage, la mémoire des annonces doit rester).
+        const ids = new Set(liste.map((r) => r.id));
+        for (const id of dejaAnnonce.current.keys()) if (!ids.has(id)) dejaAnnonce.current.delete(id);
         derniereRecherche.current = { lieu, heure: Date.now() };
         setReports(liste);
         setRechercheFaite(true);
@@ -291,10 +314,14 @@ export function useModeConduite() {
     if (!actif || !position) return;
     const liste = dangersDevant(position, cap, reports, trafic, portee);
     setDevant(liste);
-    // Oublie les signalements disparus de la recherche.
-    const ids = new Set(reports.map((r) => r.id));
-    for (const id of dejaAnnonce.current.keys()) if (!ids.has(id)) dejaAnnonce.current.delete(id);
-    const nouvelles = aAnnoncer(liste, dejaAnnonce.current, portee);
+    // Au démarrage, le point route va tout dire d'un coup : en l'attendant,
+    // seuls les dangers tout proches (500 m) sont annoncés.
+    const enAttente = Date.now() < attentePointRoute.current;
+    const nouvelles = aAnnoncer(
+      enAttente ? liste.filter((d) => d.distanceM <= CONDUITE_RAPPEL_M) : liste,
+      dejaAnnonce.current,
+      portee,
+    );
     if (voixRef.current) {
       // Deux annonces au plus d'un coup, la plus proche d'abord.
       for (const d of nouvelles.slice(0, 2)) parler(texteAnnonce(d, cap != null));
@@ -331,17 +358,18 @@ export function useModeConduite() {
     setPointRoute({ texte, ia, heure: Date.now() });
     setPointRouteEnCours(false);
     if (voixRef.current) parler(texte);
+    attentePointRoute.current = 0;
 
-    // Les dangers devant qui viennent d'être cités ne sont pas réannoncés
-    // tout de suite à la portée : seulement aux paliers plus proches.
-    if (capIci != null) {
-      const liste2 = paliers(porteeRef.current);
-      for (const d of liste) {
-        const p = palierPour(d.distanceM, liste2);
-        if (p == null) continue;
-        const avant = dejaAnnonce.current.get(d.report.id);
-        if (avant == null || p < avant) dejaAnnonce.current.set(d.report.id, p);
-      }
+    // Les dangers qui viennent d'être cités (tous si c'est l'IA, les 4 nommés
+    // sinon) ne sont pas réannoncés tout de suite à la portée : seulement aux
+    // paliers plus proches (3 km pour 10 km, puis 500 m). Avec ou sans sens
+    // de marche connu : au départ, on ne le connaît souvent pas encore.
+    const liste2 = paliers(porteeRef.current);
+    for (const d of ia ? liste : citesPointRoute(liste)) {
+      const p = palierPour(d.distanceM, liste2);
+      if (p == null) continue;
+      const avant = dejaAnnonce.current.get(d.report.id);
+      if (avant == null || p < avant) dejaAnnonce.current.set(d.report.id, p);
     }
   }, []);
 

@@ -29,6 +29,9 @@ export const CONDUITE_PORTEE_SANS_CAP_M = 1_000;
 export const CONDUITE_VITESSE_CAP_MIN = 2.5;
 // Déplacement minimal pour calculer soi-même le sens de marche.
 export const CONDUITE_DEPLACEMENT_CAP_M = 30;
+// Les dangers déjà annoncés sont gardés ce temps après l'arrêt du mode
+// conduite : l'arrêter puis le relancer en route ne fait pas tout répéter.
+export const CONDUITE_MEMOIRE_MS = 30 * 60_000;
 // Site seulement (pas dans Conduite.kt) : pendant la conduite, si l'on a
 // déplacé la carte à la main, elle revient toute seule sur le conducteur
 // après ce délai.
@@ -47,6 +50,10 @@ export const POINT_ROUTE_MAX = 10;
 export const POINT_ROUTE_INTERVALLE_MS = 60_000;
 // Durée d'affichage du texte du point route dans le bandeau.
 export const POINT_ROUTE_AFFICHAGE_MS = 45_000;
+// Au démarrage, les annonces à la portée attendent le point route (qui les
+// dit toutes d'un coup), ce temps au plus. Les dangers à 500 m ou moins
+// sont annoncés tout de suite.
+export const POINT_ROUTE_ATTENTE_MS = 30_000;
 
 export function estPortee(v: unknown): v is PorteeKm {
   return (CONDUITE_PORTEES_KM as readonly unknown[]).includes(v);
@@ -151,7 +158,9 @@ export function palierPour(distance: number, liste: number[]): number | null {
 /**
  * Les dangers à annoncer maintenant. `deja` retient, par signalement, le
  * plus petit palier déjà annoncé : on ne répète jamais un palier, et on
- * n'annonce pas « 5 km » si l'on découvre le danger à 400 m.
+ * n'annonce pas « 5 km » si l'on découvre le danger à 400 m. Un danger
+ * déjà annoncé à une portée plus grande (on a réduit la portée en route)
+ * compte comme annoncé à la nouvelle portée.
  */
 export function aAnnoncer(
   devant: DangerDevant[],
@@ -159,12 +168,13 @@ export function aAnnoncer(
   porteeKm: PorteeKm,
 ): DangerDevant[] {
   const liste = paliers(porteeKm);
+  const plafond = liste[0];
   const out: DangerDevant[] = [];
   for (const d of devant) {
     const palier = palierPour(d.distanceM, liste);
     if (palier == null) continue;
     const precedent = deja.get(d.report.id);
-    if (precedent != null && precedent <= palier) continue;
+    if (precedent != null && Math.min(precedent, plafond) <= palier) continue;
     deja.set(d.report.id, palier);
     out.push(d);
   }
@@ -237,6 +247,22 @@ export function estConfirme(r: Report): boolean {
 
 const GRAVES: ReportType[] = ["route_coupee", "inondation", "accident", "feu", "danger", "meteo"];
 
+// Événements nommés au plus dans le point route sans IA.
+const POINT_ROUTE_NOMMES = 4;
+
+function triPointRoute(liste: DangerDevant[]): DangerDevant[] {
+  return [...liste].sort((a, b) => {
+    const ga = GRAVES.includes(a.report.type) ? 0 : 1;
+    const gb = GRAVES.includes(b.report.type) ? 0 : 1;
+    return ga - gb || a.distanceM - b.distanceM;
+  });
+}
+
+/** Les événements nommés par textePointRoute (les autres sont seulement comptés). */
+export function citesPointRoute(liste: DangerDevant[]): DangerDevant[] {
+  return triPointRoute(liste).slice(0, POINT_ROUTE_NOMMES);
+}
+
 /**
  * Point route sans IA (pas de réseau, IA pas branchée ou trop lente) :
  * « Sur les 10 prochains kilomètres : inondation à 2,3 kilomètres ;
@@ -249,12 +275,8 @@ export function textePointRoute(liste: DangerDevant[], avecCap: boolean): string
       avecCap ? "sur les 10 prochains kilomètres" : "à moins de 10 kilomètres"
     }. Reste prudent : tout n'est pas forcément signalé.`;
   }
-  const tries = [...liste].sort((a, b) => {
-    const ga = GRAVES.includes(a.report.type) ? 0 : 1;
-    const gb = GRAVES.includes(b.report.type) ? 0 : 1;
-    return ga - gb || a.distanceM - b.distanceM;
-  });
-  const dits = tries.slice(0, 4).map((d) => {
+  const tries = triPointRoute(liste);
+  const dits = tries.slice(0, POINT_ROUTE_NOMMES).map((d) => {
     const nom = NOMS_PARLES[d.report.type] ?? "signalement";
     return `${nom} ${distanceParlee(d.distanceM)}${estConfirme(d.report) ? "" : ", à confirmer"}`;
   });
