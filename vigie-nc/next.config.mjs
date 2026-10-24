@@ -63,10 +63,12 @@ const nextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
-      // Outil de floutage : le chemin contient la version, il ne change jamais.
+      // Outil de floutage : le chemin contient la version. Une semaine
+      // seulement (pas « immuable ») : une adresse introuvable ne doit pas
+      // rester un an en mémoire dans le téléphone.
       {
         source: "/mediapipe/:path*",
-        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800" }],
       },
       {
         source: "/sw.js",
