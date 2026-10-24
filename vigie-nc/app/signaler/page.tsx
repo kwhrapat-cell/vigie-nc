@@ -44,7 +44,7 @@ const RESULT_TEXT: Record<CreateResult, { title: string; text: string }> = {
   },
   fusionne: {
     title: "Merci, c'est confirmé !",
-    text: "Cet événement était déjà signalé tout près : ton signalement compte comme une confirmation et le rend plus fiable.",
+    text: "Cet événement était déjà signalé tout près : ton signalement compte comme une confirmation et le rend plus fiable. Si tu as écrit un texte, il rejoint le résumé des témoins.",
   },
   deja_signale: {
     title: "Déjà signalé",

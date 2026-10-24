@@ -95,6 +95,12 @@ const ERROR_MESSAGES: Record<string, string> = {
   annonce_introuvable: "Cette annonce n'existe plus.",
   chantier_type_invalide: "Seuls les travaux peuvent avoir une date de fin.",
   chantier_date_invalide: "Choisis une date de fin entre aujourd'hui et dans 6 mois.",
+  ia_non_configuree:
+    "L'IA n'est pas encore branchée : ajoute la clé ANTHROPIC_API_KEY dans les variables Vercel, puis redéploie.",
+  ia_quota: "Limite d'appels à l'IA atteinte pour cette heure : réessaie un peu plus tard.",
+  ia_coupee: "L'IA est coupée (réglage ia_resume = non dans vigie_config).",
+  temoignages_invalides: "Écris de 2 à 8 témoignages, de 200 caractères au plus chacun.",
+  base_non_configuree: "Cette fonction n'est disponible qu'avec la base en direct.",
 };
 
 export class ReportsApiError extends Error {
@@ -156,6 +162,8 @@ export interface ReportRow {
   mon_vote: Vote | null;
   actif: boolean;
   fin_annoncee?: string | null;
+  resume_ia?: string | null;
+  resume_ia_nb?: number | null;
 }
 
 export function mapRow(row: ReportRow): Report {
@@ -181,6 +189,8 @@ export function mapRow(row: ReportRow): Report {
     relaySource: row.relais_source ?? null,
     active: row.actif,
     endDate: row.fin_annoncee ?? null,
+    aiSummary: row.resume_ia ?? null,
+    aiSummaryCount: row.resume_ia_nb ?? null,
   };
 }
 
@@ -195,6 +205,40 @@ export async function fetchNearby(center: LatLng | null, radiusM: number): Promi
   });
   if (error) throw new ReportsApiError(codeFromMessage(error.message));
   return ((data ?? []) as ReportRow[]).map(mapRow);
+}
+
+/**
+ * Point route du mode conduite écrit par l'IA (/api/point-route), à partir
+ * des signalements choisis devant soi : identifiant et distance seulement,
+ * jamais la position. `null` en cas de souci (pas de réseau, IA pas
+ * branchée, trop tôt…) : le téléphone dit alors le point route sans l'IA.
+ */
+export async function fetchPointRouteIa(
+  evenements: { id: string; distanceM: number }[],
+  avecCap: boolean,
+): Promise<string | null> {
+  if (!supabase || evenements.length === 0) return null;
+  const controle = new AbortController();
+  const minuteur = setTimeout(() => controle.abort(), 8_000);
+  try {
+    await requireSession();
+    const { data } = await supabase.auth.getSession();
+    const jeton = data.session?.access_token;
+    if (!jeton) return null;
+    const res = await fetch("/api/point-route", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${jeton}` },
+      body: JSON.stringify({ evenements, avecCap }),
+      signal: controle.signal,
+    });
+    if (!res.ok) return null;
+    const out = (await res.json()) as { texte?: unknown };
+    return typeof out.texte === "string" && out.texte.trim() ? out.texte : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(minuteur);
+  }
 }
 
 /** Un signalement précis (lien partagé), même terminé. */
@@ -440,6 +484,8 @@ export interface ModItem {
   confirmations: number;
   infirmations: number;
   finAnnoncee: string | null;
+  resumeIa: string | null;
+  resumeIaNb: number | null;
   nbSignalements: number;
   motifs: Partial<Record<FlagReason, number>>;
 }
@@ -460,6 +506,8 @@ interface ModRow {
   confirmations: number;
   infirmations: number;
   fin_annoncee: string | null;
+  resume_ia?: string | null;
+  resume_ia_nb?: number | null;
   nb_signalements: number;
   motifs: Partial<Record<FlagReason, number>> | null;
 }
@@ -496,6 +544,8 @@ export async function modList(code: string, filter: ModFilter): Promise<ModItem[
     confirmations: r.confirmations,
     infirmations: r.infirmations,
     finAnnoncee: r.fin_annoncee ?? null,
+    resumeIa: r.resume_ia ?? null,
+    resumeIaNb: r.resume_ia_nb ?? null,
     nbSignalements: r.nb_signalements,
     motifs: r.motifs ?? {},
   }));
@@ -508,6 +558,31 @@ export async function modAct(code: string, reportId: string, action: ModAction, 
     p_action: action,
     p_valeur: valeur ?? null,
   });
+}
+
+/**
+ * Essai de l'IA (onglet « IA » de /moderation) : le résumé que l'IA ferait de
+ * ces témoignages inventés (du plus ancien au plus récent). Rien n'est
+ * enregistré. `null` = l'IA n'y a rien trouvé d'utile pour la route.
+ */
+export async function modIaEssai(
+  code: string,
+  input: { type: ReportType; lieu: string; temoignages: string[] },
+): Promise<string | null> {
+  if (!supabase) throw new ReportsApiError("mode_demo");
+  let res: Response;
+  try {
+    res = await fetch("/api/resumer/essai", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code, ...input }),
+    });
+  } catch {
+    throw new ReportsApiError("inconnu");
+  }
+  const data = (await res.json().catch(() => ({}))) as { resume?: string | null; erreur?: string };
+  if (!res.ok) throw new ReportsApiError(codeFromMessage(data.erreur));
+  return data.resume ?? null;
 }
 
 /**

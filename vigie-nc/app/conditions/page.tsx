@@ -35,6 +35,12 @@ export default function ConditionsPage() {
           Les annonces pour toute la Calédonie (bandeau en haut de la carte) sont publiées par l&apos;équipe de
           Vigie NC. Quand elles citent une source, suis d&apos;abord les consignes de cette source.
         </p>
+        <p>
+          Quand plusieurs personnes décrivent le même événement, la fiche peut afficher un{" "}
+          <strong>résumé automatique</strong>{" "}de leurs textes, écrit par une intelligence artificielle et
+          présenté comme tel. Il reprend seulement ce que disent les témoins, mais il peut se tromper ou ne pas être à
+          jour : vérifie sur place.
+        </p>
       </LegalSection>
 
       <LegalSection title="2. Pas de téléphone en conduisant">
@@ -60,6 +66,12 @@ export default function ConditionsPage() {
           <li>
             Sur le site, les annonces ne marchent que carte ouverte et écran allumé. Dans l&apos;appli Android, elles
             continuent écran éteint.
+          </li>
+          <li>
+            Le <strong>point route</strong>{" "}(au démarrage, ou bouton « route ») cite ce qui est signalé sur
+            Vigie NC sur les 10 km devant toi, confirmé ou non. Il peut être écrit par une intelligence artificielle :
+            il peut se tromper ou oublier un détail, et ne remplace pas les annonces des dangers confirmés. « Rien de
+            signalé » ne veut pas dire que la route est libre.
           </li>
           <li>
             Le <strong>démarrage tout seul en voiture</strong>{" "}(appli Android, à activer toi-même) peut se
@@ -100,7 +112,7 @@ export default function ConditionsPage() {
         <LegalList>
           <li>
             Chacun peut <strong>signaler un contenu</strong>{" "}depuis la fiche d&apos;un signalement. Après deux
-            signalements, la photo et le texte sont masqués automatiquement.
+            signalements, la photo et le texte (résumé automatique compris) sont masqués automatiquement.
           </li>
           <li>
             Un événement fini ou faux disparaît grâce aux votes « C&apos;est terminé » des personnes à moins de 5 km.

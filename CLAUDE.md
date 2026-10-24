@@ -44,12 +44,18 @@ vigie-nc/
                   + /api/sante (moniteur : site + base ; RPC vigie_sante)
                   + /api/alerte-securite (appelé par la base : liste des modérateurs modifiée)
                   + /api/annonce (appelé par la base : annonce générale avec notification)
+                  + /api/resumer (appelé par la base : résumé IA des témoignages) et
+                    /api/resumer/essai (onglet « IA » de /moderation, code du modérateur)
+                  + /api/point-route (mode conduite : point route des 10 km écrit par l'IA ;
+                    reçoit id + distance des signalements, jamais la position, et le jeton
+                    de la session anonyme)
                   + pages légales (/conditions, /confidentialite, /mentions-legales)
                   + /affiche (l'affiche à envoyer par lien ; images dans public/affiche/)
                   + /moderation (écran des modérateurs, code personnel ; lien discret en bas du Profil ;
                     onglet « Travaux » : date de fin des chantiers (moderation_chantier) ;
                     onglet « Annonces » : message pour toute la Calédonie ;
-                    onglet « Chiffres » : utilisateurs actifs, connectés en direct, provenances)
+                    onglet « Chiffres » : utilisateurs actifs, connectés en direct, provenances ;
+                    onglet « IA » : essai du résumé automatique avec des témoignages inventés)
                   + /s/[id] (lien partagé d'un signalement : aperçu WhatsApp/Facebook via
                     opengraph-image.tsx, puis renvoi vers /?signalement=<id>&src=partage)
   components/     CarteLive (accueil), LiveMap, HomeSheet, ReportDetail,
@@ -70,6 +76,7 @@ vigie-nc/
                   ServiceIndisponible (affiché en prod si la base n'est pas
                   branchée : JAMAIS de mode démo en production),
                   ModStatsPanel (onglet Chiffres de /moderation),
+                  ModIaPanel (onglet IA de /moderation : essai du résumé, rien n'est publié),
                   AnnonceBanner (bandeau des annonces générales sur l'accueil ;
                   AnnonceCard sert aussi d'aperçu), ModAnnoncesPanel (onglet
                   Annonces de /moderation),
@@ -87,7 +94,16 @@ vigie-nc/
                   compact en haut, réglages repliés, vue « autour de moi »
                   forcée, recentrage tout seul après 20 s si on a déplacé la
                   carte. Bouton caché dans l'appli Android, repère
-                  « VigieNCApp » du navigateur)
+                  « VigieNCApp » du navigateur. Point route : au démarrage puis
+                  bouton « route » (BoutonPointRoute), la voix dit tout ce qui est
+                  signalé sur les 10 km devant — texte de l'IA (fetchPointRouteIa,
+                  6 s au plus côté serveur, 8 s côté téléphone) ou, à défaut,
+                  textePointRoute() ; les dangers cités ne sont pas réannoncés tout
+                  de suite à la portée. Ces événements sont mis en évidence sur la
+                  carte (LiveMap highlightIds, classe .is-ahead, jamais regroupés) ;
+                  en conduite la carte affiche aussi les signalements trouvés par
+                  le mode conduite (recherche d'au moins 13 km, rayonRechercheSite).
+                  Pas encore dans l'appli Android)
   lib/
     types.ts         types de signalement, couleurs, icônes, durées, rayons
     reports-api.ts   SEUL point d'accès aux données depuis le navigateur (RPC
@@ -109,6 +125,11 @@ vigie-nc/
                      voix au choix 3 / 5 / 10 km, annonce à la portée puis à
                      500 m (+ 3 km pour 10 km), phrases parlées. ⚠️ Même
                      logique dans android/…/Conduite.kt : garder les deux alignées
+    voix.ts          voix du mode conduite (synthèse du téléphone) : la voix
+                     française la plus naturelle d'abord, choix dans les réglages
+                     (« vigie-nc:conduite-voix-nom »), vitesse 0,95 ; l'appli
+                     Android choisit aussi la meilleure voix installée
+                     (ConduiteService.choisirVoix, sans les voix réseau)
     face-blur.ts     photo : réduction, floutage visages, suppression EXIF
     place.ts         nom du lieu via Nominatim
     map-styles.ts    fonds de carte (OpenStreetMap / Esri, sans clé — pas CARTO,
@@ -120,6 +141,11 @@ vigie-nc/
     site.ts          adresse publique (SITE_URL), texte de partage de l'appli
     push.ts          notifications côté téléphone (service worker, abonnement)
     push-server.ts   envoi des notifications (web-push, clés VAPID), texte des alertes
+    ia.ts            SERVEUR uniquement : résumé des témoignages et point route par
+                     l'IA Claude (claude-haiku-5-5, clé ANTHROPIC_API_KEY de Vercel) :
+                     consignes, appel de l'API avec sortie JSON (appelerClaude),
+                     nettoyage (ni numéro ni lien). Ne jamais l'importer depuis un
+                     écran (« use client »)
   app/opengraph-image.png  aperçu du lien (WhatsApp, Facebook…), app/icon.png +
                        app/apple-icon.png : icônes (écran d'accueil, onglet)
   app/manifest.ts  rend l'appli installable + raccourcis par appui long sur
@@ -132,8 +158,9 @@ vigie-nc/
   supabase/schema.sql  schéma complet, ré-exécutable
   supabase/functions/purge-photos  fonction Supabase (Deno) : photos > 7 jours
   supabase/tests/  shim-supabase.sql (faux Supabase pour Postgres + PostGIS)
-                   et essais.sql (29 essais : identité, votes, SOS, photos, droits,
-                   type « feu », chiffres d'utilisation, annonces générales, chantiers)
+                   et essais.sql (34 essais : identité, votes, SOS, photos, droits,
+                   type « feu », chiffres d'utilisation, annonces générales, chantiers,
+                   témoignages et résumé IA, point route)
 .github/workflows/verification.yml  à chaque PR : build + types, schema.sql
                    deux fois puis essais.sql sur Postgres + PostGIS
 android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le site
@@ -187,6 +214,31 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   Le temps réel passe par `vigie_signal` (heure + case de ~11 km, aucun
   contenu, déclencheur `trg_vigie_signal`) ; `useLiveReports` ne recharge
   que si la case touche la zone affichée.
+- Témoignages et résumé IA : à la création et à chaque doublon fusionné,
+  le texte de la personne va dans la table privée `report_temoignages`
+  (un par session, effacée après 7 jours) ; la description publique reste
+  la première. À partir de 2 témoignages, `vigie_demander_resume` prévient
+  `/api/resumer` par `pg_net` (`ia_url` de `vigie_config`, sinon notif_url
+  avec /api/resumer au bout ; secret = `notif_secret`) : une demande à la
+  fois par signalement (`resume_ia_demande_at`, 1 min), rien si aucun
+  témoignage nouveau (`resume_ia_version` = heure du dernier témoignage
+  résumé, renvoyée telle quelle en texte), `vigie_ia_max_heure()` appels
+  par heure (60, clé `ia_max_heure`), interrupteur `ia_resume` = `non`. Le
+  serveur lit `ia_temoignages` et écrit `ia_enregistrer_resume` (secret) ;
+  le résumé (`resume_ia`, 240 caractères = `RESUME_MAX` de lib/ia.ts,
+  `resume_ia_nb`) est renvoyé en fin de liste par `signalements_proches_v3`
+  / `signalement_detail_v3`, masqué avec la photo et le texte. Envoyé à
+  l'IA : type, lieu, âge, textes ; jamais qui les a écrits (décrit dans
+  /confidentialite). Essai depuis /moderation : `moderation_ia_essai`.
+- Point route (mode conduite) : `ia_point_route_preparer(p_ids uuid[])`,
+  session anonyme obligatoire (rôle `authenticated` ; la route l'appelle
+  avec le jeton du téléphone, `supabaseAvecJeton` de lib/supabase.ts),
+  10 identifiants au plus, 1 par minute et 40 par jour par session,
+  `vigie_ia_point_route_max_heure()` pour toute la base (300, clé
+  `ia_point_route_max_heure`), interrupteur `ia_resume` commun. Renvoie le
+  contenu public des signalements en cours (résumé ou description masqués
+  si le contenu l'est). Trace dans `vigie_ia_appels` (origine
+  `point_route`, `device_key`), effacée après 24 h.
 - Votes (`vigie_appliquer_vote`) : témoins à moins de 5 km
   (`vigie_distance_temoin_m()` = `MAX_WITNESS_DISTANCE_M`) ; un danger
   (`vigie_est_danger()` = `ALERT_TYPES`) ne se clôt qu'avec 2 « terminé » et

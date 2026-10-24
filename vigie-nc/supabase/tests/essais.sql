@@ -1,6 +1,7 @@
 -- =====================================================================
 -- Essais de schema.sql : identité anonyme, votes, SOS, photos, droits,
--- type « feu », chiffres d'utilisation, annonces générales, chantiers.
+-- type « feu », chiffres d'utilisation, annonces générales, chantiers,
+-- témoignages et résumé automatique (IA), point route (mode conduite).
 -- À lancer APRÈS schema.sql. Chaque essai qui échoue arrête tout avec un
 -- message « Ex échec : … ». Rien n'est envoyé : l'adresse d'envoi des
 -- alertes est retirée pendant l'essai.
@@ -33,8 +34,17 @@ declare
   v_g uuid := gen_random_uuid();
   v_chantier uuid;
   code_chantier constant text := 'code-essai-chantiers-000000000';
+  v_h uuid := gen_random_uuid();
+  v_i uuid := gen_random_uuid();
+  v_j uuid := gen_random_uuid();
+  v_ia uuid;
+  v_version timestamptz;
+  code_ia constant text := 'code-essai-resume-ia-000000000';
+  v_k uuid := gen_random_uuid();
+  v_l uuid := gen_random_uuid();
+  sig_point_route constant text := 'ia_point_route_preparer(uuid[])';
 begin
-  delete from vigie_config where cle in ('notif_url', 'securite_url');
+  delete from vigie_config where cle in ('notif_url', 'securite_url', 'ia_url');
   insert into vigie_config (cle, valeur) values ('photo_host', 'essai.supabase.co')
   on conflict (cle) do update set valeur = excluded.valeur;
   delete from vigie_config where cle = 'photos_jours';
@@ -492,6 +502,220 @@ begin
   end if;
   delete from moderateurs where nom = 'Essai chantiers';
 
-  raise notice 'ESSAIS OK (29)';
+  -- E30 : le texte d'un doublon n'est plus perdu (témoignages privés)
+  perform set_config('request.jwt.claims', json_build_object('sub', v_h, 'role', 'authenticated')::text, true);
+  v_r := creer_signalement_v3('inondation', lat0 - 0.06, lng0 + 0.06, null,
+           'Radier de la Coulée sous l''eau', 'moyen', 'Essai IA');
+  if v_r->>'resultat' is distinct from 'cree' then raise exception 'E30 échec : %', v_r; end if;
+  v_ia := (v_r->>'id')::uuid;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_i, 'role', 'authenticated')::text, true);
+  v_r := creer_signalement_v3('inondation', lat0 - 0.0605, lng0 + 0.0605, null,
+           'Environ 30 cm d''eau, les petites voitures font demi-tour', 'eleve');
+  if v_r->>'resultat' is distinct from 'fusionne' or (v_r->>'id')::uuid <> v_ia then
+    raise exception 'E30 échec : %', v_r;
+  end if;
+  select count(*) into v_n from report_temoignages where report_id = v_ia;
+  if v_n <> 2 then raise exception 'E30 échec : % témoignage(s) au lieu de 2', v_n; end if;
+  if (select description from reports where id = v_ia) <> 'Radier de la Coulée sous l''eau' then
+    raise exception 'E30 échec : la description publique a changé';
+  end if;
+  -- la même personne qui réécrit remplace son témoignage (pas de doublon)
+  v_r := creer_signalement_v3('inondation', lat0 - 0.0605, lng0 + 0.0605, null, 'Ça monte encore, environ 40 cm');
+  select count(*) into v_n from report_temoignages where report_id = v_ia;
+  if v_n <> 2 or not exists (select 1 from report_temoignages where report_id = v_ia and texte like 'Ça monte encore%') then
+    raise exception 'E30 échec : témoignage non remplacé (% ligne(s))', v_n;
+  end if;
+  if has_table_privilege('anon', 'public.report_temoignages', 'select')
+     or has_table_privilege('authenticated', 'public.report_temoignages', 'select')
+     or has_table_privilege('authenticated', 'public.vigie_ia_appels', 'select') then
+    raise exception 'E30 échec : témoignages ou appels lisibles directement';
+  end if;
+  if has_function_privilege('anon', 'vigie_demander_resume(uuid)', 'execute')
+     or has_function_privilege('authenticated', 'vigie_demander_resume(uuid)', 'execute') then
+    raise exception 'E30 échec : demande de résumé appelable depuis l''appli';
+  end if;
+
+  -- E31 : le serveur lit les témoignages et écrit le résumé, avec le secret
+  -- (dans ces essais tout se passe dans la même transaction, à la même
+  -- heure : on vieillit les témoignages pour simuler des envois successifs)
+  update report_temoignages set created_at = now() - interval '10 minutes' where report_id = v_ia;
+  begin
+    perform ia_temoignages('mauvais-secret', v_ia);
+    raise exception 'E31 échec : témoignages lus sans secret';
+  exception when others then
+    if sqlerrm not like '%secret_invalide%' then raise exception 'E31 échec : %', sqlerrm; end if;
+  end;
+  v_r := ia_temoignages(v_secret, v_ia);
+  if (v_r->>'nb')::int <> 2 or jsonb_array_length(v_r->'temoignages') <> 2
+     or v_r->'report'->>'type' <> 'inondation' or v_r->'report'->>'lieu' <> 'Essai IA'
+     or (v_r->'temoignages'->0->>'minutes')::int <> 10 then
+    raise exception 'E31 échec : %', v_r;
+  end if;
+  if v_r::text like '%' || vigie_device_key('auth:' || v_i::text) || '%' then
+    raise exception 'E31 échec : empreinte de session transmise au serveur';
+  end if;
+  v_version := (v_r->>'version')::timestamptz;
+  begin
+    perform ia_enregistrer_resume('mauvais-secret', v_ia, 'Résumé écrit sans le secret.', 2, v_version);
+    raise exception 'E31 échec : résumé enregistré sans secret';
+  exception when others then
+    if sqlerrm not like '%secret_invalide%' then raise exception 'E31 échec : %', sqlerrm; end if;
+  end;
+  v_r := ia_enregistrer_resume(v_secret, v_ia, E'Radier de la Coulée inondé,\n  environ 40 cm d''eau.', 2, v_version);
+  if not (v_r->>'enregistre')::boolean or (v_r->>'nouveaux')::boolean then raise exception 'E31 échec : %', v_r; end if;
+  if not exists (select 1 from signalements_proches_v3(lat0, lng0, 20000) s
+                 where s.id = v_ia and s.resume_ia = 'Radier de la Coulée inondé, environ 40 cm d''eau.'
+                   and s.resume_ia_nb = 2) then
+    raise exception 'E31 échec : résumé absent de la carte (« % »)', (select resume_ia from reports where id = v_ia);
+  end if;
+  if not exists (select 1 from signalement_detail_v3(v_ia) s where s.resume_ia_nb = 2) then
+    raise exception 'E31 échec : résumé absent de la fiche';
+  end if;
+  -- un résumé en retard (version plus ancienne) n'écrase pas le plus récent
+  v_r := ia_enregistrer_resume(v_secret, v_ia, 'Ancien résumé arrivé en retard.', 2, v_version - interval '1 minute');
+  if (v_r->>'enregistre')::boolean or (select resume_ia from reports where id = v_ia) like 'Ancien%' then
+    raise exception 'E31 échec : résumé plus ancien enregistré';
+  end if;
+  -- un 3e témoignage arrive pendant le passage du serveur : « nouveaux »
+  perform set_config('request.jwt.claims', json_build_object('sub', v_j, 'role', 'authenticated')::text, true);
+  v_r := creer_signalement_v3('inondation', lat0 - 0.06, lng0 + 0.06, null, 'Pompiers sur place, route fermée');
+  if v_r->>'resultat' is distinct from 'fusionne' then raise exception 'E31 échec : %', v_r; end if;
+  v_r := ia_enregistrer_resume(v_secret, v_ia, 'Résumé écrit avant le 3e témoignage.', 2, v_version);
+  if not (v_r->>'nouveaux')::boolean then raise exception 'E31 échec : nouveau témoignage non signalé %', v_r; end if;
+  v_r := ia_temoignages(v_secret, v_ia);
+  if (v_r->>'nb')::int <> 3 then raise exception 'E31 échec : %', v_r; end if;
+  v_version := (v_r->>'version')::timestamptz;
+  v_r := ia_enregistrer_resume(v_secret, v_ia, 'Route fermée au radier de la Coulée, environ 40 cm d''eau, pompiers sur place.',
+                               3, v_version);
+  if not (v_r->>'enregistre')::boolean or (select resume_ia_nb from reports where id = v_ia) <> 3 then
+    raise exception 'E31 échec : 3e témoignage non résumé %', v_r;
+  end if;
+
+  -- E32 : « rien d'utile » (résumé vide ou trop court) garde l'ancien résumé
+  v_r := ia_enregistrer_resume(v_secret, v_ia, '  rien ', 3, v_version + interval '1 second');
+  if (v_r->>'enregistre')::boolean or (select resume_ia from reports where id = v_ia) not like 'Route fermée%' then
+    raise exception 'E32 échec : %', v_r;
+  end if;
+  if (select resume_ia_version from reports where id = v_ia) <> v_version + interval '1 second' then
+    raise exception 'E32 échec : version non avancée (l''IA serait rappelée pour rien)';
+  end if;
+  if (select resume_ia_demande_at from reports where id = v_ia) is not null then
+    raise exception 'E32 échec : demande toujours marquée en cours';
+  end if;
+
+  -- E33 : modération (résumé visible, masqué avec le texte), essai de l'IA
+  -- avec un code, limite par heure, interrupteur, purge des témoignages
+  perform vigie_ajouter_moderateur('Essai IA', code_ia);
+  if not (moderation_liste(code_ia, 'recents') @> jsonb_build_array(jsonb_build_object('id', v_ia, 'resume_ia_nb', 3))) then
+    raise exception 'E33 échec : résumé absent de la modération';
+  end if;
+  perform moderation_action(code_ia, v_ia, 'masquer');
+  if (select resume_ia from reports where id = v_ia) is not null
+     or exists (select 1 from signalements_proches_v3(lat0, lng0, 20000) s where s.id = v_ia and s.resume_ia is not null) then
+    raise exception 'E33 échec : résumé encore visible après masquage';
+  end if;
+  perform moderation_action(code_ia, v_ia, 'retablir');  -- redemande un résumé (rien ne part : pas d'adresse)
+  begin
+    perform moderation_ia_essai('mauvais-code-de-test-0000');
+    raise exception 'E33 échec : essai de l''IA sans code';
+  exception when others then
+    if sqlerrm not like '%code_invalide%' then raise exception 'E33 échec : %', sqlerrm; end if;
+  end;
+  delete from vigie_config where cle = 'ia_resume';
+  insert into vigie_config (cle, valeur) values ('ia_max_heure', '1000')
+  on conflict (cle) do update set valeur = excluded.valeur;
+  select count(*) into v_n from vigie_ia_appels where origine = 'essai';
+  perform moderation_ia_essai(code_ia);
+  if (select count(*) from vigie_ia_appels where origine = 'essai') <> v_n + 1 then
+    raise exception 'E33 échec : essai non compté';
+  end if;
+  update vigie_config set valeur = '1' where cle = 'ia_max_heure';
+  begin
+    perform moderation_ia_essai(code_ia);
+    raise exception 'E33 échec : limite par heure non appliquée';
+  exception when others then
+    if sqlerrm not like '%ia_quota%' then raise exception 'E33 échec : %', sqlerrm; end if;
+  end;
+  insert into vigie_config (cle, valeur) values ('ia_resume', 'non');
+  begin
+    perform moderation_ia_essai(code_ia);
+    raise exception 'E33 échec : IA coupée mais essai accepté';
+  exception when others then
+    if sqlerrm not like '%ia_coupee%' then raise exception 'E33 échec : %', sqlerrm; end if;
+  end;
+  delete from vigie_config where cle in ('ia_resume', 'ia_max_heure');
+  if not has_function_privilege('anon', 'ia_temoignages(text, uuid)', 'execute')
+     or not has_function_privilege('anon', 'moderation_ia_essai(text)', 'execute') then
+    raise exception 'E33 échec : le serveur ou la modération ne peut pas appeler l''IA';
+  end if;
+  update report_temoignages set created_at = now() - interval '8 days'
+   where report_id = v_ia and texte like 'Pompiers%';
+  perform vigie_purger_donnees_appareil();
+  if exists (select 1 from report_temoignages where report_id = v_ia and texte like 'Pompiers%') then
+    raise exception 'E33 échec : témoignage de plus de 7 jours non effacé';
+  end if;
+  delete from moderateurs where nom = 'Essai IA';
+
+  -- E34 : point route — session obligatoire, seulement de vrais
+  -- signalements en cours (contenu public), 1 par minute, limite par heure
+  perform set_config('request.jwt.claims', '', true);
+  begin
+    perform ia_point_route_preparer(array[v_ia]);
+    raise exception 'E34 échec : point route sans session';
+  exception when others then
+    if sqlerrm not like '%connexion_requise%' then raise exception 'E34 échec : %', sqlerrm; end if;
+  end;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_k, 'role', 'authenticated')::text, true);
+  begin
+    perform ia_point_route_preparer(array_fill(v_ia, array[11]));
+    raise exception 'E34 échec : 11 événements acceptés';
+  exception when others then
+    if sqlerrm not like '%point_route_invalide%' then raise exception 'E34 échec : %', sqlerrm; end if;
+  end;
+  -- v_ia : inondation en cours ; v_id : terminée (E10) ; un identifiant inconnu
+  v_r := ia_point_route_preparer(array[v_ia, v_id, gen_random_uuid()]);
+  if jsonb_array_length(v_r) <> 1 or v_r->0->>'id' <> v_ia::text or v_r->0->>'type' <> 'inondation' then
+    raise exception 'E34 échec : %', v_r;
+  end if;
+  if v_r::text like '%' || vigie_device_key('auth:' || v_h::text) || '%' then
+    raise exception 'E34 échec : empreinte d''un auteur transmise';
+  end if;
+  begin
+    perform ia_point_route_preparer(array[v_ia]);
+    raise exception 'E34 échec : 2e point route dans la minute';
+  exception when others then
+    if sqlerrm not like '%point_route_trop_tot%' then raise exception 'E34 échec : %', sqlerrm; end if;
+  end;
+  insert into vigie_config (cle, valeur) values ('ia_point_route_max_heure', '1')
+  on conflict (cle) do update set valeur = excluded.valeur;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_l, 'role', 'authenticated')::text, true);
+  begin
+    perform ia_point_route_preparer(array[v_ia]);
+    raise exception 'E34 échec : limite par heure non appliquée';
+  exception when others then
+    if sqlerrm not like '%ia_quota%' then raise exception 'E34 échec : %', sqlerrm; end if;
+  end;
+  delete from vigie_config where cle = 'ia_point_route_max_heure';
+  insert into vigie_config (cle, valeur) values ('ia_resume', 'non');
+  begin
+    perform ia_point_route_preparer(array[v_ia]);
+    raise exception 'E34 échec : IA coupée mais point route accepté';
+  exception when others then
+    if sqlerrm not like '%ia_coupee%' then raise exception 'E34 échec : %', sqlerrm; end if;
+  end;
+  delete from vigie_config where cle = 'ia_resume';
+  if has_function_privilege('anon', sig_point_route, 'execute')
+     or not has_function_privilege('authenticated', sig_point_route, 'execute') then
+    raise exception 'E34 échec : droits du point route';
+  end if;
+  -- la trace avec l'empreinte de session part après 24 heures
+  update vigie_ia_appels set created_at = now() - interval '25 hours'
+   where origine = 'point_route' and device_key = vigie_device_key('auth:' || v_k::text);
+  perform vigie_purger_donnees_appareil();
+  if exists (select 1 from vigie_ia_appels where device_key = vigie_device_key('auth:' || v_k::text)) then
+    raise exception 'E34 échec : trace du point route gardée plus de 24 heures';
+  end if;
+
+  raise notice 'ESSAIS OK (34)';
 end
 $essais$;

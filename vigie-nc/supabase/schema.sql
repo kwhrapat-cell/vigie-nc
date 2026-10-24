@@ -121,7 +121,23 @@ alter table reports add column if not exists notifie_at timestamptz;
 -- moderation_chantier(). Le signalement reste sur la carte jusqu'au soir
 -- de ce jour, heure de Nouméa ; les « C'est terminé » ne l'effacent pas.
 alter table reports add column if not exists fin_annoncee date;
+-- Résumé automatique (IA) des témoignages, dès que 2 personnes au moins
+-- ont décrit l'événement (voir « Résumé automatique » plus bas). Public
+-- comme la description, jamais de lien avec qui a écrit.
+alter table reports add column if not exists resume_ia text;
+-- nombre de témoignages résumés
+alter table reports add column if not exists resume_ia_nb int;
+-- heure du dernier témoignage pris en compte (rien de nouveau = pas d'appel)
+alter table reports add column if not exists resume_ia_version timestamptz;
+-- demande en cours auprès du serveur (une seule à la fois)
+alter table reports add column if not exists resume_ia_demande_at timestamptz;
 
+do $$
+begin
+  alter table reports add constraint reports_resume_ia_longueur
+    check (resume_ia is null or char_length(resume_ia) <= 240);
+exception when duplicate_object then null;
+end $$;
 do $$
 begin
   alter table reports add constraint reports_description_longueur
@@ -202,6 +218,34 @@ create table if not exists report_contenu_masque (
   raison text not null check (raison in ('signalements', 'moderation')),
   masque_at timestamptz not null default now()
 );
+
+-- Témoignages : le texte de CHAQUE personne qui décrit l'événement (le
+-- sien à la création, puis celui des doublons fusionnés). La description
+-- publique reste la première ; ces textes servent seulement au résumé
+-- automatique. Table privée : un témoignage par session et par
+-- signalement (modifiable), effacé 7 jours après par la purge.
+create table if not exists report_temoignages (
+  report_id uuid not null references reports(id) on delete cascade,
+  device_key text not null,
+  texte text not null check (char_length(texte) between 1 and 200),
+  created_at timestamptz not null default now(),
+  primary key (report_id, device_key)
+);
+create index if not exists report_temoignages_created_idx
+  on report_temoignages (created_at);
+
+-- Signalements en cours créés avant les témoignages : leur description
+-- devient le premier témoignage (sans effet ensuite).
+insert into report_temoignages (report_id, device_key, texte, created_at)
+select r.id, a.device_key, r.description, r.created_at
+from reports r
+join report_authors a on a.report_id = r.id
+where r.description is not null
+  and r.contenu_masque_at is null
+  and r.resolved_at is null
+  and r.expires_at > now()
+  and r.created_at > now() - interval '7 days'
+on conflict (report_id, device_key) do nothing;
 
 -- ---------------------------------------------------------------------
 -- Migration depuis le Sprint 1 (sans effet sur une base neuve)
@@ -677,6 +721,16 @@ begin
           end
       where id = v_existant.id;
 
+      -- Son texte n'est plus perdu : il rejoint les témoignages (un par
+      -- session). À partir de 2, l'IA en fait un résumé.
+      if v_description is not null then
+        insert into report_temoignages (report_id, device_key, texte)
+        values (v_existant.id, v_key, v_description)
+        on conflict (report_id, device_key) do update
+          set texte = excluded.texte, created_at = now();
+        perform vigie_demander_resume(v_existant.id);
+      end if;
+
       return jsonb_build_object('id', v_existant.id, 'resultat', 'fusionne');
     end if;
   end if;
@@ -687,6 +741,11 @@ begin
   returning id into v_id;
 
   insert into report_authors (report_id, device_key) values (v_id, v_key);
+
+  if v_description is not null then
+    insert into report_temoignages (report_id, device_key, texte)
+    values (v_id, v_key, v_description);
+  end if;
 
   return jsonb_build_object('id', v_id, 'resultat', 'cree');
 end;
@@ -770,8 +829,9 @@ $$;
 -- lecture marche aussi (est_auteur et mon_vote restent vides).
 --   select * from signalements_proches_v3(-22.27, 166.45, 5000);
 -- ---------------------------------------------------------------------
--- Colonne fin_annoncee ajoutée (chantiers) : le type renvoyé change, il
--- faut supprimer l'ancienne version avant (droits redonnés en bas).
+-- Colonnes fin_annoncee (chantiers) puis resume_ia / resume_ia_nb (résumé
+-- automatique) ajoutées en fin de liste : le type renvoyé change, il faut
+-- supprimer l'ancienne version avant (droits redonnés en bas).
 drop function if exists signalements_proches_v3(double precision, double precision, integer);
 create or replace function signalements_proches_v3(
   p_lat double precision default null,
@@ -798,7 +858,9 @@ returns table (
   est_auteur boolean,
   mon_vote text,
   actif boolean,
-  fin_annoncee date
+  fin_annoncee date,
+  resume_ia text,
+  resume_ia_nb int
 )
 language sql
 stable
@@ -821,7 +883,9 @@ as $$
     coalesce(a.device_key = m.cle, false) as est_auteur,
     v.vote as mon_vote,
     true as actif,
-    r.fin_annoncee
+    r.fin_annoncee,
+    case when r.contenu_masque_at is null then r.resume_ia end as resume_ia,
+    case when r.contenu_masque_at is null and r.resume_ia is not null then r.resume_ia_nb end as resume_ia_nb
   from reports r
   cross join moi m
   cross join centre c
@@ -864,7 +928,9 @@ returns table (
   est_auteur boolean,
   mon_vote text,
   actif boolean,
-  fin_annoncee date
+  fin_annoncee date,
+  resume_ia text,
+  resume_ia_nb int
 )
 language sql
 stable
@@ -882,7 +948,9 @@ as $$
     coalesce(a.device_key = m.cle, false) as est_auteur,
     v.vote as mon_vote,
     (r.resolved_at is null and r.expires_at > now()) as actif,
-    r.fin_annoncee
+    r.fin_annoncee,
+    case when r.contenu_masque_at is null then r.resume_ia end as resume_ia,
+    case when r.contenu_masque_at is null and r.resume_ia is not null then r.resume_ia_nb end as resume_ia_nb
   from reports r
   cross join moi m
   left join report_authors a on a.report_id = r.id
@@ -1092,10 +1160,15 @@ begin
   end if;
 
   -- Même sans contenu à retirer, la décision est notée : un doublon
-  -- fusionné plus tard ne pourra pas rajouter de photo ni de texte.
+  -- fusionné plus tard ne pourra pas rajouter de photo ni de texte. Le
+  -- résumé automatique part aussi (il peut reprendre le texte en cause) ;
+  -- il sera refait si le contenu est rétabli.
   update reports
   set photo_url = null,
       description = null,
+      resume_ia = null,
+      resume_ia_nb = null,
+      resume_ia_version = null,
       contenu_masque_at = coalesce(contenu_masque_at, now())
   where id = p_report_id;
 
@@ -1125,6 +1198,8 @@ begin
 
   delete from report_contenu_masque where report_id = p_report_id;
   delete from report_flags where report_id = p_report_id;
+  -- Le résumé automatique, retiré au masquage, est refait.
+  perform vigie_demander_resume(p_report_id);
   return true;
 end;
 $$;
@@ -1327,6 +1402,7 @@ begin
       m.photo_url as photo_masquee,
       r.source_officielle, r.relais_source, r.confirmations, r.infirmations,
       r.fin_annoncee,
+      r.resume_ia, r.resume_ia_nb,
       coalesce(f.nb, 0) as nb_signalements,
       coalesce(f.motifs, '{}'::jsonb) as motifs,
       coalesce(f.dernier, r.contenu_masque_at, r.created_at) as tri
@@ -2211,6 +2287,9 @@ $$;
 --   - le contenu masqué par la modération est effacé après 90 jours ;
 --   - le journal de modération et les annonces générales sont gardés un an ;
 --   - la trace des alertes envoyées (anti-doublon) est gardée 7 jours ;
+--   - les témoignages (textes de chaque personne, servant au résumé
+--     automatique) et la trace des appels à l'IA : 7 jours (24 heures pour
+--     les points route, qui gardent l'empreinte de la session) ;
 --   - les sessions anonymes inactives depuis 90 jours sont supprimées ;
 --   - le journal de sécurité de Supabase Auth est gardé 30 jours ;
 --   - chiffres d'utilisation : le détail par appareil est ramené à des
@@ -2237,6 +2316,11 @@ begin
    where j.created_at < now() - interval '1 year';
   delete from push_envois p
    where p.sent_at < now() - interval '7 days';
+  delete from report_temoignages t
+   where t.created_at < now() - interval '7 days';
+  delete from vigie_ia_appels i
+   where i.created_at < now() - interval '7 days'
+      or (i.device_key is not null and i.created_at < now() - interval '24 hours');
   delete from vigie_signal s
    where s.created_at < now() - interval '1 day';
   delete from vigie_annonce_signal s
@@ -2412,7 +2496,7 @@ $$;
 drop trigger if exists trg_vigie_signal on reports;
 create trigger trg_vigie_signal
 after insert or update of confirmations, infirmations, expires_at, resolved_at,
-  photo_url, description, source_officielle, fin_annoncee, lat, lng
+  photo_url, description, source_officielle, fin_annoncee, resume_ia, lat, lng
 on reports
 for each row execute function vigie_emettre_signal();
 
@@ -2725,6 +2809,393 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------
+-- Résumé automatique (IA) des témoignages
+--   - quand 2 personnes au moins ont décrit le même événement (doublons
+--     fusionnés), la base prévient le serveur (/api/resumer, par pg_net,
+--     même secret que les alertes). Le serveur lit les témoignages
+--     (ia_temoignages), les fait résumer en une ou deux phrases par l'IA
+--     Claude (Anthropic), puis enregistre le résumé (ia_enregistrer_resume) ;
+--   - envoyé à l'IA : le type, le nom du lieu, l'âge du signalement et les
+--     textes. Jamais qui les a écrits, ni photo, ni position ;
+--   - le résumé est public (fiche du signalement, « résumé automatique ») et
+--     masqué avec la photo et le texte par la modération ;
+--   - garde-fous de coût : une demande à la fois par signalement, rien si
+--     aucun témoignage nouveau, et au plus vigie_ia_max_heure() appels par
+--     heure pour toute la base (60 par défaut, clé 'ia_max_heure') ;
+--   - couper l'IA (éditeur SQL) :
+--       insert into vigie_config (cle, valeur) values ('ia_resume', 'non')
+--       on conflict (cle) do update set valeur = excluded.valeur;
+--     la rallumer : delete from vigie_config where cle = 'ia_resume';
+-- Adresse : notif_url avec /api/resumer au bout, ou la clé 'ia_url'.
+-- Côté Vercel : variable ANTHROPIC_API_KEY (sans elle, aucun résumé).
+-- ---------------------------------------------------------------------
+create table if not exists vigie_ia_appels (
+  id bigint generated always as identity primary key,
+  report_id uuid,  -- nul pour un essai depuis /moderation ou un point route
+  origine text not null default 'resume',
+  created_at timestamptz not null default now()
+);
+create index if not exists vigie_ia_appels_created_idx on vigie_ia_appels (created_at);
+-- Point route (mode conduite) : empreinte de la session, pour limiter les
+-- abus (1 par minute, 40 par jour). Effacé après 24 heures par la purge.
+alter table vigie_ia_appels add column if not exists device_key text;
+alter table vigie_ia_appels drop constraint if exists vigie_ia_appels_origine_check;
+alter table vigie_ia_appels add constraint vigie_ia_appels_origine_check
+  check (origine in ('resume', 'essai', 'point_route'));
+create index if not exists vigie_ia_appels_session_idx
+  on vigie_ia_appels (device_key, created_at) where device_key is not null;
+
+create or replace function vigie_ia_active()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((select valeur from vigie_config where cle = 'ia_resume'), 'oui') <> 'non';
+$$;
+
+create or replace function vigie_ia_max_heure()
+returns int
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select least(greatest(coalesce(
+    (select case when valeur ~ '^[0-9]{1,4}$' then valeur::int end
+     from vigie_config where cle = 'ia_max_heure'),
+    60), 1), 1000);
+$$;
+
+-- Résumés et essais (les points route ont leur propre limite, plus bas).
+create or replace function vigie_ia_quota_ok()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select (select count(*) from vigie_ia_appels
+          where origine in ('resume', 'essai') and created_at > now() - interval '1 hour')
+         < vigie_ia_max_heure();
+$$;
+
+-- Demande un résumé au serveur si c'est utile (fonction interne, appelée
+-- par creer_signalement_v3 et vigie_retablir_contenu). Sans configuration
+-- ou sans pg_net, elle ne fait rien et ne bloque jamais le signalement.
+create or replace function vigie_demander_resume(p_report_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_r reports%rowtype;
+  v_url text;
+  v_secret text;
+begin
+  if not vigie_ia_active() then
+    return false;
+  end if;
+  select * into v_r from reports where id = p_report_id;
+  if not found
+     or v_r.type::text = 'sos'
+     or v_r.resolved_at is not null
+     or v_r.expires_at <= now()
+     or v_r.contenu_masque_at is not null then
+    return false;
+  end if;
+  -- Un seul témoignage : sa description suffit.
+  if (select count(*) from report_temoignages where report_id = p_report_id) < 2 then
+    return false;
+  end if;
+  -- Rien de nouveau depuis le dernier résumé.
+  if not exists (
+    select 1 from report_temoignages
+    where report_id = p_report_id
+      and created_at > coalesce(v_r.resume_ia_version, '-infinity'::timestamptz)
+  ) then
+    return false;
+  end if;
+  -- Une demande déjà en cours (moins d'une minute) : avant de finir, le
+  -- serveur vérifie s'il est arrivé d'autres témoignages et les reprend.
+  if v_r.resume_ia_demande_at > now() - interval '1 minute' then
+    return false;
+  end if;
+  if not vigie_ia_quota_ok() then
+    return false;
+  end if;
+
+  select valeur into v_url from vigie_config where cle = 'ia_url';
+  if v_url is null then
+    select regexp_replace(valeur, '/api/notifier/?$', '/api/resumer')
+    into v_url from vigie_config where cle = 'notif_url';
+    if v_url !~ '/api/resumer$' then
+      v_url := null;
+    end if;
+  end if;
+  select valeur into v_secret from vigie_config where cle = 'notif_secret';
+  if v_url is null or v_secret is null then
+    return false;
+  end if;
+
+  begin
+    perform net.http_post(
+      url := v_url,
+      body := jsonb_build_object('report_id', p_report_id),
+      headers := jsonb_build_object('Content-Type', 'application/json', 'x-vigie-secret', v_secret),
+      timeout_milliseconds := 30000
+    );
+  exception when others then
+    -- pg_net absent ou en panne : pas de résumé cette fois, rien ne bloque.
+    return false;
+  end;
+
+  update reports set resume_ia_demande_at = now() where id = p_report_id;
+  insert into vigie_ia_appels (report_id, origine) values (p_report_id, 'resume');
+  return true;
+end;
+$$;
+
+-- RPC (serveur) : ce qu'il faut pour écrire le résumé. Les 12 témoignages
+-- les plus récents, avec leur âge en minutes ; jamais qui les a écrits.
+-- « version » = heure du dernier témoignage, à renvoyer telle quelle à
+-- ia_enregistrer_resume.
+create or replace function ia_temoignages(p_secret text, p_report_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_r reports%rowtype;
+begin
+  if not vigie_secret_notif_ok(p_secret) then
+    raise exception 'secret_invalide';
+  end if;
+  select * into v_r from reports where id = p_report_id;
+  if not found then
+    raise exception 'signalement_introuvable';
+  end if;
+
+  return jsonb_build_object(
+    'report', jsonb_build_object(
+      'id', v_r.id,
+      'type', v_r.type,
+      'lieu', v_r.lieu,
+      'minutes', floor(extract(epoch from now() - v_r.created_at) / 60)::int,
+      'source_officielle', v_r.source_officielle,
+      'confirmations', v_r.confirmations,
+      'infirmations', v_r.infirmations,
+      'actif', (v_r.resolved_at is null and v_r.expires_at > now()),
+      'masque', (v_r.contenu_masque_at is not null)
+    ),
+    'nb', (select count(*) from report_temoignages where report_id = p_report_id),
+    'version', (select max(created_at) from report_temoignages where report_id = p_report_id),
+    'temoignages', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'texte', t.texte,
+               'minutes', floor(extract(epoch from now() - t.created_at) / 60)::int
+             ) order by t.created_at)
+      from (
+        select texte, created_at from report_temoignages
+        where report_id = p_report_id
+        order by created_at desc
+        limit 12
+      ) t), '[]'::jsonb)
+  );
+end;
+$$;
+
+-- RPC (serveur) : enregistre le résumé. p_resume nul = l'IA n'a rien
+-- trouvé d'utile (on garde l'ancien résumé, sans redemander pour ces
+-- textes). Un résumé plus ancien (version dépassée) n'écrase jamais un
+-- plus récent. Retour : « nouveaux » = d'autres témoignages sont arrivés
+-- entre-temps (le serveur refait un passage).
+create or replace function ia_enregistrer_resume(
+  p_secret text,
+  p_report_id uuid,
+  p_resume text,
+  p_nb int,
+  p_version timestamptz
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  -- une seule ligne, espaces et caractères de contrôle ramenés à un espace
+  v_resume text := left(nullif(btrim(regexp_replace(coalesce(p_resume, ''), E'[\\s\\x01-\\x1f\\x7f]+', ' ', 'g')), ''), 240);
+  v_nb int;
+  v_enregistre boolean := false;
+begin
+  if not vigie_secret_notif_ok(p_secret) then
+    raise exception 'secret_invalide';
+  end if;
+  if p_version is null then
+    raise exception 'version_manquante';
+  end if;
+  if char_length(v_resume) < 10 then
+    v_resume := null;
+  end if;
+
+  select count(*) into v_nb from report_temoignages where report_id = p_report_id;
+
+  update reports
+  set resume_ia = coalesce(v_resume, resume_ia),
+      resume_ia_nb = case when v_resume is not null
+                          then least(greatest(coalesce(p_nb, v_nb), 2), v_nb)
+                          else resume_ia_nb end,
+      resume_ia_version = p_version,
+      resume_ia_demande_at = null
+  where id = p_report_id
+    and contenu_masque_at is null
+    and (resume_ia_version is null or p_version > resume_ia_version);
+  v_enregistre := found;
+
+  -- Dans tous les cas, la demande en cours est terminée.
+  update reports set resume_ia_demande_at = null
+  where id = p_report_id and resume_ia_demande_at is not null;
+
+  return jsonb_build_object(
+    'ok', true,
+    'enregistre', v_enregistre and v_resume is not null,
+    'nouveaux', exists (
+      select 1 from reports r
+      where r.id = p_report_id
+        and r.contenu_masque_at is null
+        and r.resolved_at is null
+        and r.expires_at > now()
+        and exists (select 1 from report_temoignages t
+                    where t.report_id = r.id and t.created_at > p_version)
+    )
+  );
+end;
+$$;
+
+-- RPC (modération) : autorise un essai de l'IA depuis /moderation (onglet
+-- « IA ») avec des témoignages inventés. Rien n'est enregistré, mais
+-- l'essai compte dans la limite par heure.
+create or replace function moderation_ia_essai(p_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_nom text;
+begin
+  v_nom := vigie_moderateur(p_code);
+  if not vigie_ia_active() then
+    raise exception 'ia_coupee';
+  end if;
+  if not vigie_ia_quota_ok() then
+    raise exception 'ia_quota';
+  end if;
+  insert into vigie_ia_appels (report_id, origine) values (null, 'essai');
+  return jsonb_build_object(
+    'ok', true,
+    'nom', v_nom,
+    'appels_heure', (select count(*) from vigie_ia_appels
+                     where origine in ('resume', 'essai') and created_at > now() - interval '1 hour'),
+    'max_heure', vigie_ia_max_heure()
+  );
+end;
+$$;
+
+-- ---------------------------------------------------------------------
+-- Point route (mode conduite) : au démarrage et à la demande, l'IA dit ce
+-- qui est signalé sur les 10 km devant le conducteur.
+--   - le téléphone choisit lui-même les événements devant lui (sa position
+--     ne part pas) et envoie leurs identifiants et leurs distances à
+--     /api/point-route, avec sa session anonyme ;
+--   - ia_point_route_preparer vérifie la session et les limites, puis
+--     renvoie le contenu PUBLIC de ces signalements (celui de la carte) :
+--     l'IA ne peut parler que de vrais signalements en cours ;
+--   - limites : 1 point route par minute et 40 par jour par session ;
+--     vigie_ia_point_route_max_heure() pour toute la base (300 par heure par
+--     défaut, clé 'ia_point_route_max_heure') ; interrupteur 'ia_resume'
+--     commun avec le résumé ;
+--   - la trace (empreinte de session + heure) est effacée après 24 heures.
+-- ---------------------------------------------------------------------
+create or replace function vigie_ia_point_route_max_heure()
+returns int
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select least(greatest(coalesce(
+    (select case when valeur ~ '^[0-9]{1,5}$' then valeur::int end
+     from vigie_config where cle = 'ia_point_route_max_heure'),
+    300), 1), 10000);
+$$;
+
+create or replace function ia_point_route_preparer(p_ids uuid[])
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_key text := vigie_cle_session();
+begin
+  if v_key is null then
+    raise exception 'connexion_requise';
+  end if;
+  if not vigie_ia_active() then
+    raise exception 'ia_coupee';
+  end if;
+  if p_ids is null or cardinality(p_ids) = 0 or cardinality(p_ids) > 10 then
+    raise exception 'point_route_invalide';
+  end if;
+  if exists (
+    select 1 from vigie_ia_appels
+    where origine = 'point_route' and device_key = v_key and created_at > now() - interval '1 minute'
+  ) then
+    raise exception 'point_route_trop_tot';
+  end if;
+  if (
+    select count(*) from vigie_ia_appels
+    where origine = 'point_route' and device_key = v_key and created_at > now() - interval '24 hours'
+  ) >= 40 then
+    raise exception 'point_route_jour';
+  end if;
+  if (
+    select count(*) from vigie_ia_appels
+    where origine = 'point_route' and created_at > now() - interval '1 hour'
+  ) >= vigie_ia_point_route_max_heure() then
+    raise exception 'ia_quota';
+  end if;
+
+  insert into vigie_ia_appels (report_id, origine, device_key) values (null, 'point_route', v_key);
+
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'id', r.id,
+      'type', r.type,
+      'lieu', r.lieu,
+      'minutes', floor(extract(epoch from now() - r.created_at) / 60)::int,
+      'confirmations', r.confirmations,
+      'infirmations', r.infirmations,
+      'source_officielle', r.source_officielle,
+      'relais_source', r.relais_source,
+      'description', case when r.contenu_masque_at is null then r.description end,
+      'resume_ia', case when r.contenu_masque_at is null then r.resume_ia end,
+      'fin_annoncee', r.fin_annoncee
+    ))
+    from reports r
+    where r.id = any(p_ids)
+      and r.type::text <> 'sos'
+      and r.resolved_at is null
+      and r.expires_at > now()
+  ), '[]'::jsonb);
+end;
+$$;
+
+-- ---------------------------------------------------------------------
 -- Droits d'accès
 --   - les signalements ne se lisent QUE par les fonctions (RPC) : elles
 --     ne montrent que ce qui doit l'être (signalements actifs, jamais de
@@ -2752,6 +3223,8 @@ alter table vigie_sources_jour enable row level security;
 alter table vigie_stats_jour enable row level security;
 alter table annonces enable row level security;
 alter table vigie_annonce_signal enable row level security;
+alter table report_temoignages enable row level security;
+alter table vigie_ia_appels enable row level security;
 
 drop policy if exists "zones lecture publique" on zones;
 create policy "zones lecture publique" on zones for select using (true);
@@ -2789,6 +3262,8 @@ revoke all on vigie_sources_jour from anon, authenticated;
 revoke all on vigie_stats_jour from anon, authenticated;
 revoke all on annonces from anon, authenticated;
 revoke insert, update, delete on vigie_annonce_signal from anon, authenticated;
+revoke all on report_temoignages from anon, authenticated;
+revoke all on vigie_ia_appels from anon, authenticated;
 
 revoke execute on function vigie_appliquer_vote(uuid, text, text) from public, anon, authenticated;
 revoke execute on function vigie_masquer_contenu(uuid, text) from public, anon, authenticated;
@@ -2856,6 +3331,21 @@ grant execute on function moderation_annonce_publier(text, text, text, text, int
 grant execute on function moderation_annonce_retirer(text, uuid) to anon, authenticated;
 grant execute on function moderation_annonces(text) to anon, authenticated;
 grant execute on function annonce_destinataires(text, uuid) to anon, authenticated;
+
+-- Résumé automatique : les fonctions internes ne s'appellent pas depuis
+-- l'appli ; le serveur lit et écrit avec le secret ; essai avec un code de
+-- modérateur.
+revoke execute on function vigie_demander_resume(uuid) from public, anon, authenticated;
+revoke execute on function vigie_ia_active() from public, anon, authenticated;
+revoke execute on function vigie_ia_max_heure() from public, anon, authenticated;
+revoke execute on function vigie_ia_quota_ok() from public, anon, authenticated;
+grant execute on function ia_temoignages(text, uuid) to anon, authenticated;
+grant execute on function ia_enregistrer_resume(text, uuid, text, int, timestamptz) to anon, authenticated;
+grant execute on function moderation_ia_essai(text) to anon, authenticated;
+-- Point route : seulement avec une session (anonyme) Supabase.
+revoke execute on function vigie_ia_point_route_max_heure() from public, anon, authenticated;
+revoke execute on function ia_point_route_preparer(uuid[]) from public, anon;
+grant execute on function ia_point_route_preparer(uuid[]) to authenticated;
 
 -- ---------------------------------------------------------------------
 -- Photos : bucket public en lecture, dépôt réservé aux sessions (anonymes)
