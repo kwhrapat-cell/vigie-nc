@@ -142,9 +142,13 @@ export function analyzeRelayText(text: string): RelayAnalysis {
   for (const t of PRIORITY) {
     let score = 0;
     let top: [string, number] | null = null;
-    for (const [kw, w] of KEYWORDS[t]) {
-      if (norm.includes(kw)) {
+    // Les expressions les plus longues d'abord, et chacune « consomme » son
+    // texte : « ça bouchonne » ne compte pas une 2e fois comme « bouchon ».
+    let reste = norm;
+    for (const [kw, w] of [...KEYWORDS[t]].sort((a, b) => b[0].length - a[0].length)) {
+      if (reste.includes(kw)) {
         score += w;
+        reste = reste.split(kw).join(" ");
         if (!top || w > top[1]) top = [kw, w];
       }
     }

@@ -9,11 +9,16 @@ on:
     paths:
       - "android/**"
       - ".github/workflows/android.yml"
+      # cas communs avec le site (tests de Conduite.kt)
+      - "vigie-nc/tests/cas-conduite.json"
+      - "vigie-nc/lib/conduite.ts"
   push:
     branches: [main]
     paths:
       - "android/**"
       - ".github/workflows/android.yml"
+      - "vigie-nc/tests/cas-conduite.json"
+      - "vigie-nc/lib/conduite.ts"
   workflow_dispatch:
 
 jobs:
@@ -25,6 +30,12 @@ jobs:
     defaults:
       run:
         working-directory: android
+    env:
+      # Mot de passe de la clé de signature (android/app/vigie-nc-test.p12).
+      # Absent (robot, PR venue d'ailleurs) : APK construit mais pas publié.
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      # Empreinte attendue de la clé : rien n'est publié avec une autre.
+      EMPREINTE_CLE: "4C:64:74:4E:63:D0:21:BC:57:7D:30:D4:94:D7:E9:77:9E:39:B6:CF:48:B2:33:4D:DF:9E:38:F3:F5:AB:AF:56"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -34,10 +45,31 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.10.2"
+      # Mêmes annonces que le site : cas communs de vigie-nc/tests/cas-conduite.json
+      - name: Tests (mode conduite)
+        run: gradle testDebugUnitTest --no-daemon --stacktrace
       - name: Fabrication
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Nom du fichier
         run: cp app/build/outputs/apk/debug/app-debug.apk vigie-nc-test.apk
+      # Publiée seulement si l'APK porte bien la clé de Vigie NC.
+      - name: Vérifier la signature
+        id: signature
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_PASSWORD" ]; then
+            echo "::warning::Secret ANDROID_KEYSTORE_PASSWORD absent : APK signé avec la clé de débogage, il ne sera pas publié."
+            echo "ok=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          APKSIGNER="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner"
+          attendue="$(echo "$EMPREINTE_CLE" | tr -d ':' | tr 'A-F' 'a-f')"
+          if "$APKSIGNER" verify --print-certs vigie-nc-test.apk | grep -qi "SHA-256 digest: $attendue"; then
+            echo "Signature de Vigie NC vérifiée."
+            echo "ok=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::L'APK n'est pas signé avec la clé de Vigie NC."
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: vigie-nc-test
@@ -46,13 +78,13 @@ jobs:
       # Lien direct à envoyer aux testeurs (même adresse à chaque version) :
       # https://github.com/kwhrapat-cell/vigie-nc/releases/download/app-test/vigie-nc-test.apk
       - name: Publier le lien de téléchargement
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        if: steps.signature.outputs.ok == '1' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if ! gh release view app-test >/dev/null 2>&1; then
             gh release create app-test --prerelease --target "$GITHUB_SHA" \
               --title "Vigie NC – appli Android de test" \
-              --notes "Version de TEST du mode conduite (voix, notification, bulle). Signée avec une clé de test : pas pour le Play Store. Le fichier est remplacé à chaque nouvelle version."
+              --notes "Version de TEST du mode conduite (voix, notification, bulle). Signée avec une clé de test : pas pour le Play Store. Le fichier est remplacé à chaque nouvelle version. Depuis le 24/10/2026 (nouvelle clé) : désinstaller une fois l'ancienne appli de test avant d'installer celle-ci."
           fi
           gh release upload app-test vigie-nc-test.apk --clobber

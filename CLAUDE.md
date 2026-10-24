@@ -58,6 +58,9 @@ vigie-nc/
                     onglet « IA » : essai du résumé automatique avec des témoignages inventés)
                   + /s/[id] (lien partagé d'un signalement : aperçu WhatsApp/Facebook via
                     opengraph-image.tsx, puis renvoi vers /?signalement=<id>&src=partage)
+                  + error.tsx / global-error.tsx / not-found.tsx : écran EcranErreur
+                    (cagou, Réessayer, Recharger, retour carte, 15/17/18 toujours
+                    visibles) au lieu d'une page blanche ; l'erreur est signalée
   components/     CarteLive (accueil), LiveMap, HomeSheet, ReportDetail,
                   PositionPicker, BottomNav, ui.tsx (Logo, TypeTile, boutons…),
                   VigilanceMeteo (vignette officielle meteo.nc, sans clé),
@@ -86,6 +89,8 @@ vigie-nc/
                   montré une fois par jour au plus, liste « vigie-nc:travaux-vus »
                   sur le téléphone ; constantes TRAVAUX_BANDEAU_* de lib/types.ts),
                   ShareRedirect (page /s/[id] → carte),
+                  ErreurReporter (dans le layout : erreurs et promesses rejetées
+                  de la page → lib/erreurs.ts),
                   Cagou (mascotte, dessin SVG original : bienvenue, liste vide,
                   merci après un signalement, service indisponible),
                   ImpactBanner (accueil : « N personnes ont confirmé ton
@@ -157,7 +162,17 @@ vigie-nc/
                      (« vigie-nc:conduite-voix-nom »), vitesse 0,95 ; l'appli
                      Android choisit aussi la meilleure voix installée
                      (ConduiteService.choisirVoix, sans les voix réseau)
-    face-blur.ts     photo : réduction, floutage visages, suppression EXIF
+    erreurs.ts       erreurs des téléphones envoyées anonymement (5 par page,
+                     sans doublon ; recharge une fois après une mise à jour du
+                     site au lieu de planter) ; texte et filtre dans
+                     erreurs-texte.ts (message + pile sans l'adresse du site,
+                     navigateur « Chrome 140 · Android », jamais l'UA complet)
+    face-blur.ts     photo : réduction, floutage visages, suppression EXIF.
+                     MediaPipe servi par NOTRE site (public/mediapipe/<version>/,
+                     fabriqué par scripts/preparer-floutage.mjs au « prebuild » :
+                     WASM copié du paquet npm + modèles téléchargés ; ignoré par
+                     git), jsDelivr/Google en secours. MEDIAPIPE_VERSION doit
+                     égaler la version installée (sinon la construction s'arrête)
     place.ts         nom du lieu via Nominatim
     map-styles.ts    fonds de carte (OpenStreetMap / Esri, sans clé — pas CARTO,
                      qui exige une clé depuis 2026 ; MapTiler si
@@ -182,14 +197,22 @@ vigie-nc/
   public/sw.js     service worker : notifications + ouverture sans réseau
                    (pages réseau d'abord, fichiers /_next/static, tuiles OSM)
   assets/fonts/    Inter réduite aux caractères latins (image d'aperçu de /s/[id]), licence OFL.txt
+  tests/           tests de la logique (node:test, Node 22, AUCUNE dépendance :
+                   « npm test », chargeur tests/chargeur.mjs pour « @/ » et les
+                   imports sans extension). Fichiers de lib/ testés : imports de
+                   types avec « type » (sinon Node plante). cas-conduite.json =
+                   cas communs joués aussi par android/…/ConduiteCasTest.kt
   supabase/schema.sql  schéma complet, ré-exécutable
   supabase/functions/purge-photos  fonction Supabase (Deno) : photos > 7 jours
   supabase/tests/  shim-supabase.sql (faux Supabase pour Postgres + PostGIS)
-                   et essais.sql (34 essais : identité, votes, SOS, photos, droits,
+                   et essais.sql (35 essais : identité, votes, SOS, photos, droits,
                    type « feu », chiffres d'utilisation, annonces générales, chantiers,
-                   témoignages et résumé IA, point route)
-.github/workflows/verification.yml  à chaque PR : build + types, schema.sql
-                   deux fois puis essais.sql sur Postgres + PostGIS
+                   témoignages et résumé IA, point route, erreurs des téléphones)
+.github/workflows/verification.yml  à chaque PR : tests de la logique (Node 22),
+                   build + types, schema.sql deux fois puis essais.sql sur
+                   Postgres + PostGIS
+.github/dependabot.yml  mises à jour groupées une fois par mois (npm du site,
+                   actions GitHub, Gradle) ; pas de version majeure automatique
 android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le site
                    dans l'appli + service « mode conduite » au premier plan
                    (position, voix qui baisse la musique, notification
@@ -199,9 +222,16 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
                    « Toujours », arrêt à la sortie du véhicule ou après 15 min
                    immobile ; décrit dans /confidentialite).
                    Lit signalements_proches_v3 avec la clé publique. Clé de
-                   signature de test dans le dépôt : jamais pour le Play Store.
-.github/workflows/android.yml  fabrique l'APK de test et le publie au lien fixe
-                   …/releases/download/app-test/vigie-nc-test.apk
+                   signature de test android/app/vigie-nc-test.p12 (AES-256),
+                   son mot de passe est le secret GitHub
+                   ANDROID_KEYSTORE_PASSWORD, JAMAIS dans le dépôt (l'ancienne
+                   clé « vigie-test » était lisible : changée le 24/10/2026).
+                   Jamais pour le Play Store.
+.github/workflows/android.yml  tests JVM (ConduiteCasTest : mêmes cas que le
+                   site) puis fabrique l'APK de test et le publie au lien fixe
+                   …/releases/download/app-test/vigie-nc-test.apk, seulement
+                   s'il porte l'empreinte de la clé (EMPREINTE_CLE ; sans le
+                   secret : construit mais pas publié)
 ```
 
 ## Conventions
@@ -337,6 +367,12 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   notif_url avec /api/annonce au bout) → `annonce_destinataires` (une seule
   fois par annonce). Garde-fous : 10 annonces et 3 notifications par 24 h.
   Limites alignées sur `ANNONCE_*` de `lib/types.ts`.
+- Erreurs des téléphones : table privée `vigie_erreurs` (jour + empreinte
+  du message, compteur), `vigie_erreur_signaler(message, écran,
+  navigateur)` ouverte à tous (même sans session : l'appli peut planter
+  avant), texte nettoyé par `vigie_texte_erreur` (nombres longs, e-mails,
+  fin des liens), 300 erreurs différentes par jour au plus, purge après
+  14 jours ; lecture `moderation_erreurs(code)` (onglet « Chiffres »).
 - Les pages `/confidentialite` et `/conditions` décrivent ce que fait
   vraiment le code (données envoyées, durées, purge `pg_cron`) : les mettre
   à jour (et `miseAJour` dans `lib/legal.ts`) si ça change.
@@ -348,7 +384,8 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
 - Tester le SQL : la vérification GitHub le fait à chaque PR
   (`supabase/tests/shim-supabase.sql` puis `schema.sql` deux fois puis
   `essais.sql`, avec `PGOPTIONS='-c search_path=public,extensions'`).
-  Ajouter un essai dans `essais.sql` pour toute nouvelle règle.
+  Ajouter un essai dans `essais.sql` pour toute nouvelle règle, et un test
+  dans `vigie-nc/tests/` pour toute logique de l'appli (« npm test »).
 - **Patrice lance lui-même le SQL** dans l'éditeur Supabase (les
   modifications par l'outil MCP lui demandent une validation). Avant de
   lui donner un script, le tester À BLANC sur la vraie base : un bloc

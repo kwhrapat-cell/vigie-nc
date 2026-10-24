@@ -1,0 +1,35 @@
+# Mises à jour automatiques (sécurité surtout) : GitHub ouvre une pull
+# request par mois et par écosystème, tout regroupé, plus tout de suite
+# une PR pour une faille connue. Chaque PR passe par les vérifications
+# (build, types, SQL, tests) et l'aperçu Vercel avant d'être fusionnée.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /vigie-nc
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      site:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    # Les changements de version majeure (Next 17, React 20…) se font à la
+    # main, avec des essais : pas de PR automatique pour eux.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: gradle
+    directory: /android
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    groups:
+      android:
+        patterns: ["*"]

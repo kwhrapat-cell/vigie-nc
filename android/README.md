@@ -28,8 +28,16 @@ https://github.com/kwhrapat-cell/vigie-nc/releases/download/app-test/vigie-nc-te
 
 ## À savoir
 
-- **Version de test** : signée avec une clé de test (dans ce dossier). Elle ne
+- **Version de test** : signée avec une clé de test (`app/vigie-nc-test.p12`),
+  chiffrée par un mot de passe qui n'est PAS dans le dépôt : il est dans le
+  secret GitHub `ANDROID_KEYSTORE_PASSWORD` (Settings › Secrets and variables
+  › Actions). Sans ce secret, l'APK est construit mais pas publié. La clé ne
   servira jamais pour le Play Store.
+- **Clé changée le 24/10/2026** (l'ancienne, avec son mot de passe, était
+  lisible dans le dépôt public) : pour passer à la nouvelle version, il faut
+  **désinstaller une fois** l'ancienne appli de test, puis installer celle du
+  lien. Ensuite, les mises à jour s'installent par-dessus comme avant.
+  Secret ajouté dans GitHub le 24/10/2026.
 - Les **alertes de l'écran Alertes** (notifications du site) ne marchent pas
   dans l'appli : garder Chrome pour elles pendant le test.
 - Pour une **photo** dans un signalement, l'appli ouvre la galerie (pas encore

@@ -1,7 +1,8 @@
 -- =====================================================================
 -- Essais de schema.sql : identité anonyme, votes, SOS, photos, droits,
 -- type « feu », chiffres d'utilisation, annonces générales, chantiers,
--- témoignages et résumé automatique (IA), point route (mode conduite).
+-- témoignages et résumé automatique (IA), point route (mode conduite),
+-- erreurs des téléphones.
 -- À lancer APRÈS schema.sql. Chaque essai qui échoue arrête tout avec un
 -- message « Ex échec : … ». Rien n'est envoyé : l'adresse d'envoi des
 -- alertes est retirée pendant l'essai.
@@ -38,11 +39,13 @@ declare
   v_i uuid := gen_random_uuid();
   v_j uuid := gen_random_uuid();
   v_ia uuid;
+  v_id_n int;
   v_version timestamptz;
   code_ia constant text := 'code-essai-resume-ia-000000000';
   v_k uuid := gen_random_uuid();
   v_l uuid := gen_random_uuid();
   sig_point_route constant text := 'ia_point_route_preparer(uuid[])';
+  code_erreurs constant text := 'code-essai-erreurs-0000000000';
 begin
   delete from vigie_config where cle in ('notif_url', 'securite_url', 'ia_url');
   insert into vigie_config (cle, valeur) values ('photo_host', 'essai.supabase.co')
@@ -716,6 +719,58 @@ begin
     raise exception 'E34 échec : trace du point route gardée plus de 24 heures';
   end if;
 
-  raise notice 'ESSAIS OK (34)';
+  -- E35 : erreurs des téléphones — envoi sans session, nettoyage (ni
+  -- coordonnées, ni numéro, ni e-mail, ni fin de lien), regroupement,
+  -- plafond par jour, lecture réservée aux modérateurs, purge.
+  perform set_config('request.jwt.claims', '', true);
+  delete from vigie_erreurs;
+  perform vigie_erreur_signaler(
+    'TypeError: x est vide à -22.27123, 166.58123 tel 82688100 moi@exemple.nc https://vigie-nc.com/?signalement=abc',
+    '/signaler (ecran)', 'Chrome 140 · Android');
+  perform vigie_erreur_signaler(
+    'TypeError: x est vide à -22.27123, 166.58123 tel 82688100 moi@exemple.nc https://vigie-nc.com/?signalement=abc',
+    '/signaler (ecran)', 'Chrome 140 · Android');
+  select count(*), max(nombre) into v_n, v_id_n from vigie_erreurs;
+  if v_n <> 1 or v_id_n <> 2 then
+    raise exception 'E35 échec : regroupement (% lignes, nombre %)', v_n, v_id_n;
+  end if;
+  if exists (select 1 from vigie_erreurs
+             where message ~ '22\.27|166\.58|82688100|moi@|signalement=') then
+    raise exception 'E35 échec : texte non nettoyé : %', (select message from vigie_erreurs limit 1);
+  end if;
+  perform vigie_erreur_signaler('   ', '/', null);
+  if (select count(*) from vigie_erreurs) <> 1 then
+    raise exception 'E35 échec : message vide enregistré';
+  end if;
+  for v_n in 1..305 loop
+    perform vigie_erreur_signaler('Erreur numéro ' || v_n::text || ' différente', '/', null);
+  end loop;
+  if (select count(*) from vigie_erreurs) <> 300 then
+    raise exception 'E35 échec : plafond de 300 erreurs par jour (%)', (select count(*) from vigie_erreurs);
+  end if;
+  perform vigie_ajouter_moderateur('Essai erreurs', code_erreurs);
+  v_r := moderation_erreurs(code_erreurs);
+  if jsonb_typeof(v_r) <> 'array' or jsonb_array_length(v_r) <> 50 then
+    raise exception 'E35 échec : lecture des erreurs (%)', jsonb_array_length(v_r);
+  end if;
+  begin
+    perform moderation_erreurs('mauvais-code-erreurs-000000');
+    raise exception 'E35 échec : lecture sans bon code';
+  exception when others then
+    if sqlerrm not like '%code_invalide%' then raise exception 'E35 échec : %', sqlerrm; end if;
+  end;
+  if has_table_privilege('anon', 'vigie_erreurs', 'select')
+     or has_table_privilege('authenticated', 'vigie_erreurs', 'select')
+     or not has_function_privilege('anon', 'vigie_erreur_signaler(text, text, text)', 'execute')
+     or has_function_privilege('anon', 'vigie_texte_erreur(text, int)', 'execute') then
+    raise exception 'E35 échec : droits des erreurs';
+  end if;
+  update vigie_erreurs set jour = vigie_jour_local() - 15;
+  perform vigie_purger_donnees_appareil();
+  if exists (select 1 from vigie_erreurs) then
+    raise exception 'E35 échec : erreurs gardées plus de 14 jours';
+  end if;
+
+  raise notice 'ESSAIS OK (35)';
 end
 $essais$;

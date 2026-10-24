@@ -2,19 +2,30 @@
 
 import { FilesetResolver, FaceDetector } from "@mediapipe/tasks-vision";
 
-// Modèle et runtime WASM chargés depuis les CDN officiels de MediaPipe au
-// premier usage — rien à télécharger manuellement, mais ça nécessite une
-// connexion internet la première fois (puis mis en cache par le navigateur).
-// La version du runtime WASM est figée sur celle du paquet npm.
-const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
+// Outil de floutage (MediaPipe) : le runtime WASM et les modèles sont
+// servis par Vigie NC (public/mediapipe/<version>/, préparés à la
+// construction du site par scripts/preparer-floutage.mjs, copie exacte du
+// paquet npm). Si un fichier manque chez nous, on le prend aux sources
+// officielles (jsDelivr, Google). Il faut une connexion la première fois,
+// puis le navigateur le garde en cache.
+// ⚠️ Doit être la version de @mediapipe/tasks-vision du package-lock :
+// la construction du site s'arrête sinon (scripts/preparer-floutage.mjs).
+export const MEDIAPIPE_VERSION = "0.10.14";
+const LOCAL = `/mediapipe/${MEDIAPIPE_VERSION}`;
+const WASM_LOCAL = `${LOCAL}/wasm`;
+const WASM_CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`;
 // Modèle « courte distance » : prévu pour les selfies (visages proches).
-const MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite";
+const MODELE_COURT = {
+  local: `${LOCAL}/blaze_face_short_range.tflite`,
+  cdn: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+};
 // Modèle « longue distance », prévu pour la caméra arrière : sur une photo
 // de route, les visages sont souvent loin. Utilisé EN PLUS du premier
 // quand il se charge ; s'il manque, on garde le premier seul.
-const FULL_RANGE_MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_full_range/float16/latest/blaze_face_full_range.tflite";
+const MODELE_LONG = {
+  local: `${LOCAL}/blaze_face_full_range.tflite`,
+  cdn: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_full_range/float16/latest/blaze_face_full_range.tflite",
+};
 
 // Taille maximale de la photo envoyée (plus grand côté) : largement assez
 // pour voir une route inondée, et ~300 Ko au lieu de 3 à 5 Mo — compte pour
@@ -24,25 +35,29 @@ const JPEG_QUALITY = 0.82;
 
 let detectorsPromise: Promise<FaceDetector[]> | null = null;
 
+async function creerDetecteurs(wasm: string): Promise<FaceDetector[]> {
+  const vision = await FilesetResolver.forVisionTasks(wasm);
+  const options = (modelAssetPath: string) => ({
+    baseOptions: { modelAssetPath },
+    runningMode: "IMAGE" as const,
+    minDetectionConfidence: 0.4,
+  });
+  // Le modèle de chez nous d'abord, celui de Google sinon.
+  const creer = (m: { local: string; cdn: string }) =>
+    FaceDetector.createFromOptions(vision, options(m.local)).catch(() =>
+      FaceDetector.createFromOptions(vision, options(m.cdn)),
+    );
+  // Le modèle courte distance est obligatoire (sinon : erreur, photo
+  // bloquée) ; le longue distance est un plus.
+  const [shortRange, fullRange] = await Promise.allSettled([creer(MODELE_COURT), creer(MODELE_LONG)]);
+  if (shortRange.status === "rejected") throw shortRange.reason;
+  return fullRange.status === "fulfilled" ? [shortRange.value, fullRange.value] : [shortRange.value];
+}
+
 function getDetectors(): Promise<FaceDetector[]> {
   if (!detectorsPromise) {
-    detectorsPromise = (async () => {
-      const vision = await FilesetResolver.forVisionTasks(WASM_URL);
-      const create = (modelAssetPath: string) =>
-        FaceDetector.createFromOptions(vision, {
-          baseOptions: { modelAssetPath },
-          runningMode: "IMAGE",
-          minDetectionConfidence: 0.4,
-        });
-      // Le modèle courte distance est obligatoire (sinon : erreur, photo
-      // bloquée) ; le longue distance est un plus.
-      const [shortRange, fullRange] = await Promise.allSettled([
-        create(MODEL_URL),
-        create(FULL_RANGE_MODEL_URL),
-      ]);
-      if (shortRange.status === "rejected") throw shortRange.reason;
-      return fullRange.status === "fulfilled" ? [shortRange.value, fullRange.value] : [shortRange.value];
-    })();
+    // Le runtime de chez nous d'abord, celui de jsDelivr sinon.
+    detectorsPromise = creerDetecteurs(WASM_LOCAL).catch(() => creerDetecteurs(WASM_CDN));
     // En cas d'échec (pas de réseau), on permet de réessayer plus tard.
     detectorsPromise.catch(() => {
       detectorsPromise = null;

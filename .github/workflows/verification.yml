@@ -1,7 +1,9 @@
 # Vérification automatique à chaque pull request (et sur main) :
 #   1. l'appli se construit (types TypeScript + build Next.js) ;
 #   2. supabase/schema.sql passe deux fois de suite sur un Postgres + PostGIS
-#      (il doit rester ré-exécutable), puis supabase/tests/essais.sql.
+#      (il doit rester ré-exécutable), puis supabase/tests/essais.sql ;
+#   3. les tests de la logique de l'appli (vigie-nc/tests : mode conduite,
+#      badges, fiabilité, chantiers, relais, erreurs), sans dépendance.
 # Tout tourne chez GitHub : rien à installer, résultat visible sur la PR.
 name: Vérification
 
@@ -11,6 +13,21 @@ on:
     branches: [main]
 
 jobs:
+  tests:
+    name: Tests de la logique
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vigie-nc
+    steps:
+      - uses: actions/checkout@v4
+      # Node 22 lit le TypeScript tout seul : pas besoin d'installer les dépendances.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Tests
+        run: npm test
+
   appli:
     name: Build de l'appli
     runs-on: ubuntu-latest

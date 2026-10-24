@@ -896,3 +896,36 @@ export async function modAnnoncePublier(code: string, a: NewAnnonce): Promise<{ 
 export async function modAnnonceRetirer(code: string, annonceId: string): Promise<void> {
   await liveRpc("moderation_annonce_retirer", { p_code: code, p_annonce_id: annonceId });
 }
+
+// ---------------------------------------------------------------------
+// Erreurs des téléphones : voir vigie_erreur_signaler() et
+// moderation_erreurs() dans supabase/schema.sql (anonyme, 14 jours).
+// ---------------------------------------------------------------------
+
+/** Envoie une erreur (déjà nettoyée par lib/erreurs.ts). Ne lève jamais d'erreur. */
+export async function envoyerErreur(message: string, ecran: string, navigateur: string): Promise<void> {
+  if (!supabase) return;
+  try {
+    await supabase.rpc("vigie_erreur_signaler", {
+      p_message: message,
+      p_ecran: ecran,
+      p_navigateur: navigateur,
+    });
+  } catch {
+    // pas de réseau : tant pis, on ne réessaie pas
+  }
+}
+
+export interface ErreurTelephone {
+  message: string;
+  ecran: string | null;
+  navigateur: string | null;
+  nombre: number;
+  jours: number;
+  derniere: string;
+}
+
+/** Les erreurs des 14 derniers jours (onglet Chiffres de /moderation). */
+export async function modErreurs(code: string): Promise<ErreurTelephone[]> {
+  return (await liveRpc<ErreurTelephone[] | null>("moderation_erreurs", { p_code: code })) ?? [];
+}

@@ -1,4 +1,4 @@
-import { Report } from "./types";
+import type { Report } from "./types";
 
 // Les 4 niveaux de fiabilité des maquettes. Le nombre de « personnes »
 // compte l'auteur du signalement + celles qui ont confirmé.

@@ -6,3 +6,6 @@ node_modules/
 *.log
 
 *.tsbuildinfo
+
+# Outil de floutage préparé à la construction (scripts/preparer-floutage.mjs)
+public/mediapipe/

@@ -5,8 +5,8 @@
 // ⚠️ Même logique dans l'appli Android de test (android/…/Conduite.kt) :
 // garder les deux alignées.
 
-import { distanceM, LatLng } from "./geo";
-import { ALERT_TYPES, Report, ReportType } from "./types";
+import { distanceM, type LatLng } from "./geo";
+import { ALERT_TYPES, type Report, type ReportType } from "./types";
 
 // Portée de la voix, au choix : jusqu'où devant on annonce les dangers.
 export const CONDUITE_PORTEES_KM = [3, 5, 10] as const;

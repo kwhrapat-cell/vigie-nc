@@ -113,6 +113,16 @@ export default function ConfidentialitePage() {
         <p>Seuls des totaux sont affichés (aux modérateurs) : personne ne voit qui utilise l&apos;appli ni quand.</p>
       </LegalSection>
 
+      <LegalSection title="Quand l'appli plante">
+        <p>
+          Pour corriger les bugs que personne ne signale, l&apos;appli envoie à sa propre base le message
+          d&apos;erreur, l&apos;écran concerné et le nom du navigateur avec sa version (par exemple « Chrome 140 ·
+          Android »). Jamais ta position, ton nom ni l&apos;identifiant de ta session ; les nombres longs
+          (coordonnées, numéros), les adresses e-mail et la fin des liens sont effacés du message. Les mêmes erreurs
+          sont regroupées, seuls les modérateurs les voient, et elles sont effacées après 14 jours.
+        </p>
+      </LegalSection>
+
       <LegalSection title="Les alertes (si tu les actives)">
         <LegalList>
           <li>
@@ -244,6 +254,7 @@ export default function ConfidentialitePage() {
             La trace des points route demandés (empreinte de ta session anonyme et heure, pour limiter les abus) :
             effacée après 24 heures.
           </li>
+          <li>Les erreurs de l&apos;appli (sans position ni identifiant) : effacées après 14 jours.</li>
         </LegalList>
       </LegalSection>
 
@@ -264,8 +275,9 @@ export default function ConfidentialitePage() {
           <li>Esri : fond de carte satellite si tu le choisis, et plan de secours si le plan habituel ne répond plus.</li>
           <li>Météo-France Nouvelle-Calédonie : vignette de vigilance sur l&apos;écran Alertes.</li>
           <li>
-            jsDelivr et Google : téléchargement de l&apos;outil de floutage des visages, la première fois que tu
-            ajoutes une photo. La photo, elle, est floutée sur ton téléphone et ne leur est pas envoyée.
+            L&apos;outil de floutage des visages est téléchargé depuis Vigie NC la première fois que tu ajoutes une
+            photo ; seulement s&apos;il n&apos;y est pas disponible, depuis jsDelivr et Google. La photo, elle, est
+            floutée sur ton téléphone et ne leur est jamais envoyée.
           </li>
           <li>Google Maps : seulement si tu touches « Voir dans Maps ».</li>
           <li>
