@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Logo, PrimaryButton } from "./ui";
+import { Cagou } from "./Cagou";
 
 // Changer la version si le texte change de façon importante : l'écran
 // sera montré à nouveau à tout le monde.
@@ -51,9 +52,12 @@ export function WelcomeNotice() {
         style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
       >
         <Logo withTagline />
-        <h2 id="welcome-title" className="mt-4 font-display font-bold text-[24px] leading-tight">
-          Sache ce qui t&apos;attend sur la route
-        </h2>
+        <div className="mt-4 flex items-center gap-3">
+          <h2 id="welcome-title" className="flex-1 font-display font-bold text-[24px] leading-tight">
+            Sache ce qui t&apos;attend sur la route
+          </h2>
+          <Cagou size={72} titre="Le cagou de Vigie NC" />
+        </div>
         <p className="mt-2 text-[16px] text-mist leading-relaxed">
           Accidents, inondations, routes coupées, travaux : signalés en direct par les Calédoniens. Gratuit et
           sans compte.

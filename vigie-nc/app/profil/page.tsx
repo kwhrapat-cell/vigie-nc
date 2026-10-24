@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { BottomNav } from "@/components/BottomNav";
 import { InstallApp } from "@/components/InstallApp";
+import { MonImpact } from "@/components/MonImpact";
 import { ShareApp } from "@/components/ShareApp";
 import { Logo, ScreenHeader } from "@/components/ui";
 import { getEmergencyContacts } from "@/lib/emergency-contacts";
@@ -45,6 +46,8 @@ export default function ProfilPage() {
   return (
     <main className="min-h-[100dvh] pb-nav">
       <ScreenHeader title="Profil" subtitle="Sans compte · anonyme" />
+
+      <MonImpact />
 
       <Card title="Ma zone surveillée">
         <p className="text-[13.5px] text-mist-dim mb-2.5">

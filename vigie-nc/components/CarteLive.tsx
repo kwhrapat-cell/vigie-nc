@@ -9,6 +9,8 @@ import { BottomNav } from "./BottomNav";
 import { WelcomeNotice } from "./WelcomeNotice";
 import { AnnonceBanner } from "./AnnonceBanner";
 import { TravauxBanner } from "./TravauxBanner";
+import { ImpactBanner } from "./ImpactBanner";
+import { DemandeConfirmation } from "./DemandeConfirmation";
 import {
   BandeauConduite,
   BoutonConduite,
@@ -160,6 +162,17 @@ export function CarteLive() {
       .catch(() => {});
   }, []);
 
+  // Depuis le bandeau « Ton signalement a servi » : ouvre la fiche, même hors zone.
+  const openById = useCallback((id: string) => {
+    setSelectedId(id);
+    setFollow(false);
+    fetchReport(id)
+      .then((r) => {
+        if (r) setLinkedReport(r);
+      })
+      .catch(() => {});
+  }, []);
+
   const closeDetail = useCallback(() => setSelectedId(null), []);
 
   // Au départ du mode conduite : fiche fermée, la carte suit le conducteur.
@@ -230,6 +243,12 @@ export function CarteLive() {
 
       {/* Travaux près de toi (10 km), à l'ouverture de l'appli */}
       <TravauxBanner position={position} onOpen={openFromBanner} />
+
+      {/* Mes signalements confirmés par d'autres (gardés sur le téléphone) */}
+      <ImpactBanner onOpen={openById} />
+
+      {/* « Tu passes par là ? » : jamais pendant la conduite */}
+      {!enConduite && <DemandeConfirmation reports={reports} position={position} onVoted={patchReport} />}
 
       {banner && (
         <div role="status" className="mx-4 mb-2 rounded-xl border border-lagoon/30 bg-lagoon/10 px-3 py-2 text-[14px] text-mist">

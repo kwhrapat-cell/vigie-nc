@@ -13,6 +13,7 @@ import {
 import type { LiveStatus } from "@/lib/useLiveReports";
 import type { WatchStatus } from "@/lib/useWatchPosition";
 import { ReliabilityBadge, TypeTile } from "./ui";
+import { Cagou } from "./Cagou";
 
 const CATEGORIES: Category[] = ["danger", "perturbation", "meteo"];
 
@@ -136,11 +137,16 @@ export function HomeSheet({
       </h3>
 
       {status === "ready" && reports.length === 0 && (
-        <div className="py-2 text-[14px] text-mist-dim leading-relaxed">
-          {`Aucun signalement ${filter ? "de ce type " : ""}${hasCenter ? "dans ce rayon " : ""}pour l'instant.`}
-          <span className="block text-[12.5px] opacity-70 mt-0.5">
-            L&apos;absence de signalement ne garantit pas que la route est dégagée.
-          </span>
+        <div className="py-2 flex items-center gap-3">
+          <Cagou size={52} />
+          <div className="text-[14px] text-mist-dim leading-relaxed">
+            <span className="block text-mist font-medium">
+              {`Rien de signalé ${filter ? "de ce type " : ""}${hasCenter ? "dans ce rayon " : ""}pour l'instant. Bonne route !`}
+            </span>
+            <span className="block text-[12.5px] opacity-80 mt-0.5">
+              Ça ne garantit pas que la route est dégagée : reste prudent.
+            </span>
+          </div>
         </div>
       )}
 
