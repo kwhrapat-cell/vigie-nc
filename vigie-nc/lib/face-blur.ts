@@ -10,7 +10,7 @@ import { FilesetResolver, FaceDetector } from "@mediapipe/tasks-vision";
 // puis le navigateur le garde en cache.
 // ⚠️ Doit être la version de @mediapipe/tasks-vision du package-lock :
 // la construction du site s'arrête sinon (scripts/preparer-floutage.mjs).
-export const MEDIAPIPE_VERSION = "0.10.14";
+export const MEDIAPIPE_VERSION = "0.10.35";
 const LOCAL = `/mediapipe/${MEDIAPIPE_VERSION}`;
 const WASM_LOCAL = `${LOCAL}/wasm`;
 const WASM_CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`;
