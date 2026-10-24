@@ -13,7 +13,9 @@ val motDePasseCle: String? = System.getenv("ANDROID_KEYSTORE_PASSWORD")?.takeIf 
 
 android {
     namespace = "com.vigienc.app"
-    compileSdk = 35
+    // 36 : demandé par androidx.core 1.17 et plus (le comportement de l'appli
+    // dépend de targetSdk, qui reste à 35).
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.vigienc.app"
@@ -62,15 +64,21 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
+}
+
+// Kotlin 2.4 : « kotlinOptions » n'existe plus, on passe par compilerOptions.
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.13.1")
+    // 1.17 au plus tant que l'appli reste sur Android Gradle Plugin 8 :
+    // androidx.core 1.19 demande AGP 9.1 et compileSdk 37.
+    implementation("androidx.core:core-ktx:1.17.0")
     // Reconnaissance d'activité (démarrage tout seul en voiture).
-    implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation("com.google.android.gms:play-services-location:21.4.0")
 
     // Tests (sur l'ordinateur de GitHub, pas dans l'appli) : cas communs
     // avec le site, voir src/test/…/ConduiteCasTest.kt.
