@@ -365,14 +365,14 @@ export default function SignalerPage() {
                   <p className="font-mono text-[12px] text-mist-dim mt-0.5">précision ± {Math.round(gps.accuracy)} m</p>
                 )}
               </div>
-              {pin && !carteForcee && (
+              {!carteForcee && (
                 <button
                   type="button"
                   onClick={() => setCarteOuverte((o) => !o)}
                   aria-expanded={montrerCarte}
                   className="shrink-0 min-h-[44px] px-3 rounded-full border border-line text-[14px] text-mist"
                 >
-                  {montrerCarte ? "Fermer la carte" : "Ajuster"}
+                  {montrerCarte ? "Fermer la carte" : pin ? "Ajuster" : "Placer à la main"}
                 </button>
               )}
             </div>
