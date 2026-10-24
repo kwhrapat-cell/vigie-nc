@@ -123,8 +123,11 @@ vigie-nc/
                      vigie_chantier_jours_max() du SQL
     conduite.ts      mode conduite : dangers devant (angle 40°), portée de la
                      voix au choix 3 / 5 / 10 km, annonce à la portée puis à
-                     500 m (+ 3 km pour 10 km), phrases parlées. ⚠️ Même
-                     logique dans android/…/Conduite.kt : garder les deux alignées
+                     500 m (+ 3 km pour 10 km), phrases parlées ; un danger
+                     cité par le point route n'est pas redit à la portée, et
+                     les annonces faites restent en mémoire 30 min après
+                     l'arrêt (CONDUITE_MEMOIRE_MS). ⚠️ Même logique dans
+                     android/…/Conduite.kt : garder les deux alignées
     voix.ts          voix du mode conduite (synthèse du téléphone) : la voix
                      française la plus naturelle d'abord, choix dans les réglages
                      (« vigie-nc:conduite-voix-nom »), vitesse 0,95 ; l'appli
