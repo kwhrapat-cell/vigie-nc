@@ -38,7 +38,7 @@ export function ZoneSelector({
             title={disabled ? "Position nécessaire" : o.title}
             disabled={disabled}
             onClick={() => onChange(o.value)}
-            className={`min-w-[44px] h-9 rounded-full px-2.5 text-[12px] font-medium transition-colors disabled:opacity-40 ${
+            className={`min-w-[44px] h-9 rounded-full px-2.5 text-[14px] font-medium transition-colors disabled:opacity-40 ${
               selected ? "bg-primary text-white" : "text-mist-dim"
             } ${o.value === "nc" ? "font-display font-bold tracking-wide" : ""}`}
           >
@@ -157,8 +157,8 @@ export function MapStyleSwitcher({
                   }`}
                 />
                 <span>
-                  <span className="block text-[13px] font-medium">{MAP_STYLES[s].label}</span>
-                  <span className="block text-[10.5px] text-mist-dim">{MAP_STYLES[s].hint}</span>
+                  <span className="block text-[15px] font-medium">{MAP_STYLES[s].label}</span>
+                  <span className="block text-[12.5px] text-mist-dim">{MAP_STYLES[s].hint}</span>
                 </span>
               </button>
             );

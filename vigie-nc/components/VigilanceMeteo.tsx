@@ -19,10 +19,10 @@ export function VigilanceMeteo({ className = "" }: { className?: string }) {
       aria-labelledby="vigilance-titre"
     >
       <div className="flex items-baseline justify-between gap-2">
-        <h2 id="vigilance-titre" className="font-display font-semibold text-[13.5px]">
+        <h2 id="vigilance-titre" className="font-display font-semibold text-[15.5px]">
           Vigilance météo
         </h2>
-        <span className="text-[10.5px] text-mist-dim">Source officielle · Météo-France</span>
+        <span className="text-[12.5px] text-mist-dim">Source officielle · Météo-France</span>
       </div>
 
       <div className="mt-2 flex justify-center">
@@ -47,7 +47,7 @@ export function VigilanceMeteo({ className = "" }: { className?: string }) {
         href={VIGILANCE_PAGE_URL}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-1 flex min-h-[44px] items-center justify-between gap-2 text-[12px] font-medium text-lagoon"
+        className="mt-1 flex min-h-[44px] items-center justify-between gap-2 text-[14px] font-medium text-lagoon"
       >
         <span>Détail par phénomène et conseils sur meteo.nc</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 shrink-0" aria-hidden>

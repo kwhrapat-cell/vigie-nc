@@ -43,7 +43,7 @@ const RISK_COLOR: Record<string, string> = {
 
 function Row({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
-    <div className="flex items-center gap-3 py-2.5 text-[12.5px]">
+    <div className="flex items-center gap-3 py-2.5 text-[14.5px]">
       <span className="w-5 h-5 shrink-0 text-mist-dim">{icon}</span>
       <span className="flex-1">{children}</span>
     </div>
@@ -58,15 +58,15 @@ function AiSummary({ text, count }: { text: string; count?: number | null }) {
   const n = Math.max(count ?? 2, 2);
   return (
     <section aria-label="Résumé des témoignages" className="mt-2 rounded-xl border border-lagoon/30 bg-lagoon/10 px-3 py-2.5">
-      <p className="flex items-center gap-1.5 text-[11px] font-semibold text-lagoon">
+      <p className="flex items-center gap-1.5 text-[13px] font-semibold text-lagoon">
         <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
           <path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z" />
           <path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" />
         </svg>
         Ce que disent les témoins
       </p>
-      <p className="mt-1 text-[13px] leading-relaxed">{text}</p>
-      <p className="mt-1.5 text-[10.5px] leading-snug text-mist-dim">
+      <p className="mt-1 text-[15px] leading-relaxed">{text}</p>
+      <p className="mt-1.5 text-[12.5px] leading-snug text-mist-dim">
         Résumé automatique (IA) de {n} témoignages : il peut se tromper, vérifie sur place.
       </p>
     </section>
@@ -204,7 +204,7 @@ export function ReportDetail({
             <h2 id="report-detail-title" className="font-display font-semibold text-[17px] leading-tight">
               {report.label}
             </h2>
-            <p className="text-[11.5px] text-mist-dim mt-0.5">
+            <p className="text-[13.5px] text-mist-dim mt-0.5">
               {[report.place, dist].filter(Boolean).join(" · ") || "Position sur la carte"}
             </p>
           </div>
@@ -221,7 +221,7 @@ export function ReportDetail({
         {!isSos && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <ReliabilityBadge report={report} size="md" />
-            <span className="text-[11.5px] text-mist-dim">
+            <span className="text-[13.5px] text-mist-dim">
               {report.relaySource
                 ? rel.people > 0
                   ? `${rel.people} confirmation${rel.people > 1 ? "s" : ""} sur place`
@@ -232,7 +232,7 @@ export function ReportDetail({
             </span>
             {report.riskLevel && (
               <span
-                className="ml-auto rounded-full px-2 py-0.5 text-[10.5px] font-medium"
+                className="ml-auto rounded-full px-2 py-0.5 text-[12.5px] font-medium"
                 style={{ color: RISK_COLOR[report.riskLevel], background: `${RISK_COLOR[report.riskLevel]}1F` }}
               >
                 Risque {RISK_LABELS[report.riskLevel].toLowerCase()}
@@ -242,7 +242,7 @@ export function ReportDetail({
         )}
 
         {!active && (
-          <p className="mt-3 rounded-xl border border-line bg-panel-2 px-3 py-2 text-[12px] text-mist-dim">
+          <p className="mt-3 rounded-xl border border-line bg-panel-2 px-3 py-2 text-[14px] text-mist-dim">
             Ce signalement est terminé ou a expiré.
           </p>
         )}
@@ -255,13 +255,13 @@ export function ReportDetail({
               alt={`Photo du signalement : ${report.label}`}
               className="w-full max-h-60 object-cover rounded-xl border border-line"
             />
-            <figcaption className="mt-1 text-[10px] text-mist-dim opacity-70">
+            <figcaption className="mt-1 text-[12px] text-mist-dim opacity-70">
               Floutage automatique des visages détectés (il peut en manquer : signale-le ci-dessous)
             </figcaption>
           </figure>
         )}
 
-        <p className="mt-3 text-[11px] text-mist-dim">
+        <p className="mt-3 text-[13px] text-mist-dim">
           {report.relaySource
             ? `Info relayée depuis ${RELAY_SOURCE_LABELS[report.relaySource]} · ${formatAge(report.createdAt)}`
             : `Signalé anonymement · ${formatAge(report.createdAt)}`}
@@ -269,22 +269,22 @@ export function ReportDetail({
         {report.aiSummary && <AiSummary text={report.aiSummary} count={report.aiSummaryCount} />}
         {report.description &&
           (report.aiSummary ? (
-            <p className="mt-2 text-[11.5px] leading-relaxed text-mist-dim whitespace-pre-line">
+            <p className="mt-2 text-[13.5px] leading-relaxed text-mist-dim whitespace-pre-line">
               <span className="font-medium">Premier témoignage :</span> {report.description}
             </p>
           ) : (
-            <p className="mt-1.5 text-[13px] leading-relaxed whitespace-pre-line">{report.description}</p>
+            <p className="mt-1.5 text-[15px] leading-relaxed whitespace-pre-line">{report.description}</p>
           ))}
 
         {report.type === "feu" && active && (
-          <p className="mt-3 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-[12px] leading-relaxed">
+          <p className="mt-3 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-[14px] leading-relaxed">
             Feu : ne t&apos;approche pas. Si les pompiers ne sont pas encore prévenus, appelle le{" "}
             <a href="tel:18" className="underline font-semibold">18</a>.
           </p>
         )}
 
         {isSos ? (
-          <div className="mt-3 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-[12px] leading-relaxed">
+          <div className="mt-3 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-[14px] leading-relaxed">
             Quelqu&apos;un a demandé de l&apos;aide ici. Si tu es à proximité et en sécurité, préviens les secours :{" "}
             <a href="tel:15" className="underline font-medium">15</a> SAMU ·{" "}
             <a href="tel:17" className="underline font-medium">17</a> gendarmerie / police ·{" "}
@@ -307,7 +307,7 @@ export function ReportDetail({
                 : rel.people > 1
                   ? `${rel.people} personnes l'ont vu`
                   : "Signalé par 1 personne"}
-              {rel.contested && <span className="block text-[11px] text-warn">{rel.contested}</span>}
+              {rel.contested && <span className="block text-[13px] text-warn">{rel.contested}</span>}
             </Row>
             {report.officialSource && (
               <Row
@@ -331,7 +331,7 @@ export function ReportDetail({
                 }
               >
                 Chantier {libelleFinChantier(report.endDate)}
-                <span className="block text-[11px] text-mist-dim">
+                <span className="block text-[13px] text-mist-dim">
                   Date annoncée par la source officielle : il reste sur la carte jusque-là.
                 </span>
               </Row>
@@ -353,12 +353,12 @@ export function ReportDetail({
 
         {active && report.isMine && (
           <div className="mt-4">
-            <p className="text-[11.5px] text-mist-dim mb-2">C&apos;est ton signalement. Préviens les autres quand c&apos;est fini :</p>
+            <p className="text-[13.5px] text-mist-dim mb-2">C&apos;est ton signalement. Préviens les autres quand c&apos;est fini :</p>
             <button
               type="button"
               disabled={busy !== null}
               onClick={() => vote("termine")}
-              className="w-full rounded-xl border border-line bg-panel-2 py-3 text-[13.5px] font-semibold disabled:opacity-50"
+              className="w-full rounded-xl border border-line bg-panel-2 py-3 text-[15.5px] font-semibold disabled:opacity-50"
             >
               {busy ? "Envoi…" : isSos ? "Je n'ai plus besoin d'aide" : "C'est terminé"}
             </button>
@@ -366,7 +366,7 @@ export function ReportDetail({
         )}
 
         {active && !report.isMine && !isSos && !isWitness && (
-          <p className="mt-4 rounded-xl border border-line bg-panel-2 px-3 py-2.5 text-[11.5px] text-mist-dim leading-relaxed">
+          <p className="mt-4 rounded-xl border border-line bg-panel-2 px-3 py-2.5 text-[13.5px] text-mist-dim leading-relaxed">
             {myDistanceM === null
               ? "Pour confirmer ou déclarer terminé, active ta position : seules les personnes à moins de 5 km peuvent voter."
               : `Tu es ${formatDistance(myDistanceM)} : seules les personnes à moins de 5 km peuvent confirmer ou déclarer terminé.`}
@@ -375,14 +375,14 @@ export function ReportDetail({
 
         {active && !report.isMine && !isSos && isWitness && (
           <div className="mt-4">
-            <p className="text-[11.5px] text-mist-dim mb-2">Tu es sur place ?</p>
+            <p className="text-[13.5px] text-mist-dim mb-2">Tu es sur place ?</p>
             <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 disabled={busy !== null}
                 aria-pressed={report.myVote === "present"}
                 onClick={() => vote("present")}
-                className={`rounded-xl py-3 text-[13.5px] font-semibold disabled:opacity-50 border ${
+                className={`rounded-xl py-3 text-[15.5px] font-semibold disabled:opacity-50 border ${
                   report.myVote === "present"
                     ? "bg-ok text-void border-ok"
                     : "bg-ok/10 text-ok border-ok/40"
@@ -395,7 +395,7 @@ export function ReportDetail({
                 disabled={busy !== null}
                 aria-pressed={report.myVote === "termine"}
                 onClick={() => vote("termine")}
-                className={`rounded-xl py-3 text-[13.5px] font-semibold disabled:opacity-50 border ${
+                className={`rounded-xl py-3 text-[15.5px] font-semibold disabled:opacity-50 border ${
                   report.myVote === "termine" ? "bg-mist text-void border-mist" : "border-line bg-panel-2 text-mist"
                 }`}
               >
@@ -406,12 +406,12 @@ export function ReportDetail({
         )}
 
         {message && (
-          <p className="mt-3 text-[12px] text-lagoon" role="status">
+          <p className="mt-3 text-[14px] text-lagoon" role="status">
             {message}
           </p>
         )}
         {error && (
-          <p className="mt-3 text-[12px] text-danger" role="alert">
+          <p className="mt-3 text-[14px] text-danger" role="alert">
             {error}
           </p>
         )}
@@ -421,7 +421,7 @@ export function ReportDetail({
             <button
               type="button"
               onClick={share}
-              className="rounded-xl border border-line bg-panel-2 py-3 text-[13.5px] font-semibold"
+              className="rounded-xl border border-line bg-panel-2 py-3 text-[15.5px] font-semibold"
             >
               Partager
             </button>
@@ -429,7 +429,7 @@ export function ReportDetail({
               href={mapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-xl bg-danger py-3 text-center text-[13.5px] font-semibold text-white"
+              className="rounded-xl bg-danger py-3 text-center text-[15.5px] font-semibold text-white"
             >
               Voir dans Maps
             </a>
@@ -437,7 +437,7 @@ export function ReportDetail({
         )}
 
         {!isSos && (
-          <p className="mt-4 text-[10.5px] text-mist-dim leading-relaxed">
+          <p className="mt-4 text-[12.5px] text-mist-dim leading-relaxed">
             Info citoyenne, à vérifier sur place : elle ne remplace pas les consignes officielles.{" "}
             <Link href="/conditions" className="underline">
               En savoir plus
@@ -452,7 +452,7 @@ export function ReportDetail({
               setFlagOpen(true);
               setFlagError(null);
             }}
-            className="mt-2 -ml-1 px-1 py-2 text-[12px] text-mist-dim underline"
+            className="mt-2 -ml-1 px-1 py-2 text-[14px] text-mist-dim underline"
           >
             Signaler un contenu
           </button>
@@ -460,7 +460,7 @@ export function ReportDetail({
 
         {flagOpen && (
           <div className="mt-3 rounded-xl border border-line bg-panel-2 px-3 py-3">
-            <p className="text-[12.5px] font-semibold">Qu&apos;est-ce qui pose problème ?</p>
+            <p className="text-[14.5px] font-semibold">Qu&apos;est-ce qui pose problème ?</p>
             <div className="mt-2 flex flex-col gap-2" role="radiogroup" aria-label="Motif du signalement">
               {(Object.keys(FLAG_REASON_LABELS) as FlagReason[]).map((r) => (
                 <button
@@ -469,7 +469,7 @@ export function ReportDetail({
                   role="radio"
                   aria-checked={flagReason === r}
                   onClick={() => setFlagReason(r)}
-                  className={`rounded-lg border px-3 py-2.5 text-left text-[12.5px] ${
+                  className={`rounded-lg border px-3 py-2.5 text-left text-[14.5px] ${
                     flagReason === r ? "border-lagoon bg-lagoon/10 text-mist" : "border-line bg-panel text-mist-dim"
                   }`}
                 >
@@ -478,12 +478,12 @@ export function ReportDetail({
               ))}
             </div>
             {active && (
-              <p className="mt-2 text-[11px] text-mist-dim">
+              <p className="mt-2 text-[13px] text-mist-dim">
                 L&apos;événement est fini ou faux ? Réponds plutôt « C&apos;est terminé » plus haut.
               </p>
             )}
             {flagError && (
-              <p className="mt-2 text-[12px] text-danger" role="alert">
+              <p className="mt-2 text-[14px] text-danger" role="alert">
                 {flagError}
               </p>
             )}
@@ -491,7 +491,7 @@ export function ReportDetail({
               <button
                 type="button"
                 onClick={() => setFlagOpen(false)}
-                className="rounded-lg border border-line bg-panel py-2.5 text-[12.5px] font-medium"
+                className="rounded-lg border border-line bg-panel py-2.5 text-[14.5px] font-medium"
               >
                 Annuler
               </button>
@@ -499,7 +499,7 @@ export function ReportDetail({
                 type="button"
                 disabled={!flagReason || flagBusy}
                 onClick={sendFlag}
-                className="rounded-lg bg-danger py-2.5 text-[12.5px] font-semibold text-white disabled:opacity-40"
+                className="rounded-lg bg-danger py-2.5 text-[14.5px] font-semibold text-white disabled:opacity-40"
               >
                 {flagBusy ? "Envoi…" : "Envoyer"}
               </button>
@@ -508,7 +508,7 @@ export function ReportDetail({
         )}
 
         {flagMessage && (
-          <p className="mt-3 text-[12px] text-lagoon" role="status">
+          <p className="mt-3 text-[14px] text-lagoon" role="status">
             {flagMessage}
           </p>
         )}

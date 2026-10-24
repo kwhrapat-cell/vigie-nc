@@ -30,7 +30,7 @@ function StatCard({ value, label, color }: { value: number; label: string; color
       <span className="block font-display font-bold text-[26px] leading-none" style={{ color }}>
         {value}
       </span>
-      <span className="block mt-1.5 text-[11px] text-mist-dim">{label}</span>
+      <span className="block mt-1.5 text-[13px] text-mist-dim">{label}</span>
     </div>
   );
 }
@@ -114,7 +114,7 @@ export default function HistoriquePage() {
             aria-selected={effectiveScope === v}
             disabled={v === "zone" && noPosition}
             onClick={() => setScope(v)}
-            className={`rounded-lg py-2 text-[12px] font-medium disabled:opacity-40 ${
+            className={`rounded-lg py-2 text-[14px] font-medium disabled:opacity-40 ${
               effectiveScope === v ? "bg-primary text-white" : "text-mist-dim"
             }`}
           >
@@ -136,7 +136,7 @@ export default function HistoriquePage() {
             role="tab"
             aria-selected={tab === v}
             onClick={() => setTab(v)}
-            className={`pb-2 text-[13px] font-medium border-b-2 -mb-px ${
+            className={`pb-2 text-[15px] font-medium border-b-2 -mb-px ${
               tab === v ? "border-lagoon text-mist" : "border-transparent text-mist-dim"
             }`}
           >
@@ -146,11 +146,11 @@ export default function HistoriquePage() {
       </div>
 
       {error && (
-        <p className="mx-4 mb-3 text-[12px] text-danger" role="alert">
+        <p className="mx-4 mb-3 text-[14px] text-danger" role="alert">
           {error}
         </p>
       )}
-      {(loading || waiting) && !stats && <p className="mx-4 text-[12.5px] text-mist-dim">Chargement…</p>}
+      {(loading || waiting) && !stats && <p className="mx-4 text-[14.5px] text-mist-dim">Chargement…</p>}
 
       {stats && tab === "resume" && (
         <section className="mx-4">
@@ -161,7 +161,7 @@ export default function HistoriquePage() {
             <StatCard value={t.route_coupee ?? 0} label="Routes coupées" color="#F0912E" />
           </div>
 
-          <h2 className="mt-5 mb-2 text-[13px] font-medium">Évolution mensuelle</h2>
+          <h2 className="mt-5 mb-2 text-[15px] font-medium">Évolution mensuelle</h2>
           <div className="rounded-xl border border-line bg-panel px-3 pt-3 pb-2">
             <div className="flex items-end gap-1.5 h-[120px]" role="list" aria-label="Signalements par mois">
               {stats.parMois.map((m, i) => (
@@ -189,14 +189,14 @@ export default function HistoriquePage() {
           </div>
 
           {topType && topType[1] > 0 && (
-            <p className="mt-3 text-[12px] text-mist-dim">
+            <p className="mt-3 text-[14px] text-mist-dim">
               Le plus fréquent {effectiveScope === "zone" ? "ici" : "en Calédonie"} :{" "}
               <span className="text-mist font-medium">{REPORT_TYPE_LABELS[topType[0]]}</span> ({topType[1]}).
               {peakIndexes.size > 0 && " Les mois en rouge sont les plus chargés."}
             </p>
           )}
           {stats.total === 0 && (
-            <p className="mt-3 text-[12px] text-mist-dim">
+            <p className="mt-3 text-[14px] text-mist-dim">
               Rien n&apos;a encore été signalé ici. L&apos;historique se construit avec les signalements de chacun.
             </p>
           )}
@@ -205,21 +205,21 @@ export default function HistoriquePage() {
 
       {stats && tab === "evenements" && (
         <ul className="mx-4 flex flex-col gap-2">
-          {stats.recents.length === 0 && <li className="text-[12.5px] text-mist-dim">Aucun événement sur la période.</li>}
+          {stats.recents.length === 0 && <li className="text-[14.5px] text-mist-dim">Aucun événement sur la période.</li>}
           {stats.recents.map((e) => (
             <li key={e.id}>
               <Link href={`/?signalement=${e.id}`} className="flex items-center gap-3 rounded-xl border border-line bg-panel px-3 py-2.5">
                 <TypeTile type={e.type} size={36} />
                 <span className="flex-1 min-w-0">
-                  <b className="block font-semibold text-[13px] truncate">{REPORT_TYPE_LABELS[e.type] ?? "Signalement"}</b>
-                  <span className="block text-[11px] text-mist-dim truncate">
+                  <b className="block font-semibold text-[15px] truncate">{REPORT_TYPE_LABELS[e.type] ?? "Signalement"}</b>
+                  <span className="block text-[13px] text-mist-dim truncate">
                     {[e.lieu, new Date(e.createdAt).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })]
                       .filter(Boolean)
                       .join(" · ")}
                   </span>
                 </span>
                 <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[12px] ${
                     e.actif ? "bg-ok/15 text-ok" : "bg-white/[0.06] text-mist-dim"
                   }`}
                 >

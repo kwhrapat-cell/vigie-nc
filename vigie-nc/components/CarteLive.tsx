@@ -18,19 +18,11 @@ import {
   useModeConduite,
 } from "./ModeConduite";
 import { Logo } from "./ui";
-import { MapStyleSwitcher, RecenterButton, ZoneSelector } from "./MapControls";
+import { RecenterButton, ZoneSelector } from "./MapControls";
 import { CONDUITE_RECENTRAGE_MS } from "@/lib/conduite";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { distanceM, LatLng } from "@/lib/geo";
-import {
-  MapStyle,
-  readMapStyle,
-  readRadiusKm,
-  readZoneChoice,
-  saveMapStyle,
-  saveZoneChoice,
-  ZoneChoice,
-} from "@/lib/preferences";
+import { MapStyle, readMapStyle, readRadiusKm, readZoneChoice, saveZoneChoice, ZoneChoice } from "@/lib/preferences";
 import { fetchReport } from "@/lib/reports-api";
 import { useWatchPosition } from "@/lib/useWatchPosition";
 import { useLiveReports } from "@/lib/useLiveReports";
@@ -64,10 +56,6 @@ export function CarteLive() {
     setZone(z);
     setFollow(true);
     saveZoneChoice(z);
-  }, []);
-  const changeMapStyle = useCallback((s: MapStyle) => {
-    setMapStyle(s);
-    saveMapStyle(s);
   }, []);
 
   // En conduite, toujours la vue autour de soi (la vue Calédonie ne suit pas).
@@ -219,26 +207,21 @@ export function CarteLive() {
       <div className={enConduite ? "hidden" : "contents"}>
       <header className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
         <Logo />
+        {/* Les alertes sont dans la barre du bas : pas de deuxième cloche ici. */}
         <div className="flex items-center gap-2">
           {isSupabaseConfigured ? (
-            <span className="flex items-center gap-1.5 font-mono text-[9.5px] tracking-wider text-lagoon-dim bg-lagoon/10 border border-lagoon/30 px-2 py-1 rounded-full">
+            <span className="flex items-center gap-1.5 font-mono text-[11.5px] tracking-wider text-lagoon-dim bg-lagoon/10 border border-lagoon/30 px-2 py-1 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-lagoon animate-blink" />
               EN DIRECT
             </span>
           ) : (
             <span
-              className="font-mono text-[9.5px] tracking-wider text-ochre bg-ochre/10 border border-ochre/30 px-2 py-1 rounded-full"
+              className="font-mono text-[11.5px] tracking-wider text-ochre bg-ochre/10 border border-ochre/30 px-2 py-1 rounded-full"
               title="Base de données non branchée : données de démonstration, rien n'est enregistré"
             >
               MODE DÉMO
             </span>
           )}
-          <Link href="/alertes" aria-label="Alertes" className="w-10 h-10 flex items-center justify-center text-mist">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className="w-[22px] h-[22px]">
-              <path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" strokeLinejoin="round" />
-              <path d="M10 20.5a2.2 2.2 0 0 0 4 0" strokeLinecap="round" />
-            </svg>
-          </Link>
         </div>
       </header>
 
@@ -249,7 +232,7 @@ export function CarteLive() {
       <TravauxBanner position={position} onOpen={openFromBanner} />
 
       {banner && (
-        <div role="status" className="mx-4 mb-2 rounded-xl border border-lagoon/30 bg-lagoon/10 px-3 py-2 text-[12px] text-mist">
+        <div role="status" className="mx-4 mb-2 rounded-xl border border-lagoon/30 bg-lagoon/10 px-3 py-2 text-[14px] text-mist">
           {banner}
         </div>
       )}
@@ -278,7 +261,6 @@ export function CarteLive() {
               onClick={recenter}
               label={position ? "Revenir sur ma position" : "Activer ma position"}
             />
-            <MapStyleSwitcher value={mapStyle} onChange={changeMapStyle} />
             {enConduite ? (
               <>
                 <BoutonPointRoute conduite={conduite} />
@@ -296,7 +278,7 @@ export function CarteLive() {
         <Link
           href="/sos"
           aria-label="SOS — je suis en danger"
-          className="absolute left-3 bottom-7 z-10 w-[52px] h-[52px] rounded-full flex items-center justify-center font-display font-bold text-[13px] text-white border-[3px] border-void shadow-[0_8px_20px_-6px_rgba(229,72,77,0.8)]"
+          className="absolute left-3 bottom-7 z-10 w-[52px] h-[52px] rounded-full flex items-center justify-center font-display font-bold text-[15px] text-white border-[3px] border-void shadow-[0_8px_20px_-6px_rgba(229,72,77,0.8)]"
           style={{ background: "radial-gradient(circle at 35% 30%, #F26A6E, #D3343A)" }}
         >
           SOS

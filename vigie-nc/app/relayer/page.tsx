@@ -130,7 +130,7 @@ export default function RelayerPage() {
           <h1 className="mt-7 font-display font-bold text-[22px]">
             {existed ? "Déjà sur la carte" : "Info relayée, merci !"}
           </h1>
-          <p className="mt-2 text-[13px] text-mist-dim leading-relaxed max-w-[310px]">
+          <p className="mt-2 text-[15px] text-mist-dim leading-relaxed max-w-[310px]">
             {existed
               ? "Cet événement est déjà signalé à cet endroit. Ton relais n'a pas créé de doublon."
               : "Elle apparaît avec l'étiquette « Relayé » jusqu'à ce que quelqu'un sur place la confirme."}
@@ -138,8 +138,8 @@ export default function RelayerPage() {
           <div className="mt-6 w-full flex items-center gap-3 rounded-xl border border-line bg-panel px-3 py-2.5 text-left">
             <TypeTile type={type} size={40} />
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-[13px]">{REPORT_TYPE_LABELS[type]}</p>
-              <p className="text-[11px] text-mist-dim truncate">
+              <p className="font-semibold text-[15px]">{REPORT_TYPE_LABELS[type]}</p>
+              <p className="text-[13px] text-mist-dim truncate">
                 {place || "Position choisie"} · relayé depuis {RELAY_SOURCE_LABELS[source]}
               </p>
             </div>
@@ -177,7 +177,7 @@ export default function RelayerPage() {
       {step === 1 && (
         <section className="flex-1 px-4 flex flex-col gap-4 pb-4">
           <div>
-            <h2 className="text-[12.5px] text-mist-dim mb-2">Où as-tu vu l&apos;info ?</h2>
+            <h2 className="text-[14.5px] text-mist-dim mb-2">Où as-tu vu l&apos;info ?</h2>
             <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="Provenance">
               {SOURCES.map((s) => (
                 <button
@@ -186,7 +186,7 @@ export default function RelayerPage() {
                   role="radio"
                   aria-checked={source === s}
                   onClick={() => setSource(s)}
-                  className={`rounded-lg border py-2 text-[11.5px] font-medium ${
+                  className={`rounded-lg border py-2 text-[13.5px] font-medium ${
                     source === s ? "bg-primary border-primary text-white" : "border-line bg-panel text-mist-dim"
                   }`}
                 >
@@ -198,10 +198,10 @@ export default function RelayerPage() {
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label htmlFor="relay-text" className="text-[12.5px] text-mist-dim">
+              <label htmlFor="relay-text" className="text-[14.5px] text-mist-dim">
                 Colle le message
               </label>
-              <button type="button" onClick={pasteFromClipboard} className="rounded-lg border border-lagoon/40 px-3 py-1.5 text-[12px] font-medium text-lagoon">
+              <button type="button" onClick={pasteFromClipboard} className="rounded-lg border border-lagoon/40 px-3 py-1.5 text-[14px] font-medium text-lagoon">
                 Coller
               </button>
             </div>
@@ -211,9 +211,9 @@ export default function RelayerPage() {
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Ex. : Radier de la Coulée submergé, ne passez pas !"
-              className="w-full rounded-xl border border-line bg-panel px-3 py-2.5 text-[13px] placeholder:text-mist-dim/60 focus:outline-none focus:border-lagoon"
+              className="w-full rounded-xl border border-line bg-panel px-3 py-2.5 text-[15px] placeholder:text-mist-dim/60 focus:outline-none focus:border-lagoon"
             />
-            <p className="mt-1.5 text-[10.5px] text-mist-dim leading-relaxed">
+            <p className="mt-1.5 text-[12.5px] text-mist-dim leading-relaxed">
               Sur Facebook : appui long sur le message, puis « Copier ». Le texte reste sur ton téléphone :
               seuls le type d&apos;événement et le lieu sont publiés. Jamais de nom ni de photo.
             </p>
@@ -222,7 +222,7 @@ export default function RelayerPage() {
           {analysis && (
             <>
               <div>
-                <h2 className="text-[12.5px] text-mist-dim mb-2">
+                <h2 className="text-[14.5px] text-mist-dim mb-2">
                   {analysis.type && !typeTouched
                     ? `Type repéré (mot « ${analysis.typeKeyword} ») — corrige si besoin`
                     : "Quel type d'événement ?"}
@@ -240,7 +240,7 @@ export default function RelayerPage() {
                           setType(t);
                           setTypeTouched(true);
                         }}
-                        className={`h-[64px] rounded-xl flex flex-col items-center justify-center gap-1 text-white text-[11px] font-semibold ${
+                        className={`h-[64px] rounded-xl flex flex-col items-center justify-center gap-1 text-white text-[13px] font-semibold ${
                           selected ? "ring-2 ring-mist ring-offset-2 ring-offset-void" : type ? "opacity-45" : ""
                         }`}
                         style={{ background: REPORT_TYPE_HEX[t] }}
@@ -254,7 +254,7 @@ export default function RelayerPage() {
               </div>
 
               <div>
-                <label htmlFor="relay-place" className="block text-[12.5px] text-mist-dim mb-2">
+                <label htmlFor="relay-place" className="block text-[14.5px] text-mist-dim mb-2">
                   {analysis.label && !placeTouched ? "Lieu repéré — corrige si besoin" : "Lieu (commune, route, radier…)"}
                 </label>
                 <input
@@ -266,9 +266,9 @@ export default function RelayerPage() {
                     setPlaceTouched(true);
                   }}
                   placeholder="Ex. : Radier de la Coulée, Mont-Dore"
-                  className="w-full rounded-xl border border-line bg-panel px-3 py-3 text-[13px] placeholder:text-mist-dim/60 focus:outline-none focus:border-lagoon"
+                  className="w-full rounded-xl border border-line bg-panel px-3 py-3 text-[15px] placeholder:text-mist-dim/60 focus:outline-none focus:border-lagoon"
                 />
-                <p className="mt-1 text-[10.5px] text-mist-dim">Écris un lieu, jamais le nom d&apos;une personne.</p>
+                <p className="mt-1 text-[12.5px] text-mist-dim">Écris un lieu, jamais le nom d&apos;une personne.</p>
               </div>
             </>
           )}
@@ -281,12 +281,12 @@ export default function RelayerPage() {
           <div className="relative flex-1 min-h-[300px] mx-4 rounded-2xl overflow-hidden border border-line">
             <PositionPicker value={pin} gps={gps} onChange={setPin} />
           </div>
-          {locateNote && <p className="mx-4 mt-2 text-[11.5px] text-mist-dim">{locateNote}</p>}
+          {locateNote && <p className="mx-4 mt-2 text-[13.5px] text-mist-dim">{locateNote}</p>}
           <div className="mx-4 mt-2 flex items-center gap-3 rounded-xl border border-line bg-panel px-3 py-2.5">
             {type && <TypeTile type={type} size={36} />}
             <div className="min-w-0">
-              <p className="text-[13px] font-semibold">{type ? REPORT_TYPE_LABELS[type] : ""}</p>
-              <p className="text-[11px] text-mist-dim truncate">
+              <p className="text-[15px] font-semibold">{type ? REPORT_TYPE_LABELS[type] : ""}</p>
+              <p className="text-[13px] text-mist-dim truncate">
                 {place || "Lieu non précisé"} · relayé depuis {RELAY_SOURCE_LABELS[source]}
               </p>
             </div>
@@ -295,7 +295,7 @@ export default function RelayerPage() {
       )}
 
       {error && (
-        <p className="mx-4 mt-3 text-center text-[12px] text-danger" role="alert">
+        <p className="mx-4 mt-3 text-center text-[14px] text-danger" role="alert">
           {error}
         </p>
       )}
@@ -314,14 +314,14 @@ export default function RelayerPage() {
             <PrimaryButton disabled={!pin || submitting} onClick={publish}>
               {submitting ? "Publication…" : "Publier l'info relayée"}
             </PrimaryButton>
-            <p className="mt-2 text-center text-[10.5px] text-mist-dim">
+            <p className="mt-2 text-center text-[12.5px] text-mist-dim">
               Relaie seulement une info sérieuse, sans nom ni accusation ·{" "}
               <Link href="/conditions" className="text-lagoon underline">Conditions</Link>
             </p>
           </>
         )}
         {step === 1 && (
-          <p className="mt-2 text-center text-[10.5px] text-mist-dim">
+          <p className="mt-2 text-center text-[12.5px] text-mist-dim">
             Tu es sur place ? <Link href="/signaler" className="text-lagoon underline">Fais plutôt un signalement</Link>.
           </p>
         )}

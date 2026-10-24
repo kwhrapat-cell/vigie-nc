@@ -60,7 +60,7 @@ export default function AlertesPage() {
             aria-selected={effectiveScope === value}
             disabled={value === "zone" && noPosition}
             onClick={() => setScope(value)}
-            className={`rounded-lg py-2 text-[12.5px] font-medium disabled:opacity-40 ${
+            className={`rounded-lg py-2 text-[14.5px] font-medium disabled:opacity-40 ${
               effectiveScope === value ? "bg-primary text-white" : "text-mist-dim"
             }`}
           >
@@ -70,24 +70,24 @@ export default function AlertesPage() {
       </div>
 
       {noPosition && (
-        <p className="mx-4 mb-3 text-[11.5px] text-warn">
+        <p className="mx-4 mb-3 text-[13.5px] text-warn">
           Position indisponible : affichage de toute la Calédonie.
         </p>
       )}
       {error && (
-        <p className="mx-4 mb-3 text-[12px] text-danger" role="alert">
+        <p className="mx-4 mb-3 text-[14px] text-danger" role="alert">
           {error}
         </p>
       )}
 
       {(status === "loading" || waitingForPosition) && (
-        <p className="mx-4 text-[12.5px] text-mist-dim">Chargement…</p>
+        <p className="mx-4 text-[14.5px] text-mist-dim">Chargement…</p>
       )}
 
       {status === "ready" && !waitingForPosition && sorted.length === 0 && (
         <div className="mx-4 rounded-xl border border-line bg-panel px-4 py-5 text-center">
-          <p className="text-[13px]">Aucune alerte en cours {effectiveScope === "zone" ? "dans ta zone" : ""}.</p>
-          <p className="mt-1 text-[11px] text-mist-dim">
+          <p className="text-[15px]">Aucune alerte en cours {effectiveScope === "zone" ? "dans ta zone" : ""}.</p>
+          <p className="mt-1 text-[13px] text-mist-dim">
             L&apos;absence de signalement ne garantit pas que la route est dégagée.
           </p>
         </div>
@@ -106,13 +106,13 @@ export default function AlertesPage() {
                   <TypeTile type={r.type} size={40} />
                   <span className="flex-1 min-w-0">
                     <span className="flex items-center gap-1.5">
-                      <b className="font-semibold text-[13px] truncate">{r.label}</b>
+                      <b className="font-semibold text-[15px] truncate">{r.label}</b>
                       {r.type !== "sos" && <ReliabilityBadge report={r} />}
                     </span>
-                    <span className="block text-[11px] text-mist-dim truncate">
+                    <span className="block text-[13px] text-mist-dim truncate">
                       {[r.place, dist].filter(Boolean).join(" · ") || "Voir sur la carte"}
                     </span>
-                    <span className="block font-mono text-[10px] text-mist-dim opacity-70">{formatAge(r.createdAt)}</span>
+                    <span className="block font-mono text-[12px] text-mist-dim opacity-70">{formatAge(r.createdAt)}</span>
                   </span>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-mist-dim shrink-0">
                     <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />

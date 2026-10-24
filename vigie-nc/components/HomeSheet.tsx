@@ -62,11 +62,11 @@ export function HomeSheet({
       <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-2.5" />
 
       <div className="flex items-baseline justify-between gap-2">
-        <h2 className="font-display font-semibold text-[15px]">
+        <h2 className="font-display font-semibold text-[16px]">
           {scope === "nc" ? "Toute la Calédonie" : hasCenter ? "Autour de moi" : "En Calédonie"}
-          {hasCenter && <span className="text-mist-dim font-normal text-[12px]"> · {radiusKm} km</span>}
+          {hasCenter && <span className="text-mist-dim font-normal text-[14px]"> · {radiusKm} km</span>}
         </h2>
-        <span className="font-mono text-[10px] text-mist-dim">
+        <span className="font-mono text-[12px] text-mist-dim">
           {status === "loading" ? "Chargement…" : time ? `Mis à jour à ${time}` : ""}
         </span>
       </div>
@@ -90,7 +90,7 @@ export function HomeSheet({
               <span className="block font-display font-bold text-[22px] leading-none" style={{ color: CATEGORY_HEX[c] }}>
                 {n}
               </span>
-              <span className="block mt-1 text-[10.5px] text-mist-dim">
+              <span className="block mt-1 text-[12.5px] text-mist-dim">
                 {n > 1 ? CATEGORY_LABELS[c].many : CATEGORY_LABELS[c].one}
               </span>
             </button>
@@ -99,7 +99,7 @@ export function HomeSheet({
       </div>
 
       {!hasCenter && scope === "zone" && (geoStatus === "denied" || geoStatus === "unsupported" || geoStatus === "unavailable") && (
-        <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-warn/30 bg-warn/10 px-3 py-2 text-[11.5px] text-mist">
+        <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-warn/30 bg-warn/10 px-3 py-2 text-[13.5px] text-mist">
           <span className="flex-1">
             {geoStatus === "denied"
               ? "Position refusée : tu vois toute la Calédonie. Autorise la localisation pour ne voir que ta zone."
@@ -111,7 +111,7 @@ export function HomeSheet({
             <button
               type="button"
               onClick={onEnableLocation}
-              className="shrink-0 rounded-lg border border-warn/40 px-2.5 py-1.5 text-[11px] font-medium text-warn"
+              className="shrink-0 rounded-lg border border-warn/40 px-2.5 py-1.5 text-[13px] font-medium text-warn"
             >
               Réessayer
             </button>
@@ -120,12 +120,12 @@ export function HomeSheet({
       )}
 
       {error && (
-        <p className="mt-2 text-[11.5px] text-danger" role="alert">
+        <p className="mt-2 text-[13.5px] text-danger" role="alert">
           {error}
         </p>
       )}
 
-      <h3 className="mt-3 mb-1 text-[12px] font-medium text-mist-dim">
+      <h3 className="mt-3 mb-1 text-[14px] font-medium text-mist-dim">
         {scope === "nc"
           ? filter
             ? `${CATEGORY_LABELS[filter].many} en cours`
@@ -136,9 +136,9 @@ export function HomeSheet({
       </h3>
 
       {status === "ready" && reports.length === 0 && (
-        <div className="py-2 text-[12px] text-mist-dim leading-relaxed">
+        <div className="py-2 text-[14px] text-mist-dim leading-relaxed">
           {`Aucun signalement ${filter ? "de ce type " : ""}${hasCenter ? "dans ce rayon " : ""}pour l'instant.`}
-          <span className="block text-[10.5px] opacity-70 mt-0.5">
+          <span className="block text-[12.5px] opacity-70 mt-0.5">
             L&apos;absence de signalement ne garantit pas que la route est dégagée.
           </span>
         </div>
@@ -159,13 +159,13 @@ export function HomeSheet({
                 <TypeTile type={r.type} size={38} />
                 <span className="flex-1 min-w-0">
                   <span className="flex items-center gap-1.5">
-                    <b className="font-semibold text-[13px] truncate">{r.type === "sos" ? "SOS — urgence" : r.label}</b>
+                    <b className="font-semibold text-[15px] truncate">{r.type === "sos" ? "SOS — urgence" : r.label}</b>
                     {r.type !== "sos" && <ReliabilityBadge report={r} />}
                   </span>
-                  <span className="block text-[11px] text-mist-dim truncate">
+                  <span className="block text-[13px] text-mist-dim truncate">
                     {[where, r.place && dist ? dist : null].filter(Boolean).join(" · ")}
                   </span>
-                  <span className="block font-mono text-[10px] text-mist-dim opacity-70">
+                  <span className="block font-mono text-[12px] text-mist-dim opacity-70">
                     {estChantier(r) && r.endDate
                       ? `chantier ${libelleFinChantier(r.endDate)}`
                       : `il y a ${formatAgeShort(r.createdAt)}`}
@@ -173,7 +173,7 @@ export function HomeSheet({
                 </span>
                 {r.type !== "sos" && rel.people > 0 && (
                   <span
-                    className="shrink-0 flex items-center gap-1 text-[11px] text-mist-dim"
+                    className="shrink-0 flex items-center gap-1 text-[13px] text-mist-dim"
                     aria-label={`${rel.people} personne${rel.people > 1 ? "s" : ""}`}
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-3.5 h-3.5">

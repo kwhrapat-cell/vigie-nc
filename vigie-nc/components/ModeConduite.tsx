@@ -574,7 +574,7 @@ export function BandeauConduite({
       aria-label="Mode conduite"
       className="shrink-0 relative z-[13] px-3 pb-2 pt-[max(env(safe-area-inset-top),10px)] bg-void/95 border-b border-line"
     >
-      <p className="flex items-center gap-1.5 font-mono text-[9.5px] tracking-wider uppercase text-lagoon-dim">
+      <p className="flex items-center gap-1.5 font-mono text-[11.5px] tracking-wider uppercase text-lagoon-dim">
         <span className="w-1.5 h-1.5 rounded-full bg-lagoon animate-blink" />
         Mode conduite · {voix && voixDispo ? `voix jusqu'à ${portee} km` : "voix coupée"}
       </p>
@@ -596,7 +596,7 @@ export function BandeauConduite({
               <p className="font-display font-bold text-[17px] leading-tight text-mist truncate">
                 {REPORT_TYPE_LABELS[prochain.report.type]}
               </p>
-              <p className="text-[12.5px] text-mist truncate">
+              <p className="text-[14.5px] text-mist truncate">
                 {distanceAffichee(prochain.distanceM)}
                 {cap != null ? " devant" : " autour"}
                 {" · "}
@@ -606,10 +606,10 @@ export function BandeauConduite({
             </>
           ) : (
             <>
-              <p className="font-display font-bold text-[16px] leading-tight text-mist truncate">
+              <p className="font-display font-bold text-[17px] leading-tight text-mist truncate">
                 Rien de confirmé devant
               </p>
-              <p className="text-[12px] text-mist-dim truncate">
+              <p className="text-[14px] text-mist-dim truncate">
                 {!position
                   ? "Recherche de ta position…"
                   : cap == null
@@ -623,33 +623,33 @@ export function BandeauConduite({
         <button
           type="button"
           onClick={conduite.arreter}
-          className="shrink-0 min-h-[44px] px-4 rounded-full border border-line bg-panel text-[13px] font-semibold text-mist"
+          className="shrink-0 min-h-[44px] px-4 rounded-full border border-line bg-panel text-[15px] font-semibold text-mist"
         >
           Arrêter
         </button>
       </div>
 
       {conduite.pointRouteEnCours && !pointRouteVisible && (
-        <p className="mt-1.5 text-[12px] text-mist-dim" role="status">
+        <p className="mt-1.5 text-[14px] text-mist-dim" role="status">
           Point route des {POINT_ROUTE_KM} km en préparation…
         </p>
       )}
       {pointRoute && pointRouteVisible && !reglagesOuverts && (
         <div className="mt-2 rounded-xl border border-lagoon/30 bg-lagoon/10 px-3 py-2" role="status">
-          <p className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-lagoon">
+          <p className="flex items-center gap-1.5 text-[12.5px] font-semibold uppercase tracking-wide text-lagoon">
             Point route · {POINT_ROUTE_KM} km{pointRoute.ia ? " · résumé par l'IA" : ""}
           </p>
-          <p className="mt-0.5 text-[12.5px] leading-snug text-mist">{pointRoute.texte}</p>
+          <p className="mt-0.5 text-[14.5px] leading-snug text-mist">{pointRoute.texte}</p>
         </div>
       )}
 
       {messages.map((m) => (
-        <p key={m} className="mt-1.5 text-[12px] leading-snug text-ochre">
+        <p key={m} className="mt-1.5 text-[14px] leading-snug text-ochre">
           {m}
         </p>
       ))}
       {rappel && !reglagesOuverts && (
-        <p className="mt-1.5 text-[11.5px] leading-snug text-mist-dim">
+        <p className="mt-1.5 text-[13.5px] leading-snug text-mist-dim">
           Téléphone sur un support, ou tenu par un passager. Ne touche pas l&apos;écran en roulant.
         </p>
       )}
@@ -657,7 +657,7 @@ export function BandeauConduite({
       {reglagesOuverts && (
         <div id="reglages-conduite" className="mt-2 rounded-2xl border border-line bg-panel p-3">
           <div className="flex items-center gap-2">
-            <span className="text-[12px] text-mist-dim shrink-0">Portée de la voix</span>
+            <span className="text-[14px] text-mist-dim shrink-0">Portée de la voix</span>
             <div role="radiogroup" aria-label="Portée de la voix" className="flex flex-1 gap-1.5">
               {CONDUITE_PORTEES_KM.map((p) => (
                 <button
@@ -666,7 +666,7 @@ export function BandeauConduite({
                   role="radio"
                   aria-checked={portee === p}
                   onClick={() => conduite.changerPortee(p)}
-                  className={`flex-1 min-h-[44px] rounded-full border text-[13px] font-semibold ${
+                  className={`flex-1 min-h-[44px] rounded-full border text-[15px] font-semibold ${
                     portee === p ? "bg-primary border-primary text-white" : "border-line text-mist-dim"
                   }`}
                 >
@@ -677,7 +677,7 @@ export function BandeauConduite({
           </div>
           {voixDispo && (
             <div className="mt-2">
-              <label htmlFor="voix-conduite" className="text-[12px] text-mist-dim">
+              <label htmlFor="voix-conduite" className="text-[14px] text-mist-dim">
                 Voix
               </label>
               <div className="mt-1 flex gap-2">
@@ -685,7 +685,7 @@ export function BandeauConduite({
                   id="voix-conduite"
                   value={conduite.nomVoix ?? ""}
                   onChange={(e) => conduite.changerNomVoix(e.target.value)}
-                  className="flex-1 min-w-0 min-h-[44px] rounded-full border border-line bg-panel-2 px-3 text-[13px] text-mist [color-scheme:dark] focus:outline-none focus:border-lagoon"
+                  className="flex-1 min-w-0 min-h-[44px] rounded-full border border-line bg-panel-2 px-3 text-[15px] text-mist [color-scheme:dark] focus:outline-none focus:border-lagoon"
                 >
                   {conduite.voixListe.length === 0 && <option value="">Voix du téléphone</option>}
                   {conduite.voixListe.map((v) => (
@@ -697,12 +697,12 @@ export function BandeauConduite({
                 <button
                   type="button"
                   onClick={conduite.essayerVoix}
-                  className="shrink-0 min-h-[44px] px-4 rounded-full border border-line text-[13px] font-semibold text-mist"
+                  className="shrink-0 min-h-[44px] px-4 rounded-full border border-line text-[15px] font-semibold text-mist"
                 >
                   Essayer
                 </button>
               </div>
-              <p className="mt-1.5 text-[11px] leading-snug text-mist-dim">
+              <p className="mt-1.5 text-[13px] leading-snug text-mist-dim">
                 Encore trop robot ? Le téléphone peut installer de meilleures voix, gratuites. Android : dans les
                 Paramètres, cherche « Synthèse vocale », choisis le moteur de Google, puis installe la voix française.
                 iPhone : Réglages › Accessibilité › Contenu énoncé › Voix › Français : télécharge une voix
@@ -715,7 +715,7 @@ export function BandeauConduite({
               type="button"
               onClick={conduite.changerTrafic}
               aria-pressed={trafic}
-              className={`flex-1 min-h-[44px] rounded-full border text-[13px] font-semibold ${
+              className={`flex-1 min-h-[44px] rounded-full border text-[15px] font-semibold ${
                 trafic ? "bg-primary border-primary text-white" : "border-line text-mist-dim"
               }`}
             >
@@ -724,12 +724,12 @@ export function BandeauConduite({
             <button
               type="button"
               onClick={onFermerReglages}
-              className="min-h-[44px] px-5 rounded-full border border-line text-[13px] font-semibold text-mist"
+              className="min-h-[44px] px-5 rounded-full border border-line text-[15px] font-semibold text-mist"
             >
               OK
             </button>
           </div>
-          <p className="mt-2 text-[11px] leading-snug text-mist-dim">
+          <p className="mt-2 text-[13px] leading-snug text-mist-dim">
             Téléphone sur un support, ou tenu par un passager. Ne touche pas l&apos;écran en roulant. Seuls les
             dangers confirmés sont annoncés, à vol d&apos;oiseau. Le point route (au départ, ou bouton « route » sur
             la carte) cite tout ce qui est signalé sur les {POINT_ROUTE_KM} km devant ; il peut être écrit par

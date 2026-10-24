@@ -188,6 +188,10 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
 
 - Textes de l'interface et commentaires **en français**, tutoiement.
 - Mobile d'abord (largeur 380 px), cibles tactiles ≥ 44 px.
+- Textes lisibles au soleil et par les anciens : au moins 14 px pour le texte
+  courant, 12 px pour les petites mentions (sauf outils de modération et
+  affiche). Signaler = 2 étapes : le type, puis « Publier » (position
+  automatique, photo et détails repliés en option).
 - Couleurs : jetons Tailwind (`void`, `panel`, `panel-2`, `line`, `primary`,
   `lagoon`, `danger`, `warn`, `info`, `ok`, `mist`, `mist-dim`). Couleurs
   par type/catégorie dans `lib/types.ts`.

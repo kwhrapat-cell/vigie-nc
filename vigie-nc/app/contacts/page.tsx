@@ -34,7 +34,7 @@ export default function ContactsPage() {
     <main className="min-h-[100dvh] pb-8">
       <ScreenHeader title="Contacts d'urgence" backHref="/profil" />
 
-      <p className="mx-4 mt-1 text-[11.5px] text-mist-dim leading-relaxed">
+      <p className="mx-4 mt-1 text-[13.5px] text-mist-dim leading-relaxed">
         Ces contacts restent uniquement sur ton téléphone. En cas de SOS,
         l&apos;app ouvre ton appli SMS avec un message pré-rempli — c&apos;est
         toi qui décides d&apos;envoyer.
@@ -42,7 +42,7 @@ export default function ContactsPage() {
 
       <div className="mx-4 mt-4 flex flex-col gap-2">
         {contacts.length === 0 && (
-          <p className="text-[12px] text-mist-dim opacity-70">
+          <p className="text-[14px] text-mist-dim opacity-70">
             Aucun contact enregistré pour l&apos;instant.
           </p>
         )}
@@ -52,8 +52,8 @@ export default function ContactsPage() {
             className="flex items-center justify-between rounded-xl border border-line bg-panel px-3 py-2.5"
           >
             <div>
-              <div className="text-[13px] font-medium">{c.name}</div>
-              <div className="font-mono text-[11px] text-mist-dim">
+              <div className="text-[15px] font-medium">{c.name}</div>
+              <div className="font-mono text-[13px] text-mist-dim">
                 {c.phone}
               </div>
             </div>
@@ -74,14 +74,14 @@ export default function ContactsPage() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Nom (ex: Maman)"
-          className="rounded-xl bg-panel border border-line px-3 py-3 text-[13px] placeholder:text-mist-dim/60 focus:outline-none focus:border-lagoon"
+          className="rounded-xl bg-panel border border-line px-3 py-3 text-[15px] placeholder:text-mist-dim/60 focus:outline-none focus:border-lagoon"
         />
         <input
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           placeholder="Téléphone (ex: +687 XX.XX.XX)"
           inputMode="tel"
-          className="rounded-xl bg-panel border border-line px-3 py-3 text-[13px] placeholder:text-mist-dim/60 focus:outline-none focus:border-lagoon"
+          className="rounded-xl bg-panel border border-line px-3 py-3 text-[15px] placeholder:text-mist-dim/60 focus:outline-none focus:border-lagoon"
         />
         <PrimaryButton onClick={handleAdd} disabled={!name.trim() || !phone.trim()}>
           Ajouter le contact

@@ -48,7 +48,7 @@ export function ReliabilityBadge({
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full border font-medium ${
-        size === "md" ? "px-2.5 py-1 text-[11.5px]" : "px-1.5 py-px text-[10px]"
+        size === "md" ? "px-2.5 py-1 text-[13.5px]" : "px-1.5 py-px text-[12px]"
       }`}
       style={{ color, borderColor: `${color}66`, background: `${color}1A` }}
     >
@@ -80,7 +80,7 @@ export function Logo({ withTagline = false }: { withTagline?: boolean }) {
           VIGIE <span className="text-lagoon">NC</span>
         </span>
         {withTagline && (
-          <span className="block font-display text-[8.5px] tracking-[0.12em] text-mist-dim mt-0.5">
+          <span className="block font-display text-[10.5px] tracking-[0.12em] text-mist-dim mt-0.5">
             VEILLE &amp; SOLIDARITÉ DU TERRITOIRE
           </span>
         )}
@@ -123,7 +123,7 @@ export function ScreenHeader({
       )}
       <div className="flex-1 min-w-0">
         <h1 className="font-display font-semibold text-[17px] leading-tight truncate">{title}</h1>
-        {subtitle && <p className="text-[11.5px] text-lagoon mt-0.5">{subtitle}</p>}
+        {subtitle && <p className="text-[13.5px] text-lagoon mt-0.5">{subtitle}</p>}
       </div>
       {right ?? <span className="w-10" />}
     </header>
@@ -140,7 +140,7 @@ export function PrimaryButton({
     <button
       type="button"
       {...props}
-      className={`w-full rounded-xl bg-primary py-3.5 font-display font-semibold text-[14.5px] text-white disabled:opacity-40 active:bg-primary-strong ${className}`}
+      className={`w-full rounded-xl bg-primary py-3.5 font-display font-semibold text-[15.5px] text-white disabled:opacity-40 active:bg-primary-strong ${className}`}
     >
       {children}
     </button>
@@ -157,7 +157,7 @@ export function SecondaryButton({
     <button
       type="button"
       {...props}
-      className={`w-full rounded-xl border border-line bg-panel-2 py-3.5 font-display font-semibold text-[14px] text-mist disabled:opacity-40 ${className}`}
+      className={`w-full rounded-xl border border-line bg-panel-2 py-3.5 font-display font-semibold text-[15px] text-mist disabled:opacity-40 ${className}`}
     >
       {children}
     </button>
