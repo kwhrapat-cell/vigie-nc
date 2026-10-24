@@ -61,7 +61,7 @@ export function InstallApp() {
   if (!platform) return null;
 
   if (installed) {
-    return <p className="text-[12px] text-ok">Vigie NC est installée sur ce téléphone.</p>;
+    return <p className="text-[14px] text-ok">Vigie NC est installée sur ce téléphone.</p>;
   }
 
   // Lien ouvert depuis Facebook, Messenger… : l'installation n'y marche pas.
@@ -85,7 +85,7 @@ export function InstallApp() {
       <button
         type="button"
         onClick={install}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-[13px] font-semibold text-white"
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-[15px] font-semibold text-white"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]" aria-hidden="true">
           <rect x="6.5" y="2.5" width="11" height="19" rx="2.5" />
@@ -95,7 +95,7 @@ export function InstallApp() {
       </button>
 
       {showSteps && (
-        <ol className="mt-2.5 flex flex-col gap-1.5 list-decimal pl-5 text-[12px] text-mist-dim leading-relaxed">
+        <ol className="mt-2.5 flex flex-col gap-1.5 list-decimal pl-5 text-[14px] text-mist-dim leading-relaxed">
           {platform === "ios" ? (
             <>
               <li>

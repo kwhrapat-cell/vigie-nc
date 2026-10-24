@@ -36,7 +36,7 @@ export function ShareApp() {
           href={WHATSAPP_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 rounded-lg bg-[#25D366] py-3 text-[13px] font-semibold text-void"
+          className="flex items-center justify-center gap-2 rounded-lg bg-[#25D366] py-3 text-[15px] font-semibold text-void"
         >
           {/* Bulle de discussion générique (pas le logo de la marque) */}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinejoin="round" className="w-[18px] h-[18px]" aria-hidden="true">
@@ -48,7 +48,7 @@ export function ShareApp() {
         <button
           type="button"
           onClick={shareOther}
-          className="flex items-center justify-center gap-2 rounded-lg border border-line bg-panel-2 py-3 text-[13px] font-semibold"
+          className="flex items-center justify-center gap-2 rounded-lg border border-line bg-panel-2 py-3 text-[15px] font-semibold"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]" aria-hidden="true">
             <path d="M12 15V3.5M7.5 8L12 3.5 16.5 8" />
@@ -58,7 +58,7 @@ export function ShareApp() {
         </button>
       </div>
       {message && (
-        <p className="mt-2 text-[11.5px] text-lagoon break-all" role="status">
+        <p className="mt-2 text-[13.5px] text-lagoon break-all" role="status">
           {message}
         </p>
       )}

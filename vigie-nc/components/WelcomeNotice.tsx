@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Logo, PrimaryButton } from "./ui";
+import { Cagou } from "./Cagou";
 
 // Changer la version si le texte change de façon importante : l'écran
 // sera montré à nouveau à tout le monde.
@@ -24,19 +25,11 @@ function markSeen(): void {
   }
 }
 
-const POINTS = [
-  {
-    title: "Une info citoyenne, à vérifier",
-    text: "Les signalements viennent des usagers. Ils peuvent être faux ou dépassés : ils ne remplacent pas les consignes officielles.",
-  },
-  {
-    title: "Pas de téléphone au volant",
-    text: "Signale à l'arrêt, en sécurité, ou laisse faire un passager.",
-  },
-  {
-    title: "En cas d'urgence",
-    text: "Vigie NC ne prévient pas les secours : appelle le 15, le 17 ou le 18.",
-  },
+// D'abord ce que l'appli apporte, puis les trois règles, une ligne chacune.
+const REGLES = [
+  { texte: "Info des usagers : elle peut se tromper, vérifie sur place.", urgent: false },
+  { texte: "Au volant, pas de téléphone en main : le mode conduite parle pour toi.", urgent: false },
+  { texte: "Urgence : Vigie NC ne prévient pas les secours, appelle le 15, le 17 ou le 18.", urgent: true },
 ];
 
 /** Écran d'accueil montré une seule fois : ce qu'est (et n'est pas) Vigie NC. */
@@ -59,32 +52,30 @@ export function WelcomeNotice() {
         style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
       >
         <Logo withTagline />
-        <h2 id="welcome-title" className="mt-4 font-display font-semibold text-[19px] leading-tight">
-          Bienvenue sur Vigie NC
-        </h2>
-        <p className="mt-1 text-[12.5px] text-mist-dim">
-          L&apos;état des routes en direct, signalé anonymement par les Calédoniens.
+        <div className="mt-4 flex items-center gap-3">
+          <h2 id="welcome-title" className="flex-1 font-display font-bold text-[24px] leading-tight">
+            Sache ce qui t&apos;attend sur la route
+          </h2>
+          <Cagou size={72} titre="Le cagou de Vigie NC" />
+        </div>
+        <p className="mt-2 text-[16px] text-mist leading-relaxed">
+          Accidents, inondations, routes coupées, travaux : signalés en direct par les Calédoniens. Gratuit et
+          sans compte.
         </p>
 
-        <ul className="mt-4 flex flex-col gap-3">
-          {POINTS.map((p, i) => (
-            <li key={p.title} className="flex gap-3">
+        <ul className="mt-4 flex flex-col gap-2.5" aria-label="Les règles">
+          {REGLES.map((r) => (
+            <li key={r.texte} className="flex items-start gap-2.5 text-[15px] leading-snug">
               <span
-                className={`mt-0.5 w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-[12px] font-semibold ${
-                  i === 2 ? "bg-danger/15 text-danger" : "bg-lagoon/15 text-lagoon"
-                }`}
-              >
-                {i + 1}
-              </span>
-              <span>
-                <span className="block text-[13.5px] font-semibold">{p.title}</span>
-                <span className="block text-[12px] text-mist-dim leading-relaxed">{p.text}</span>
-              </span>
+                className={`mt-[7px] w-2 h-2 shrink-0 rounded-full ${r.urgent ? "bg-danger" : "bg-lagoon"}`}
+                aria-hidden="true"
+              />
+              <span className={r.urgent ? "text-mist" : "text-mist-dim"}>{r.texte}</span>
             </li>
           ))}
         </ul>
 
-        <p className="mt-4 text-[11px] text-mist-dim leading-relaxed">
+        <p className="mt-4 text-[13px] text-mist-dim leading-relaxed">
           En continuant, tu acceptes les{" "}
           <Link href="/conditions" className="text-lagoon underline">
             conditions d&apos;utilisation
@@ -103,7 +94,7 @@ export function WelcomeNotice() {
             setOpen(false);
           }}
         >
-          J&apos;ai compris
+          C&apos;est parti
         </PrimaryButton>
       </div>
     </div>

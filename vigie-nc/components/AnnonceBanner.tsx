@@ -88,11 +88,11 @@ export function AnnonceCard({
           <MegaphoneIcon />
         </span>
         <div className="flex-1 min-w-0">
-          <p className={`font-mono text-[10px] tracking-wider uppercase truncate ${s.accent}`}>
+          <p className={`font-mono text-[12px] tracking-wider uppercase truncate ${s.accent}`}>
             {ANNONCE_NIVEAU_LABELS[annonce.niveau]} · {annonce.source ?? "Vigie NC"}
           </p>
           <p
-            className={`mt-0.5 text-[13px] leading-snug text-mist whitespace-pre-line break-words ${
+            className={`mt-0.5 text-[15px] leading-snug text-mist whitespace-pre-line break-words ${
               long && !open ? "line-clamp-3" : ""
             }`}
           >
@@ -113,7 +113,7 @@ export function AnnonceCard({
         )}
       </div>
 
-      <div className="mt-0.5 flex items-center gap-2 pl-[38px] text-[10.5px] text-mist-dim">
+      <div className="mt-0.5 flex items-center gap-2 pl-[38px] text-[12.5px] text-mist-dim">
         <span className="flex-1 min-w-0 truncate">
           Toute la NC · {formatAge(annonce.createdAt)} · {finAnnonce(annonce.expiresAt)}
         </span>
@@ -185,7 +185,7 @@ export function AnnonceBanner() {
             saveHidden(next);
             setIndex(0);
           }}
-          className={`flex min-h-[40px] w-full items-center gap-2 rounded-full border px-3 text-left text-[12px] ${s.box}`}
+          className={`flex min-h-[40px] w-full items-center gap-2 rounded-full border px-3 text-left text-[14px] ${s.box}`}
         >
           <span className={s.accent}>
             <MegaphoneIcon />

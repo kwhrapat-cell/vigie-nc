@@ -180,6 +180,19 @@ export default function ConfidentialitePage() {
           <li>Tes contacts d&apos;urgence (SOS) : jamais envoyés à Vigie NC.</li>
           <li>Tes réglages (rayon, fond de carte) et le texte collé pour relayer une info.</li>
           <li>
+            « Mon impact » : la liste de tes 30 derniers signalements (identifiant, type, lieu, heure), le nombre de
+            tes réponses « Toujours là » / « C&apos;est terminé », les jours où tu as ouvert l&apos;appli et tes
+            badges. Ça sert à te dire quand d&apos;autres confirment ce que tu as signalé : l&apos;appli relit ces
+            signalements comme n&apos;importe quel signalement public. Rien de tout ça n&apos;est envoyé, et il
+            n&apos;y a pas de classement entre utilisateurs. Aussi : les signalements pour lesquels l&apos;appli
+            t&apos;a déjà demandé « Tu passes par là ? », pour ne pas te le redemander.
+          </li>
+          <li>
+            L&apos;image « Point route » que tu peux partager est dessinée sur ton téléphone, avec les signalements
+            déjà affichés (type, lieu, heure, fiabilité) : rien n&apos;est envoyé à Vigie NC pour la faire, et elle ne
+            montre ni nom, ni photo, ni ta position. C&apos;est toi qui choisis à qui l&apos;envoyer.
+          </li>
+          <li>
             Les derniers signalements et annonces affichés et quelques morceaux de carte, pour pouvoir les revoir
             sans réseau (ce sont des informations publiques), les annonces que tu as réduites et les travaux
             déjà montrés aujourd&apos;hui dans le bandeau (pour ne pas te les remontrer avant demain).

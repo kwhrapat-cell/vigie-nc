@@ -8,6 +8,7 @@
 import { supabase } from "./supabase";
 import { getDeviceId } from "./device-id";
 import { ensureSession } from "./session";
+import { noterSignalement, noterVote } from "./impact";
 import { demoCreate, demoDetail, demoFlag, demoNearby, demoRelay, demoStats, demoVote } from "./demo-store";
 import { LatLng } from "./geo";
 import {
@@ -268,6 +269,15 @@ export interface NewReport {
  * le serveur le compte comme une confirmation (« fusionne »).
  */
 export async function createReport(input: NewReport): Promise<{ id: string; resultat: CreateResult }> {
+  const res = await creerSignalement(input);
+  // « Mon impact » (gardé sur le téléphone) : pour dire plus tard s'il a servi.
+  if (res.resultat !== "deja_signale") {
+    noterSignalement(res.id, input.type, input.place, res.resultat === "fusionne");
+  }
+  return res;
+}
+
+async function creerSignalement(input: NewReport): Promise<{ id: string; resultat: CreateResult }> {
   if (!supabase) {
     try {
       const r = demoCreate({ ...input, deviceId: getDeviceId() });
@@ -297,6 +307,19 @@ export async function createReport(input: NewReport): Promise<{ id: string; resu
  * envoyé : type, position, nom du lieu et provenance. Jamais le texte copié.
  */
 export async function relayReport(input: {
+  type: Exclude<ReportType, "sos">;
+  lat: number;
+  lng: number;
+  source: RelaySource;
+  place?: string | null;
+}): Promise<{ id: string; resultat: RelayResult }> {
+  const res = await relayerSignalement(input);
+  // Déjà sur la carte : le relais n'ajoute rien, il ne compte pas.
+  if (res.resultat === "relaye") noterSignalement(res.id, input.type, input.place, false);
+  return res;
+}
+
+async function relayerSignalement(input: {
   type: Exclude<ReportType, "sos">;
   lat: number;
   lng: number;
@@ -361,6 +384,7 @@ export async function voteOnReport(
     raw = data as typeof raw;
   }
 
+  noterVote(vote, raw.resultat, raw.resolu);
   return {
     resultat: raw.resultat,
     confirmations: raw.confirmations,

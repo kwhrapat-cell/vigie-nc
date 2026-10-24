@@ -138,10 +138,10 @@ export function TravauxBanner({
         >
           <TypeTile type="travaux" size={30} />
           <span className="flex-1 min-w-0">
-            <span className="block truncate text-[13px] font-semibold text-mist">
+            <span className="block truncate text-[15px] font-semibold text-mist">
               {chantier ? "Chantier" : "Travaux"} {formatDistance(t.distanceM) ?? "près de toi"}
             </span>
-            <span className="block truncate text-[11px] text-mist-dim">{detail}</span>
+            <span className="block truncate text-[13px] text-mist-dim">{detail}</span>
           </span>
         </button>
         {travaux.length > 1 && (
@@ -149,7 +149,7 @@ export function TravauxBanner({
             type="button"
             onClick={() => setIndex((i + 1) % travaux.length)}
             aria-label="Travaux suivants"
-            className="min-h-[44px] px-1.5 text-[11px] font-medium text-ochre"
+            className="min-h-[44px] px-1.5 text-[13px] font-medium text-ochre"
           >
             {i + 1}/{travaux.length} ›
           </button>

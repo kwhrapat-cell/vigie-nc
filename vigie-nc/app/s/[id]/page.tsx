@@ -55,15 +55,15 @@ export default async function SharedReportPage({ params }: Props) {
         <>
           <TypeTile type={r.type} size={56} />
           <h1 className="mt-3 font-display font-semibold text-[20px] leading-tight">{shareTitle(r)}</h1>
-          <p className="mt-1 text-[12.5px] text-mist-dim">
+          <p className="mt-1 text-[14.5px] text-mist-dim">
             {r.actif ? shareReliability(r) : "Terminé"} · signalé {quandNoumea(r.createdAt)}
           </p>
         </>
       ) : (
         <h1 className="font-display font-semibold text-[18px]">Ce signalement n&apos;est plus disponible</h1>
       )}
-      <p className="mt-4 text-[12px] text-mist-dim">Ouverture de la carte…</p>
-      <Link href={carte} className="mt-3 rounded-xl bg-primary px-5 py-3 text-[13.5px] font-semibold text-white">
+      <p className="mt-4 text-[14px] text-mist-dim">Ouverture de la carte…</p>
+      <Link href={carte} className="mt-3 rounded-xl bg-primary px-5 py-3 text-[15.5px] font-semibold text-white">
         Voir sur la carte
       </Link>
     </main>

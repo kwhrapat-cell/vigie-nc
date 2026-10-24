@@ -35,6 +35,7 @@ export function useWatchPosition() {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
           accuracy: pos.coords.accuracy,
+          speed: pos.coords.speed,
         });
         setStatus("active");
       },

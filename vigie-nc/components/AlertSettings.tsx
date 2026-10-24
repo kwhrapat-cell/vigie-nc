@@ -63,7 +63,7 @@ function Card({ children, active = false }: { children: React.ReactNode; active?
 
 function Title({ children }: { children: React.ReactNode }) {
   return (
-    <p className="flex items-center gap-2 text-[13px] font-semibold">
+    <p className="flex items-center gap-2 text-[15px] font-semibold">
       <BellIcon className="w-[18px] h-[18px] text-lagoon shrink-0" />
       {children}
     </p>
@@ -71,13 +71,13 @@ function Title({ children }: { children: React.ReactNode }) {
 }
 
 function Note({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <p className={`mt-1.5 text-[11.5px] text-mist-dim leading-relaxed ${className}`}>{children}</p>;
+  return <p className={`mt-1.5 text-[13.5px] text-mist-dim leading-relaxed ${className}`}>{children}</p>;
 }
 
 /** Ce qui déclenche une alerte (rappel dans l'éditeur). */
 function WhatTriggers() {
   return (
-    <ul className="mt-2 flex flex-col gap-1 text-[11.5px] text-mist-dim leading-relaxed">
+    <ul className="mt-2 flex flex-col gap-1 text-[13.5px] text-mist-dim leading-relaxed">
       <li>• Accident, route coupée, inondation, danger, météo.</li>
       <li>• Seulement quand une 2e personne confirme, ou qu&apos;une source officielle vérifie.</li>
       <li>• 5 alertes par heure au maximum.</li>
@@ -227,9 +227,9 @@ export function AlertSettings() {
 
   const messages = (
     <>
-      {notice && <p className="mt-2 text-[12px] text-ok">{notice}</p>}
+      {notice && <p className="mt-2 text-[14px] text-ok">{notice}</p>}
       {error && (
-        <p className="mt-2 text-[12px] text-danger" role="alert">
+        <p className="mt-2 text-[14px] text-danger" role="alert">
           {error}
         </p>
       )}
@@ -326,7 +326,7 @@ export function AlertSettings() {
       <Card active>
         <Title>
           Alertes activées
-          <span className="ml-auto rounded-full bg-primary/20 px-2 py-0.5 text-[10.5px] font-medium text-lagoon">
+          <span className="ml-auto rounded-full bg-primary/20 px-2 py-0.5 text-[12.5px] font-medium text-lagoon">
             ✓ Actives
           </span>
         </Title>
@@ -348,7 +348,7 @@ export function AlertSettings() {
               type="button"
               disabled={busy}
               onClick={action}
-              className={`min-h-[44px] rounded-lg border border-line bg-panel-2 text-[12.5px] font-medium disabled:opacity-40 ${
+              className={`min-h-[44px] rounded-lg border border-line bg-panel-2 text-[14.5px] font-medium disabled:opacity-40 ${
                 label === "Désactiver" ? "text-mist-dim" : "text-mist"
               }`}
             >
@@ -374,7 +374,7 @@ export function AlertSettings() {
         <Title>{zone ? "Modifier ma zone d'alerte" : "Activer les alertes"}</Title>
         <WhatTriggers />
 
-        <p className="mt-3 text-[12px] font-medium">1. Le lieu à surveiller</p>
+        <p className="mt-3 text-[14px] font-medium">1. Le lieu à surveiller</p>
         <div className="relative mt-1.5 h-[240px] rounded-xl overflow-hidden border border-line">
           <PositionPicker
             value={pin}
@@ -388,7 +388,7 @@ export function AlertSettings() {
           type="button"
           onClick={pickMyPosition}
           disabled={geoStatus === "locating"}
-          className="mt-2 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-line bg-panel-2 text-[12.5px] font-medium text-mist disabled:opacity-40"
+          className="mt-2 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-line bg-panel-2 text-[14.5px] font-medium text-mist disabled:opacity-40"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} className="w-4 h-4" aria-hidden="true">
             <circle cx="12" cy="12" r="3.5" />
@@ -396,12 +396,12 @@ export function AlertSettings() {
           </svg>
           {geoStatus === "locating" ? "Recherche de ta position…" : "Utiliser ma position actuelle"}
         </button>
-        {geoError && <p className="mt-1.5 text-[11.5px] text-warn">{geoError}</p>}
+        {geoError && <p className="mt-1.5 text-[13.5px] text-warn">{geoError}</p>}
         <Note>
           Ou touche la carte / fais glisser le repère. Le lieu est enregistré arrondi à environ 1 km.
         </Note>
 
-        <p className="mt-3 text-[12px] font-medium">2. La distance</p>
+        <p className="mt-3 text-[14px] font-medium">2. La distance</p>
         <div className="mt-1.5 grid grid-cols-3 gap-1 rounded-xl border border-line bg-panel-2 p-1" role="radiogroup">
           {ALERT_RADII_KM.map((km) => (
             <button
@@ -410,7 +410,7 @@ export function AlertSettings() {
               role="radio"
               aria-checked={rayon === km}
               onClick={() => setRayon(km)}
-              className={`min-h-[40px] rounded-lg text-[13px] font-medium ${
+              className={`min-h-[40px] rounded-lg text-[15px] font-medium ${
                 rayon === km ? "bg-primary text-white" : "text-mist-dim"
               }`}
             >
@@ -419,7 +419,7 @@ export function AlertSettings() {
           ))}
         </div>
 
-        <label className="mt-3 block text-[12px] font-medium" htmlFor="alerte-nom">
+        <label className="mt-3 block text-[14px] font-medium" htmlFor="alerte-nom">
           3. Un nom <span className="font-normal text-mist-dim">(facultatif)</span>
         </label>
         <input
@@ -429,7 +429,7 @@ export function AlertSettings() {
           maxLength={30}
           onChange={(e) => setNom(e.target.value)}
           placeholder="Maison, Travail, École…"
-          className="mt-1.5 w-full rounded-lg border border-line bg-panel-2 px-3 py-2.5 text-[13px] text-mist placeholder:text-mist-dim/70 focus:border-primary focus:outline-none"
+          className="mt-1.5 w-full rounded-lg border border-line bg-panel-2 px-3 py-2.5 text-[15px] text-mist placeholder:text-mist-dim/70 focus:border-primary focus:outline-none"
         />
         <Note>Il apparaît dans la notification. Écris un lieu, jamais le nom d&apos;une personne.</Note>
 
@@ -477,7 +477,7 @@ export function AlertSettings() {
         <button
           type="button"
           onClick={startEdit}
-          className="min-h-[44px] shrink-0 rounded-lg bg-primary px-4 text-[13px] font-semibold text-white active:bg-primary-strong"
+          className="min-h-[44px] shrink-0 rounded-lg bg-primary px-4 text-[15px] font-semibold text-white active:bg-primary-strong"
         >
           Activer
         </button>

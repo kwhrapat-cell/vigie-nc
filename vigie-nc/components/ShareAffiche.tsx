@@ -32,7 +32,7 @@ export function ShareAffiche() {
     <button
       type="button"
       onClick={share}
-      className="rounded-xl border border-line bg-panel-2 py-3 text-center text-[13px] font-semibold"
+      className="rounded-xl border border-line bg-panel-2 py-3 text-center text-[15px] font-semibold"
     >
       {copied ? "Lien copié ✓" : "Partager le lien"}
     </button>

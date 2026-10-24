@@ -36,7 +36,7 @@ function NavTab({ tab, active }: { tab: Tab; active: boolean }) {
     <Link
       href={tab.href}
       aria-current={active ? "page" : undefined}
-      className={`flex-1 flex flex-col items-center justify-center gap-1 h-full text-[10.5px] ${
+      className={`flex-1 flex flex-col items-center justify-center gap-1 h-full text-[12.5px] ${
         active ? "text-lagoon" : "text-mist-dim"
       }`}
     >

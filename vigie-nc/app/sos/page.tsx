@@ -144,20 +144,20 @@ export default function SosPage() {
             }}
           >
             SOS
-            <span className="font-body font-medium text-[11px] tracking-normal opacity-90 mt-1">
+            <span className="font-body font-medium text-[13px] tracking-normal opacity-90 mt-1">
               {phase === "holding" ? `Encore ${secondsLeft} s…` : phase === "sending" ? "Envoi…" : phase === "done" ? "Déclenché" : "Appui long 3 sec."}
             </span>
           </button>
         </div>
 
         {phase === "error" && (
-          <p className="mt-4 text-center text-[12.5px] text-danger" role="alert">
+          <p className="mt-4 text-center text-[14.5px] text-danger" role="alert">
             {geoError ?? "Impossible d'obtenir ta position."} Appelle directement les secours ci-dessous.
           </p>
         )}
 
         <ul className="mt-6 w-full flex flex-col gap-2">
-          <li className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-3 text-[12.5px]">
+          <li className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-3 text-[14.5px]">
             <p className="mb-2">Appeler les secours</p>
             <div className="grid grid-cols-3 gap-2">
               {[
@@ -167,36 +167,36 @@ export default function SosPage() {
               ].map((s) => (
                 <a key={s.n} href={`tel:${s.n}`} className="min-h-[44px] rounded-lg bg-danger py-2 text-center text-white">
                   <span className="block font-display font-bold text-[18px] leading-tight">{s.n}</span>
-                  <span className="block text-[10px] opacity-90">{s.l}</span>
+                  <span className="block text-[12px] opacity-90">{s.l}</span>
                 </a>
               ))}
             </div>
           </li>
-          <li className="flex items-center gap-3 rounded-xl border border-line bg-panel px-3 py-3 text-[12.5px]">
+          <li className="flex items-center gap-3 rounded-xl border border-line bg-panel px-3 py-3 text-[14.5px]">
             <span className={`w-2.5 h-2.5 rounded-full ${smsHref ? "bg-ok" : "bg-line"}`} />
             <span className="flex-1">
               {contactsCount > 0
                 ? `SMS prêt pour ${contactsCount} contact${contactsCount > 1 ? "s" : ""} d'urgence`
                 : "Aucun contact d'urgence enregistré"}
               {smsHref && (
-                <a href={smsHref} className="block text-[11px] text-lagoon underline">Rouvrir le SMS</a>
+                <a href={smsHref} className="block text-[13px] text-lagoon underline">Rouvrir le SMS</a>
               )}
             </span>
-            <Link href="/contacts" className="text-[11px] text-lagoon underline shrink-0">
+            <Link href="/contacts" className="text-[13px] text-lagoon underline shrink-0">
               {contactsCount > 0 ? "Gérer" : "Ajouter"}
             </Link>
           </li>
           {mapsLink && (
-            <li className="flex items-center gap-3 rounded-xl border border-line bg-panel px-3 py-3 text-[12.5px]">
+            <li className="flex items-center gap-3 rounded-xl border border-line bg-panel px-3 py-3 text-[14.5px]">
               <span className="w-2.5 h-2.5 rounded-full bg-ok" />
               <span className="flex-1">
                 Ta position est prête à envoyer
-                <a href={mapsLink} target="_blank" rel="noopener noreferrer" className="block text-[11px] text-lagoon underline">
+                <a href={mapsLink} target="_blank" rel="noopener noreferrer" className="block text-[13px] text-lagoon underline">
                   Voir ma position
                 </a>
               </span>
               {canShare && (
-                <button type="button" onClick={sharePosition} className="min-h-[44px] text-[11px] text-lagoon underline shrink-0">
+                <button type="button" onClick={sharePosition} className="min-h-[44px] text-[13px] text-lagoon underline shrink-0">
                   Envoyer à quelqu&apos;un
                 </button>
               )}
@@ -204,7 +204,7 @@ export default function SosPage() {
           )}
         </ul>
 
-        <p className="mt-5 text-center text-[11px] text-mist-dim leading-relaxed">
+        <p className="mt-5 text-center text-[13px] text-mist-dim leading-relaxed">
           Vigie NC ne prévient pas les secours à ta place : appelle-les. Ta position n&apos;est jamais publiée sur la
           carte : elle ne va qu&apos;aux personnes à qui tu envoies le message.
         </p>

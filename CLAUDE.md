@@ -86,6 +86,23 @@ vigie-nc/
                   montré une fois par jour au plus, liste « vigie-nc:travaux-vus »
                   sur le téléphone ; constantes TRAVAUX_BANDEAU_* de lib/types.ts),
                   ShareRedirect (page /s/[id] → carte),
+                  Cagou (mascotte, dessin SVG original : bienvenue, liste vide,
+                  merci après un signalement, service indisponible),
+                  ImpactBanner (accueil : « N personnes ont confirmé ton
+                  signalement », relit au plus 5 de MES signalements toutes
+                  les 10 min par signalement_detail_v3), MonImpact (Profil :
+                  chiffres + badges), DemandeConfirmation (« Tu passes par
+                  là ? » : à 300 m d'un signalement ni à moi ni voté, arrêté
+                  (vitesse < 3 m/s), une demande par signalement et une toutes
+                  les 10 min, jamais en conduite),
+                  PartagePointRoute (bouton « Partager » au-dessus de la liste :
+                  image « Point route » de la zone, dessinée sur le téléphone
+                  (lib/point-route-dessin.ts, canvas 1080 × 1350, sans
+                  dépendance) à partir des signalements affichés
+                  (lib/point-route-partage.ts : type, lieu, heure, fiabilité ;
+                  jamais texte, photo, SOS ni position), partage par le menu du
+                  téléphone, sinon texte sur WhatsApp ou image à enregistrer ;
+                  lien ?src=point-route),
                   ModeConduite (useModeConduite + BoutonConduite, BoutonVoix,
                   BoutonReglagesConduite, BandeauConduite : annonces vocales
                   des dangers confirmés devant, écran gardé allumé. Pendant la
@@ -118,6 +135,13 @@ vigie-nc/
     useAnnonces.ts   annonces générales en direct (temps réel
                      vigie_annonce_signal) + copie pour l'affichage sans réseau
     reliability.ts   4 niveaux : Signalement / À confirmer / Confirmé / Vérifié
+    cagou.ts         dessin SVG du cagou (composant Cagou + image du point route)
+    impact.ts        « Mon impact », SUR LE TÉLÉPHONE seulement (localStorage
+                     « vigie-nc:impact-v1 ») : mes 30 derniers signalements,
+                     votes, jours d'utilisation, badges (BADGES). Noté par
+                     reports-api après createReport / relayReport / voteOnReport.
+                     Pas de classement entre utilisateurs (pousserait aux faux
+                     signalements), décrit dans /confidentialite
     chantier.ts      chantiers de longue durée (date de fin annoncée), dates
                      de Nouméa, CHANTIER_JOURS_MAX aligné sur
                      vigie_chantier_jours_max() du SQL
@@ -188,6 +212,10 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
 
 - Textes de l'interface et commentaires **en français**, tutoiement.
 - Mobile d'abord (largeur 380 px), cibles tactiles ≥ 44 px.
+- Textes lisibles au soleil et par les anciens : au moins 14 px pour le texte
+  courant, 12 px pour les petites mentions (sauf outils de modération et
+  affiche). Signaler = 2 étapes : le type, puis « Publier » (position
+  automatique, photo et détails repliés en option).
 - Couleurs : jetons Tailwind (`void`, `panel`, `panel-2`, `line`, `primary`,
   `lagoon`, `danger`, `warn`, `info`, `ok`, `mist`, `mist-dim`). Couleurs
   par type/catégorie dans `lib/types.ts`.
