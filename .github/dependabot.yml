@@ -39,3 +39,6 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # androidx.core 1.18 et plus demande AGP 9 : avec le passage à AGP 9.
+      - dependency-name: "androidx.core:core-ktx"
+        versions: [">=1.18.0"]

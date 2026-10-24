@@ -74,7 +74,9 @@ kotlin {
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.19.1")
+    // 1.17 au plus tant que l'appli reste sur Android Gradle Plugin 8 :
+    // androidx.core 1.19 demande AGP 9.1 et compileSdk 37.
+    implementation("androidx.core:core-ktx:1.17.0")
     // Reconnaissance d'activité (démarrage tout seul en voiture).
     implementation("com.google.android.gms:play-services-location:21.4.0")
 
