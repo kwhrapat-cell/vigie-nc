@@ -44,12 +44,26 @@ jobs:
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: "8.10.2"
+          # Android Gradle Plugin 8.13 demande Gradle 8.13 au moins.
+          gradle-version: "8.14.3"
       # Mêmes annonces que le site : cas communs de vigie-nc/tests/cas-conduite.json
       - name: Tests (mode conduite)
-        run: gradle testDebugUnitTest --no-daemon --stacktrace
+        shell: bash
+        run: gradle testDebugUnitTest --no-daemon --stacktrace 2>&1 | tee gradle-tests.log
       - name: Fabrication
-        run: gradle assembleDebug --no-daemon --stacktrace
+        shell: bash
+        run: gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee gradle-fabrication.log
+      # En cas d'échec, les lignes utiles de Gradle s'affichent sur la pull
+      # request (sans ouvrir le journal complet).
+      - name: Montrer l'erreur de Gradle
+        if: failure()
+        shell: bash
+        run: |
+          for f in gradle-tests.log gradle-fabrication.log; do
+            [ -f "$f" ] || continue
+            grep -E "What went wrong|^e: |error:|requires|minimum|Could not|incompatible|Dependency|compileSdk|AAR metadata" "$f" \
+              | grep -v "^> Task" | head -25 | while IFS= read -r l; do echo "::error title=$f::$l"; done
+          done
       - name: Nom du fichier
         run: cp app/build/outputs/apk/debug/app-debug.apk vigie-nc-test.apk
       # Publiée seulement si l'APK porte bien la clé de Vigie NC.

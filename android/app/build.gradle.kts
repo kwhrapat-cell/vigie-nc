@@ -13,7 +13,9 @@ val motDePasseCle: String? = System.getenv("ANDROID_KEYSTORE_PASSWORD")?.takeIf 
 
 android {
     namespace = "com.vigienc.app"
-    compileSdk = 35
+    // 36 : demandé par androidx.core 1.17 et plus (le comportement de l'appli
+    // dépend de targetSdk, qui reste à 35).
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.vigienc.app"
