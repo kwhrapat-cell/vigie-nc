@@ -20,9 +20,9 @@ jobs:
       run:
         working-directory: vigie-nc
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Node 22 lit le TypeScript tout seul : pas besoin d'installer les dépendances.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Tests
@@ -37,8 +37,8 @@ jobs:
       run:
         working-directory: vigie-nc
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
       - name: Dépendances
@@ -95,7 +95,7 @@ jobs:
       PGDATABASE: postgres
       PGOPTIONS: -c search_path=public,extensions
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Faux Supabase (rôles, auth, storage)
         run: psql -v ON_ERROR_STOP=1 -f vigie-nc/supabase/tests/shim-supabase.sql
       - name: Schéma (1er passage)
