@@ -37,6 +37,7 @@ https://github.com/kwhrapat-cell/vigie-nc/releases/download/app-test/vigie-nc-te
   lisible dans le dépôt public) : pour passer à la nouvelle version, il faut
   **désinstaller une fois** l'ancienne appli de test, puis installer celle du
   lien. Ensuite, les mises à jour s'installent par-dessus comme avant.
+  Secret ajouté dans GitHub le 24/10/2026.
 - Les **alertes de l'écran Alertes** (notifications du site) ne marchent pas
   dans l'appli : garder Chrome pour elles pendant le test.
 - Pour une **photo** dans un signalement, l'appli ouvre la galerie (pas encore
