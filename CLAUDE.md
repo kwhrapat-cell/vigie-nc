@@ -95,6 +95,14 @@ vigie-nc/
                   là ? » : à 300 m d'un signalement ni à moi ni voté, arrêté
                   (vitesse < 3 m/s), une demande par signalement et une toutes
                   les 10 min, jamais en conduite),
+                  PartagePointRoute (bouton « Partager » au-dessus de la liste :
+                  image « Point route » de la zone, dessinée sur le téléphone
+                  (lib/point-route-dessin.ts, canvas 1080 × 1350, sans
+                  dépendance) à partir des signalements affichés
+                  (lib/point-route-partage.ts : type, lieu, heure, fiabilité ;
+                  jamais texte, photo, SOS ni position), partage par le menu du
+                  téléphone, sinon texte sur WhatsApp ou image à enregistrer ;
+                  lien ?src=point-route),
                   ModeConduite (useModeConduite + BoutonConduite, BoutonVoix,
                   BoutonReglagesConduite, BandeauConduite : annonces vocales
                   des dangers confirmés devant, écran gardé allumé. Pendant la
@@ -127,6 +135,7 @@ vigie-nc/
     useAnnonces.ts   annonces générales en direct (temps réel
                      vigie_annonce_signal) + copie pour l'affichage sans réseau
     reliability.ts   4 niveaux : Signalement / À confirmer / Confirmé / Vérifié
+    cagou.ts         dessin SVG du cagou (composant Cagou + image du point route)
     impact.ts        « Mon impact », SUR LE TÉLÉPHONE seulement (localStorage
                      « vigie-nc:impact-v1 ») : mes 30 derniers signalements,
                      votes, jours d'utilisation, badges (BADGES). Noté par
