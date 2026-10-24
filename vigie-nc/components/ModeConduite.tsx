@@ -5,6 +5,7 @@ import { TypeTile } from "./ui";
 import { RoundButton } from "./MapControls";
 import { distanceM, LatLng } from "@/lib/geo";
 import { fetchNearby, fetchPointRouteIa } from "@/lib/reports-api";
+import { ecrireNomVoix, libelleVoix, lireNomVoix, parler, voixFrancaises } from "@/lib/voix";
 import { getReliability } from "@/lib/reliability";
 import { Report, REPORT_TYPE_LABELS } from "@/lib/types";
 import {
@@ -86,15 +87,9 @@ function lirePortee(): PorteeKm {
   }
 }
 
-function parler(texte: string) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-  const u = new SpeechSynthesisUtterance(texte);
-  u.lang = "fr-FR";
-  const voix = window.speechSynthesis.getVoices().find((v) => v.lang?.toLowerCase().startsWith("fr"));
-  if (voix) u.voice = voix;
-  u.rate = 1;
-  window.speechSynthesis.speak(u);
-}
+// Phrase dite par « Essayer », dans les réglages : un vrai point route.
+const PHRASE_ESSAI =
+  "Sur les 10 prochains kilomètres : inondation au radier de la Coulée, à 2,3 kilomètres, à confirmer.";
 
 function distanceAffichee(m: number): string {
   return m < 1000
@@ -119,6 +114,9 @@ export function useModeConduite() {
   const [rechercheFaite, setRechercheFaite] = useState(false);
   const [pointRoute, setPointRoute] = useState<{ texte: string; ia: boolean; heure: number } | null>(null);
   const [pointRouteEnCours, setPointRouteEnCours] = useState(false);
+  // Voix françaises du téléphone (la plus naturelle d'abord) et voix choisie
+  const [voixListe, setVoixListe] = useState<{ nom: string; libelle: string }[]>([]);
+  const [nomVoix, setNomVoix] = useState<string | null>(null);
 
   const watchId = useRef<number | null>(null);
   const verrou = useRef<Verrou | null>(null);
@@ -149,8 +147,17 @@ export function useModeConduite() {
     setTrafic(lirePref(CLE_TRAFIC, false));
     setPortee(lirePortee());
     setVoixDispo("speechSynthesis" in window);
-    // Certaines voix se chargent après coup : on les demande tôt.
-    if ("speechSynthesis" in window) window.speechSynthesis.getVoices();
+    if (!("speechSynthesis" in window)) return;
+    // Certaines voix se chargent après coup : la liste se met à jour.
+    const charger = () => {
+      const liste = voixFrancaises();
+      setVoixListe(liste.map((v) => ({ nom: v.name, libelle: libelleVoix(v) })));
+      const choisi = lireNomVoix();
+      setNomVoix(choisi && liste.some((v) => v.name === choisi) ? choisi : (liste[0]?.name ?? null));
+    };
+    charger();
+    window.speechSynthesis.addEventListener("voiceschanged", charger);
+    return () => window.speechSynthesis.removeEventListener("voiceschanged", charger);
   }, []);
 
   const garderEcranAllume = useCallback(async () => {
@@ -365,6 +372,20 @@ export function useModeConduite() {
     if (!v && "speechSynthesis" in window) window.speechSynthesis.cancel();
     if (v) parler("Voix activée.");
   }, []);
+  // Réglages : choisir une autre voix, l'entendre tout de suite.
+  const essayerVoix = useCallback(() => {
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    parler(PHRASE_ESSAI);
+  }, []);
+  const changerNomVoix = useCallback(
+    (nom: string) => {
+      setNomVoix(nom || null);
+      ecrireNomVoix(nom || null);
+      essayerVoix();
+    },
+    [essayerVoix],
+  );
   const changerTrafic = useCallback(() => {
     setTrafic((t) => {
       ecrirePref(CLE_TRAFIC, !t);
@@ -403,6 +424,10 @@ export function useModeConduite() {
     probleme,
     ecranAllume,
     voixDispo,
+    voixListe,
+    nomVoix,
+    changerNomVoix,
+    essayerVoix,
     demarrer,
     arreter,
     demanderPointRoute,
@@ -622,6 +647,41 @@ export function BandeauConduite({
               ))}
             </div>
           </div>
+          {voixDispo && (
+            <div className="mt-2">
+              <label htmlFor="voix-conduite" className="text-[12px] text-mist-dim">
+                Voix
+              </label>
+              <div className="mt-1 flex gap-2">
+                <select
+                  id="voix-conduite"
+                  value={conduite.nomVoix ?? ""}
+                  onChange={(e) => conduite.changerNomVoix(e.target.value)}
+                  className="flex-1 min-w-0 min-h-[44px] rounded-full border border-line bg-panel-2 px-3 text-[13px] text-mist [color-scheme:dark] focus:outline-none focus:border-lagoon"
+                >
+                  {conduite.voixListe.length === 0 && <option value="">Voix du téléphone</option>}
+                  {conduite.voixListe.map((v) => (
+                    <option key={v.nom} value={v.nom}>
+                      {v.libelle}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={conduite.essayerVoix}
+                  className="shrink-0 min-h-[44px] px-4 rounded-full border border-line text-[13px] font-semibold text-mist"
+                >
+                  Essayer
+                </button>
+              </div>
+              <p className="mt-1.5 text-[11px] leading-snug text-mist-dim">
+                Encore trop robot ? Le téléphone peut installer de meilleures voix, gratuites. Android : dans les
+                Paramètres, cherche « Synthèse vocale », choisis le moteur de Google, puis installe la voix française.
+                iPhone : Réglages › Accessibilité › Contenu énoncé › Voix › Français : télécharge une voix
+                « Améliorée ».
+              </p>
+            </div>
+          )}
           <div className="mt-2 flex gap-2">
             <button
               type="button"

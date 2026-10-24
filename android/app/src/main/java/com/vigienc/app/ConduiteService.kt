@@ -231,6 +231,9 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
         if (etat != TextToSpeech.SUCCESS) return
         val r = t.setLanguage(Locale.FRANCE)
         if (r == TextToSpeech.LANG_MISSING_DATA || r == TextToSpeech.LANG_NOT_SUPPORTED) t.setLanguage(Locale.FRENCH)
+        choisirVoix(t)
+        // Un peu moins vite que la normale : plus clair en voiture (comme lib/voix.ts).
+        t.setSpeechRate(0.95f)
         t.setAudioAttributes(attributsVoix)
         t.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(id: String?) {}
@@ -243,6 +246,25 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
             if (demarreAuto) "Vigie NC : tu roules, je surveille la route devant toi."
             else "Mode conduite activé. Je te préviens des dangers confirmés devant toi, même écran éteint.",
         )
+    }
+
+    /**
+     * La voix française la plus naturelle installée sur le téléphone. On
+     * écarte les voix qui ont besoin d'Internet (souvent coupé en voiture)
+     * et celles pas encore téléchargées. Sinon, la voix par défaut reste.
+     */
+    private fun choisirVoix(t: TextToSpeech) {
+        try {
+            val meilleure = (t.voices ?: return)
+                .filter { it.locale.language == "fr" }
+                .filter { !it.isNetworkConnectionRequired }
+                .filter { it.features?.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED) != true }
+                .maxByOrNull { it.quality + (if (it.locale.country == "FR") 50 else 0) }
+                ?: return
+            t.voice = meilleure
+        } catch (e: Exception) {
+            // Certains moteurs de voix refusent la liste : on garde la voix par défaut.
+        }
     }
 
     private fun parler(texte: String) {

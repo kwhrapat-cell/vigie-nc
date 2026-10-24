@@ -125,6 +125,11 @@ vigie-nc/
                      voix au choix 3 / 5 / 10 km, annonce à la portée puis à
                      500 m (+ 3 km pour 10 km), phrases parlées. ⚠️ Même
                      logique dans android/…/Conduite.kt : garder les deux alignées
+    voix.ts          voix du mode conduite (synthèse du téléphone) : la voix
+                     française la plus naturelle d'abord, choix dans les réglages
+                     (« vigie-nc:conduite-voix-nom »), vitesse 0,95 ; l'appli
+                     Android choisit aussi la meilleure voix installée
+                     (ConduiteService.choisirVoix, sans les voix réseau)
     face-blur.ts     photo : réduction, floutage visages, suppression EXIF
     place.ts         nom du lieu via Nominatim
     map-styles.ts    fonds de carte (OpenStreetMap / Esri, sans clé — pas CARTO,
