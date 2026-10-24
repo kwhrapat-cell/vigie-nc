@@ -4,7 +4,7 @@
 // au bandeau « Ton signalement a servi » de l'accueil et à la carte
 // « Mon impact » du Profil, avec ses badges.
 
-import { ReportType } from "./types";
+import type { ReportType } from "./types";
 
 const CLE = "vigie-nc:impact-v1";
 // Signalements gardés en mémoire (les plus récents).

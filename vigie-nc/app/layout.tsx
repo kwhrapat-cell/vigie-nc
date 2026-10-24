@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
+import { ErreurReporter } from "@/components/ErreurReporter";
 import { ServiceIndisponible } from "@/components/ServiceIndisponible";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { SessionInit } from "@/components/SessionInit";
@@ -53,6 +54,7 @@ export default function RootLayout({
     <html lang="fr">
       <body>
         <ServiceWorkerRegister />
+        <ErreurReporter />
         {!demoBlocked && <SessionInit />}
         <div className="max-w-md mx-auto min-h-screen flex flex-col bg-void">
           {demoBlocked ? <ServiceIndisponible /> : children}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { errorMessage, ModStats, modStats } from "@/lib/reports-api";
+import { ErreurTelephone, errorMessage, modErreurs, ModStats, modStats } from "@/lib/reports-api";
 
 // Onglet « Chiffres » de /moderation : les totaux à montrer aux
 // investisseurs, financeurs et mairies. Comptage anonyme (un appareil =
@@ -15,6 +15,7 @@ const SOURCE_LABELS: Record<string, string> = {
   direct: "Sans lien suivi (adresse tapée, favori…)",
   partage: "Signalement partagé",
   affiche: "Affiche ou QR code",
+  "point-route": "Image « Point route » partagée",
   whatsapp: "WhatsApp",
   facebook: "Facebook",
   radio: "Radio",
@@ -230,6 +231,8 @@ export function ModStatsPanel({ code }: { code: string }) {
         </p>
       </section>
 
+      <ErreursTelephones code={code} />
+
       {error && (
         <p className="text-[12px] text-danger" role="alert">
           {error}
@@ -377,6 +380,73 @@ function ColumnChart({
           </tbody>
         </table>
       </details>
+    </section>
+  );
+}
+
+/**
+ * Erreurs des téléphones (14 jours) : pour voir les bugs que personne ne
+ * signale. Anonymes : message, écran, navigateur (lib/erreurs.ts).
+ */
+function ErreursTelephones({ code }: { code: string }) {
+  const [liste, setListe] = useState<ErreurTelephone[] | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [ouverte, setOuverte] = useState<number | null>(null);
+
+  useEffect(() => {
+    let annule = false;
+    modErreurs(code)
+      .then((l) => {
+        if (!annule) setListe(l);
+      })
+      .catch((e) => {
+        if (!annule) setErreur(errorMessage(e, "Impossible de charger les erreurs."));
+      });
+    return () => {
+      annule = true;
+    };
+  }, [code]);
+
+  const total = liste?.reduce((t, e) => t + e.nombre, 0) ?? 0;
+  return (
+    <section className="rounded-xl border border-line bg-panel px-4 py-3">
+      <h3 className="text-[13px] font-semibold">Erreurs sur les téléphones (14 jours)</h3>
+      {erreur && <p className="mt-2 text-[12px] text-danger">{erreur}</p>}
+      {!erreur && liste === null && <p className="mt-2 text-[12px] text-mist-dim">Chargement…</p>}
+      {liste && liste.length === 0 && (
+        <p className="mt-2 text-[12px] text-ok">Aucune erreur signalée. Tout va bien.</p>
+      )}
+      {liste && liste.length > 0 && (
+        <>
+          <p className="mt-1 text-[11.5px] text-mist-dim">
+            {n(total)} erreur{total > 1 ? "s" : ""}, {liste.length} différente{liste.length > 1 ? "s" : ""}. Touche
+            une ligne pour le détail (à copier à Claude pour la corriger).
+          </p>
+          <ul className="mt-2 flex flex-col gap-1.5">
+            {liste.map((e, i) => (
+              <li key={i}>
+                <button
+                  type="button"
+                  onClick={() => setOuverte(ouverte === i ? null : i)}
+                  className="w-full text-left rounded-lg border border-line bg-panel-2 px-2.5 py-2"
+                >
+                  <span className="flex justify-between gap-2 text-[12px]">
+                    <span className={ouverte === i ? "break-words" : "truncate"}>{e.message}</span>
+                    <span className="shrink-0 text-warn tabular-nums">× {n(e.nombre)}</span>
+                  </span>
+                  {ouverte === i && (
+                    <span className="mt-1 block text-[11px] text-mist-dim">
+                      {e.ecran ?? "écran inconnu"} · {e.navigateur ?? "navigateur inconnu"} · {e.jours} jour
+                      {e.jours > 1 ? "s" : ""} · dernière le{" "}
+                      {new Date(e.derniere).toLocaleString("fr-FR", { timeZone: "Pacific/Noumea" })}
+                    </span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </section>
   );
 }

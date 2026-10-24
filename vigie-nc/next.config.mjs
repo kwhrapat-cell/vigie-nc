@@ -63,6 +63,11 @@ const nextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      // Outil de floutage : le chemin contient la version, il ne change jamais.
+      {
+        source: "/mediapipe/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
       {
         source: "/sw.js",
         headers: [

@@ -2327,6 +2327,8 @@ begin
    where s.created_at < now() - interval '1 day';
   delete from annonces a
    where a.created_at < now() - interval '1 year';
+  delete from vigie_erreurs e
+   where e.jour < vigie_jour_local() - 14;
 
   -- Chiffres d'utilisation : totaux par jour (jours terminés), puis le
   -- détail par appareil est effacé.
@@ -3196,6 +3198,120 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------
+-- Erreurs des téléphones (anonymes)
+--   Quand l'appli plante sur un téléphone, elle envoie le message
+--   d'erreur, l'écran et le navigateur (lib/erreurs.ts) : jamais de
+--   position, de nom ni d'identifiant de session. Les nombres longs
+--   (coordonnées, numéros), les adresses e-mail et la fin des liens
+--   (?…) sont effacés ici aussi. Les mêmes erreurs sont regroupées par
+--   jour (compteur), 300 erreurs différentes par jour au plus (les
+--   suivantes sont ignorées), effacées après 14 jours. Lecture avec un
+--   code de modérateur (onglet « Chiffres » de /moderation).
+-- ---------------------------------------------------------------------
+create table if not exists vigie_erreurs (
+  jour date not null,
+  empreinte text not null,
+  message text not null,
+  ecran text,
+  navigateur text,
+  nombre int not null default 1,
+  premiere timestamptz not null default now(),
+  derniere timestamptz not null default now(),
+  primary key (jour, empreinte)
+);
+
+create or replace function vigie_texte_erreur(p_texte text, p_max int)
+returns text
+language sql
+immutable
+as $$
+  select nullif(left(btrim(
+    regexp_replace(
+      regexp_replace(
+        regexp_replace(
+          regexp_replace(
+            regexp_replace(coalesce(p_texte, ''), E'[\\x01-\\x1f\\x7f]+', ' ', 'g'),
+            '\?[^\s"'')]*', '', 'g'),
+          '[^\s@"''<>]+@[^\s@"''<>]+', '<courriel>', 'g'),
+        '-?\d{1,3}\.\d{3,}', '<nombre>', 'g'),
+      '\d{6,}', '<nombre>', 'g')
+  ), p_max), '')
+$$;
+
+create or replace function vigie_erreur_signaler(
+  p_message text,
+  p_ecran text default null,
+  p_navigateur text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_jour date := vigie_jour_local();
+  v_message text := vigie_texte_erreur(p_message, 300);
+  v_ecran text := vigie_texte_erreur(p_ecran, 80);
+  v_nav text := vigie_texte_erreur(p_navigateur, 60);
+  v_empreinte text;
+begin
+  if v_message is null then
+    return;
+  end if;
+  v_empreinte := md5(v_message || '|' || coalesce(v_ecran, ''));
+  update vigie_erreurs
+     set nombre = least(nombre + 1, 1000000), derniere = now()
+   where jour = v_jour and empreinte = v_empreinte;
+  if found then
+    return;
+  end if;
+  -- Trop d'erreurs différentes aujourd'hui : les suivantes sont ignorées
+  -- (la table ne peut pas grossir sans limite).
+  if (select count(*) from vigie_erreurs where jour = v_jour) >= 300 then
+    return;
+  end if;
+  insert into vigie_erreurs (jour, empreinte, message, ecran, navigateur)
+  values (v_jour, v_empreinte, v_message, v_ecran, v_nav)
+  on conflict (jour, empreinte) do update
+    set nombre = least(vigie_erreurs.nombre + 1, 1000000), derniere = now();
+end;
+$$;
+
+-- RPC : les erreurs des 14 derniers jours (50 au plus, les plus récentes)
+create or replace function moderation_erreurs(p_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+begin
+  perform vigie_moderateur(p_code);
+  return coalesce((
+    select jsonb_agg(
+      jsonb_build_object(
+        'message', e.message,
+        'ecran', e.ecran,
+        'navigateur', e.navigateur,
+        'nombre', e.nombre,
+        'jours', e.jours,
+        'derniere', e.derniere
+      )
+      order by e.derniere desc
+    )
+    from (
+      select message, ecran, max(navigateur) as navigateur, sum(nombre)::int as nombre,
+             count(*)::int as jours, max(derniere) as derniere
+      from vigie_erreurs
+      where jour > vigie_jour_local() - 14
+      group by message, ecran
+      order by max(derniere) desc
+      limit 50
+    ) e
+  ), '[]'::jsonb);
+end;
+$$;
+
+-- ---------------------------------------------------------------------
 -- Droits d'accès
 --   - les signalements ne se lisent QUE par les fonctions (RPC) : elles
 --     ne montrent que ce qui doit l'être (signalements actifs, jamais de
@@ -3225,6 +3341,7 @@ alter table annonces enable row level security;
 alter table vigie_annonce_signal enable row level security;
 alter table report_temoignages enable row level security;
 alter table vigie_ia_appels enable row level security;
+alter table vigie_erreurs enable row level security;
 
 drop policy if exists "zones lecture publique" on zones;
 create policy "zones lecture publique" on zones for select using (true);
@@ -3264,6 +3381,7 @@ revoke all on annonces from anon, authenticated;
 revoke insert, update, delete on vigie_annonce_signal from anon, authenticated;
 revoke all on report_temoignages from anon, authenticated;
 revoke all on vigie_ia_appels from anon, authenticated;
+revoke all on vigie_erreurs from anon, authenticated;
 
 revoke execute on function vigie_appliquer_vote(uuid, text, text) from public, anon, authenticated;
 revoke execute on function vigie_masquer_contenu(uuid, text) from public, anon, authenticated;
@@ -3346,6 +3464,11 @@ grant execute on function moderation_ia_essai(text) to anon, authenticated;
 revoke execute on function vigie_ia_point_route_max_heure() from public, anon, authenticated;
 revoke execute on function ia_point_route_preparer(uuid[]) from public, anon;
 grant execute on function ia_point_route_preparer(uuid[]) to authenticated;
+-- Erreurs des téléphones : envoi pour tous (même sans session : l'appli
+-- peut planter avant), lecture avec un code de modérateur.
+revoke execute on function vigie_texte_erreur(text, int) from public, anon, authenticated;
+grant execute on function vigie_erreur_signaler(text, text, text) to anon, authenticated;
+grant execute on function moderation_erreurs(text) to anon, authenticated;
 
 -- ---------------------------------------------------------------------
 -- Photos : bucket public en lecture, dépôt réservé aux sessions (anonymes)

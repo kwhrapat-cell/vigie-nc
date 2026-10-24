@@ -1,0 +1,112 @@
+{
+  "_lisezmoi": "Cas communs au site (tests/conduite.test.ts) et à l'appli Android (android/app/src/test/.../ConduiteCasTest.kt) : les deux doivent annoncer exactement la même chose. On roule plein nord depuis « depart », d'un pas de « pasM » mètres, sur « distanceM » mètres ; « annonces » = [identifiant, palier en mètres] dans l'ordre.",
+  "cas": [
+    {
+      "nom": "inondation confirmée, portée 5 km : à 5 km puis à 500 m",
+      "portee": 5, "trafic": false,
+      "signalements": [{ "id": "a", "type": "inondation", "nordM": 5500, "estM": 0, "confirmations": 1 }],
+      "cap": 0, "pasM": 50, "distanceM": 5600,
+      "annonces": [["a", 5000], ["a", 500]]
+    },
+    {
+      "nom": "portée 10 km : à 10 km, rappel à 3 km, puis à 500 m",
+      "portee": 10, "trafic": false,
+      "signalements": [{ "id": "a", "type": "route_coupee", "nordM": 9000, "estM": 0, "confirmations": 2 }],
+      "cap": 0, "pasM": 50, "distanceM": 9100,
+      "annonces": [["a", 10000], ["a", 3000], ["a", 500]]
+    },
+    {
+      "nom": "portée 3 km : à 3 km puis à 500 m",
+      "portee": 3, "trafic": false,
+      "signalements": [{ "id": "a", "type": "accident", "nordM": 4000, "estM": 0, "confirmations": 1 }],
+      "cap": 0, "pasM": 50, "distanceM": 4100,
+      "annonces": [["a", 3000], ["a", 500]]
+    },
+    {
+      "nom": "pas encore confirmé : rien",
+      "portee": 5, "trafic": false,
+      "signalements": [{ "id": "a", "type": "inondation", "nordM": 3000, "estM": 0, "confirmations": 0 }],
+      "cap": 0, "pasM": 50, "distanceM": 3100,
+      "annonces": []
+    },
+    {
+      "nom": "source officielle sans confirmation : annoncé",
+      "portee": 5, "trafic": false,
+      "signalements": [{ "id": "a", "type": "danger", "nordM": 3000, "estM": 0, "confirmations": 0, "source": "Mairie" }],
+      "cap": 0, "pasM": 50, "distanceM": 3100,
+      "annonces": [["a", 5000], ["a", 500]]
+    },
+    {
+      "nom": "danger derrière : rien",
+      "portee": 5, "trafic": false,
+      "signalements": [{ "id": "a", "type": "accident", "nordM": -800, "estM": 0, "confirmations": 3 }],
+      "cap": 0, "pasM": 50, "distanceM": 2000,
+      "annonces": []
+    },
+    {
+      "nom": "danger sur le côté (hors de l'angle de 40°) : rien",
+      "portee": 5, "trafic": false,
+      "signalements": [{ "id": "a", "type": "accident", "nordM": 1000, "estM": 2000, "confirmations": 3 }],
+      "cap": 0, "pasM": 50, "distanceM": 500,
+      "annonces": []
+    },
+    {
+      "nom": "trafic dense sans l'option : rien",
+      "portee": 5, "trafic": false,
+      "signalements": [{ "id": "a", "type": "trafic_dense", "nordM": 3000, "estM": 0, "confirmations": 1 }],
+      "cap": 0, "pasM": 50, "distanceM": 3100,
+      "annonces": []
+    },
+    {
+      "nom": "trafic dense avec l'option : annoncé",
+      "portee": 5, "trafic": true,
+      "signalements": [{ "id": "a", "type": "trafic_dense", "nordM": 3000, "estM": 0, "confirmations": 1 }],
+      "cap": 0, "pasM": 50, "distanceM": 3100,
+      "annonces": [["a", 5000], ["a", 500]]
+    },
+    {
+      "nom": "travaux confirmés : jamais annoncés (pas un danger)",
+      "portee": 5, "trafic": true,
+      "signalements": [{ "id": "a", "type": "travaux", "nordM": 3000, "estM": 0, "confirmations": 4 }],
+      "cap": 0, "pasM": 50, "distanceM": 3100,
+      "annonces": []
+    },
+    {
+      "nom": "signalement expiré : rien",
+      "portee": 5, "trafic": false,
+      "signalements": [{ "id": "a", "type": "inondation", "nordM": 3000, "estM": 0, "confirmations": 2, "expireDansMin": -1 }],
+      "cap": 0, "pasM": 50, "distanceM": 3100,
+      "annonces": []
+    },
+    {
+      "nom": "à l'arrêt (sans sens de marche) : seulement à moins de 1 km",
+      "portee": 5, "trafic": false,
+      "signalements": [
+        { "id": "proche", "type": "accident", "nordM": 0, "estM": -800, "confirmations": 1 },
+        { "id": "loin", "type": "accident", "nordM": 1500, "estM": 0, "confirmations": 1 }
+      ],
+      "cap": null, "pasM": 0, "distanceM": 0,
+      "annonces": [["proche", 5000]]
+    },
+    {
+      "nom": "deux dangers devant : le plus proche d'abord",
+      "portee": 5, "trafic": false,
+      "signalements": [
+        { "id": "loin", "type": "inondation", "nordM": 4500, "estM": 0, "confirmations": 1 },
+        { "id": "proche", "type": "accident", "nordM": 2000, "estM": 0, "confirmations": 1 }
+      ],
+      "cap": 0, "pasM": 50, "distanceM": 4600,
+      "annonces": [["proche", 5000], ["loin", 5000], ["proche", 500], ["loin", 500]]
+    }
+  ],
+  "distancesParlees": [
+    [50, "à 100 mètres"],
+    [400, "à 400 mètres"],
+    [960, "à 1 kilomètre"],
+    [1000, "à 1 kilomètre"],
+    [1540, "à 1,5 kilomètre"],
+    [2000, "à 2 kilomètres"],
+    [2300, "à 2,3 kilomètres"],
+    [12345, "à 12 kilomètres"]
+  ]
+}

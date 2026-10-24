@@ -9,11 +9,16 @@ on:
     paths:
       - "android/**"
       - ".github/workflows/android.yml"
+      # cas communs avec le site (tests de Conduite.kt)
+      - "vigie-nc/tests/cas-conduite.json"
+      - "vigie-nc/lib/conduite.ts"
   push:
     branches: [main]
     paths:
       - "android/**"
       - ".github/workflows/android.yml"
+      - "vigie-nc/tests/cas-conduite.json"
+      - "vigie-nc/lib/conduite.ts"
   workflow_dispatch:
 
 jobs:
@@ -34,6 +39,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.10.2"
+      # Mêmes annonces que le site : cas communs de vigie-nc/tests/cas-conduite.json
+      - name: Tests (mode conduite)
+        run: gradle testDebugUnitTest --no-daemon --stacktrace
       - name: Fabrication
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Nom du fichier

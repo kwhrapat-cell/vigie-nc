@@ -61,4 +61,9 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     // Reconnaissance d'activité (démarrage tout seul en voiture).
     implementation("com.google.android.gms:play-services-location:21.3.0")
+
+    // Tests (sur l'ordinateur de GitHub, pas dans l'appli) : cas communs
+    // avec le site, voir src/test/…/ConduiteCasTest.kt.
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }
