@@ -34,6 +34,8 @@ interface Props {
   follow: boolean;
   onSelect: (id: string) => void;
   onFollowChange: (follow: boolean) => void;
+  /** Mode conduite : événements des 10 km devant, mis en évidence (jamais regroupés). */
+  highlightIds?: Set<string>;
 }
 
 function dominantColor(items: Report[]): string {
@@ -58,6 +60,7 @@ export function LiveMap({
   follow,
   onSelect,
   onFollowChange,
+  highlightIds,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const leafletRef = useRef<typeof Leaflet | null>(null);
@@ -75,8 +78,8 @@ export function LiveMap({
   onFollowChangeRef.current = onFollowChange;
 
   // Données courantes lues par le dessin des marqueurs (appelé aussi au zoom)
-  const dataRef = useRef({ reports, selectedId });
-  dataRef.current = { reports, selectedId };
+  const dataRef = useRef({ reports, selectedId, highlightIds });
+  dataRef.current = { reports, selectedId, highlightIds };
   const drawRef = useRef<() => void>(() => undefined);
 
   // Cadrage voulu, lu quand la taille de la carte change (voir plus bas)
@@ -191,14 +194,16 @@ export function LiveMap({
     if (!ready || !L || !map || !group) return;
 
     const draw = () => {
-      const { reports: list, selectedId: selId } = dataRef.current;
+      const { reports: list, selectedId: selId, highlightIds: devant } = dataRef.current;
       group.clearLayers();
       const now = Date.now();
       const zoom = map.getZoom();
 
-      // Le SOS et le signalement ouvert ne sont jamais regroupés.
-      const alwaysAlone = list.filter((r) => r.type === "sos" || r.id === selId);
-      const groupable = list.filter((r) => r.type !== "sos" && r.id !== selId);
+      // Le SOS, le signalement ouvert et ceux devant le conducteur ne sont
+      // jamais regroupés.
+      const seul = (r: Report) => r.type === "sos" || r.id === selId || Boolean(devant?.has(r.id));
+      const alwaysAlone = list.filter(seul);
+      const groupable = list.filter((r) => !seul(r));
       const clusters =
         zoom > CLUSTER_MAX_ZOOM
           ? groupable.map((r) => ({ items: [r], lat: r.lat, lng: r.lng }))
@@ -239,10 +244,12 @@ export function LiveMap({
         const isSos = r.type === "sos";
         const pulse = isSos || ageMin <= RECENT_THRESHOLD_MIN;
         const rel = getReliability(r);
+        const ahead = Boolean(devant?.has(r.id));
         const classes = [
           "vigie-marker",
-          rel.level === "signalement" || rel.contested ? "is-faint" : "",
+          (rel.level === "signalement" || rel.contested) && !ahead ? "is-faint" : "",
           r.id === selId ? "is-selected" : "",
+          ahead ? "is-ahead" : "",
         ].join(" ");
 
         L.marker([r.lat, r.lng], {
@@ -259,8 +266,8 @@ export function LiveMap({
             iconAnchor: [15, 15],
           }),
           keyboard: true,
-          title: r.label,
-          zIndexOffset: r.id === selId ? 1000 : isSos ? 500 : 0,
+          title: ahead ? `${r.label} — devant toi` : r.label,
+          zIndexOffset: r.id === selId ? 1000 : isSos ? 500 : ahead ? 400 : 0,
         })
           .on("click", () => onSelectRef.current(r.id))
           .addTo(group);
@@ -269,7 +276,7 @@ export function LiveMap({
 
     drawRef.current = draw;
     draw();
-  }, [ready, reports, selectedId]);
+  }, [ready, reports, selectedId, highlightIds]);
 
   // 4. Position de l'utilisateur + cercle de la zone surveillée
   useEffect(() => {

@@ -207,6 +207,40 @@ export async function fetchNearby(center: LatLng | null, radiusM: number): Promi
   return ((data ?? []) as ReportRow[]).map(mapRow);
 }
 
+/**
+ * Point route du mode conduite écrit par l'IA (/api/point-route), à partir
+ * des signalements choisis devant soi : identifiant et distance seulement,
+ * jamais la position. `null` en cas de souci (pas de réseau, IA pas
+ * branchée, trop tôt…) : le téléphone dit alors le point route sans l'IA.
+ */
+export async function fetchPointRouteIa(
+  evenements: { id: string; distanceM: number }[],
+  avecCap: boolean,
+): Promise<string | null> {
+  if (!supabase || evenements.length === 0) return null;
+  const controle = new AbortController();
+  const minuteur = setTimeout(() => controle.abort(), 8_000);
+  try {
+    await requireSession();
+    const { data } = await supabase.auth.getSession();
+    const jeton = data.session?.access_token;
+    if (!jeton) return null;
+    const res = await fetch("/api/point-route", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${jeton}` },
+      body: JSON.stringify({ evenements, avecCap }),
+      signal: controle.signal,
+    });
+    if (!res.ok) return null;
+    const out = (await res.json()) as { texte?: unknown };
+    return typeof out.texte === "string" && out.texte.trim() ? out.texte : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(minuteur);
+  }
+}
+
 /** Un signalement précis (lien partagé), même terminé. */
 export async function fetchReport(id: string): Promise<Report | null> {
   if (!supabase) {

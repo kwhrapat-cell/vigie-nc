@@ -71,6 +71,23 @@ body {
     0 0 0 4px #eaf6f4;
 }
 
+/* Mode conduite : événement sur les 10 km devant (point route) */
+.vigie-marker.is-ahead .core {
+  box-shadow:
+    0 0 0 2px #081317,
+    0 0 0 5px #22b8b0,
+    0 4px 12px -2px rgba(0, 0, 0, 0.7);
+}
+.vigie-marker.is-ahead::after {
+  content: "";
+  position: absolute;
+  inset: -9px;
+  border-radius: 9999px;
+  border: 2px solid #22b8b0;
+  opacity: 0.6;
+  animation: ring-pulse 2.4s ease-out infinite;
+}
+
 /* Pastille chiffrée : plusieurs signalements regroupés */
 .vigie-cluster {
   border-radius: 9999px;
@@ -132,6 +149,7 @@ html .leaflet-container .leaflet-control-attribution a {
 
 @media (prefers-reduced-motion: reduce) {
   .vigie-marker .ring,
+  .vigie-marker.is-ahead::after,
   .animate-blink,
   .animate-pop-in,
   .animate-fab-in {
