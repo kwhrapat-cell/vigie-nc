@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { errorMessage, flagReport, FlagResult, voteOnReport, VoteResult } from "@/lib/reports-api";
+import { idsBadges, nouveauxBadges, texteNouveauxBadges } from "@/lib/impact";
 import { libelleFinChantier } from "@/lib/chantier";
 import { distanceM, formatAge, formatDistance, formatDuration, LatLng } from "@/lib/geo";
 import { getReliability, RELIABILITY_HEX } from "@/lib/reliability";
@@ -126,9 +127,11 @@ export function ReportDetail({
     setBusy(v);
     setError(null);
     setMessage(null);
+    const avant = idsBadges();
     try {
       const out = await voteOnReport(report.id, v, userPosition);
-      setMessage(RESULT_MESSAGES[out.resultat]);
+      const badges = texteNouveauxBadges(nouveauxBadges(avant));
+      setMessage(`${RESULT_MESSAGES[out.resultat]}${badges ? ` ${badges}` : ""}`);
       if (out.resolu) {
         setTimeout(onRemoved, 1400);
       } else {

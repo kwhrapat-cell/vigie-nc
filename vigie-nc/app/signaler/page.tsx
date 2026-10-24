@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PositionPicker } from "@/components/PositionPicker";
+import { Cagou } from "@/components/Cagou";
+import { idsBadges, nouveauxBadges, texteNouveauxBadges } from "@/lib/impact";
 import { PrimaryButton, ScreenHeader, SecondaryButton, TypeIcon, TypeTile } from "@/components/ui";
 import { distanceM, formatDuration, LatLng } from "@/lib/geo";
 import { GeoPosition, useGeolocation } from "@/lib/useGeolocation";
@@ -43,7 +45,7 @@ const RISK_COLORS: Record<RiskLevel, string> = { faible: "#2BB673", moyen: "#F09
 const RESULT_TEXT: Record<CreateResult, { title: string; text: string }> = {
   cree: {
     title: "Merci !",
-    text: "Ton signalement a été publié. Il est visible par la communauté et aide tout le monde à mieux circuler.",
+    text: "Ton signalement est sur la carte et aide tout le monde à mieux circuler. Quand quelqu'un le confirmera, tu le verras en ouvrant Vigie NC.",
   },
   fusionne: {
     title: "Merci, c'est confirmé !",
@@ -79,6 +81,7 @@ export default function SignalerPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ id: string; resultat: CreateResult } | null>(null);
+  const [badgesGagnes, setBadgesGagnes] = useState("");
   const pinTouched = useRef(false);
 
   const relocate = useCallback(() => {
@@ -183,6 +186,7 @@ export default function SignalerPage() {
           photoUrl = null; // l'info route compte plus que l'image
         }
       }
+      const avant = idsBadges();
       const res = await createReport({
         type,
         lat: pin.lat,
@@ -193,6 +197,7 @@ export default function SignalerPage() {
         place,
       });
       setResult(res);
+      setBadgesGagnes(texteNouveauxBadges(nouveauxBadges(avant)));
       setStep(3);
     } catch (e) {
       setError(errorMessage(e, "Impossible de publier pour le moment — vérifie ta connexion."));
@@ -217,8 +222,12 @@ export default function SignalerPage() {
         <div className="flex-1 flex flex-col items-center text-center">
           <div className="relative w-28 h-28 animate-pop-in">
             <span className="absolute inset-0 rounded-full bg-primary/20" />
-            <span className="absolute inset-3 rounded-full bg-primary flex items-center justify-center">
-              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" className="w-12 h-12">
+            <span className="absolute inset-3 rounded-full bg-panel-2 border border-primary/50 flex items-center justify-center">
+              <Cagou size={70} />
+            </span>
+            {/* Coche : c'est publié */}
+            <span className="absolute right-1 bottom-1 w-9 h-9 rounded-full bg-primary border-[3px] border-void flex items-center justify-center">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden="true">
                 <path d="M5 12.5l4.5 4.5L19 7.5" />
               </svg>
             </span>
@@ -232,6 +241,11 @@ export default function SignalerPage() {
           </div>
           <h1 className="mt-8 font-display font-bold text-[24px]">{txt.title}</h1>
           <p className="mt-2 text-[15px] text-mist-dim leading-relaxed max-w-[300px]">{txt.text}</p>
+          {badgesGagnes && (
+            <p className="mt-3 rounded-full border border-lagoon/40 bg-lagoon/10 px-4 py-2 text-[15px] font-semibold text-lagoon animate-pop-in">
+              {badgesGagnes}
+            </p>
+          )}
 
           <div className="mt-6 w-full flex items-center gap-3 rounded-xl border border-line bg-panel px-3 py-2.5 text-left">
             <TypeTile type={type} size={40} />

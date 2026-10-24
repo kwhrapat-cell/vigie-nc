@@ -6,6 +6,7 @@ export interface GeoPosition {
   lat: number;
   lng: number;
   accuracy: number;
+  speed?: number | null; // m/s, quand le téléphone la donne (suivi continu)
 }
 
 export type GeoStatus = "idle" | "locating" | "success" | "error" | "unsupported";

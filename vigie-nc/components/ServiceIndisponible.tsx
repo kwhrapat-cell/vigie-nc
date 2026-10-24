@@ -1,4 +1,5 @@
 import { Logo } from "./ui";
+import { Cagou } from "./Cagou";
 
 /**
  * Affiché à la place de l'appli quand la base n'est pas branchée sur le
@@ -9,7 +10,8 @@ export function ServiceIndisponible() {
   return (
     <main className="min-h-[100dvh] flex flex-col items-center justify-center px-6 text-center">
       <Logo />
-      <h1 className="mt-8 font-display font-semibold text-[20px]">Service momentanément indisponible</h1>
+      <Cagou size={88} className="mt-8" />
+      <h1 className="mt-4 font-display font-semibold text-[20px]">Service momentanément indisponible</h1>
       <p className="mt-3 text-[15px] text-mist-dim leading-relaxed max-w-[320px]">
         La carte ne peut pas être affichée pour le moment. Réessaie dans quelques minutes.
       </p>

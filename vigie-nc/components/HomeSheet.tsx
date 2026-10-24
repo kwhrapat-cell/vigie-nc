@@ -13,6 +13,8 @@ import {
 import type { LiveStatus } from "@/lib/useLiveReports";
 import type { WatchStatus } from "@/lib/useWatchPosition";
 import { ReliabilityBadge, TypeTile } from "./ui";
+import { Cagou } from "./Cagou";
+import { PartagePointRoute } from "./PartagePointRoute";
 
 const CATEGORIES: Category[] = ["danger", "perturbation", "meteo"];
 
@@ -125,22 +127,33 @@ export function HomeSheet({
         </p>
       )}
 
-      <h3 className="mt-3 mb-1 text-[14px] font-medium text-mist-dim">
-        {scope === "nc"
-          ? filter
-            ? `${CATEGORY_LABELS[filter].many} en cours`
-            : "En cours, du plus proche au plus loin"
-          : filter
-            ? `${CATEGORY_LABELS[filter].many} à proximité`
-            : "À proximité"}
-      </h3>
+      <div className="mt-3 mb-1 flex items-center justify-between gap-2">
+        <h3 className="text-[14px] font-medium text-mist-dim">
+          {scope === "nc"
+            ? filter
+              ? `${CATEGORY_LABELS[filter].many} en cours`
+              : "En cours, du plus proche au plus loin"
+            : filter
+              ? `${CATEGORY_LABELS[filter].many} à proximité`
+              : "À proximité"}
+        </h3>
+        {/* Point route de la zone en image, à envoyer à la famille ou au quartier */}
+        {status === "ready" && (
+          <PartagePointRoute reports={allReports} toutLeTerritoire={scope === "nc" || !hasCenter} rayonKm={radiusKm} />
+        )}
+      </div>
 
       {status === "ready" && reports.length === 0 && (
-        <div className="py-2 text-[14px] text-mist-dim leading-relaxed">
-          {`Aucun signalement ${filter ? "de ce type " : ""}${hasCenter ? "dans ce rayon " : ""}pour l'instant.`}
-          <span className="block text-[12.5px] opacity-70 mt-0.5">
-            L&apos;absence de signalement ne garantit pas que la route est dégagée.
-          </span>
+        <div className="py-2 flex items-center gap-3">
+          <Cagou size={52} />
+          <div className="text-[14px] text-mist-dim leading-relaxed">
+            <span className="block text-mist font-medium">
+              {`Rien de signalé ${filter ? "de ce type " : ""}${hasCenter ? "dans ce rayon " : ""}pour l'instant. Bonne route !`}
+            </span>
+            <span className="block text-[12.5px] opacity-80 mt-0.5">
+              Ça ne garantit pas que la route est dégagée : reste prudent.
+            </span>
+          </div>
         </div>
       )}
 
