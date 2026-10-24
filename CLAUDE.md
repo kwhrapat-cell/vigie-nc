@@ -222,10 +222,16 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
                    « Toujours », arrêt à la sortie du véhicule ou après 15 min
                    immobile ; décrit dans /confidentialite).
                    Lit signalements_proches_v3 avec la clé publique. Clé de
-                   signature de test dans le dépôt : jamais pour le Play Store.
+                   signature de test android/app/vigie-nc-test.p12 (AES-256),
+                   son mot de passe est le secret GitHub
+                   ANDROID_KEYSTORE_PASSWORD, JAMAIS dans le dépôt (l'ancienne
+                   clé « vigie-test » était lisible : changée le 24/10/2026).
+                   Jamais pour le Play Store.
 .github/workflows/android.yml  tests JVM (ConduiteCasTest : mêmes cas que le
                    site) puis fabrique l'APK de test et le publie au lien fixe
-                   …/releases/download/app-test/vigie-nc-test.apk
+                   …/releases/download/app-test/vigie-nc-test.apk, seulement
+                   s'il porte l'empreinte de la clé (EMPREINTE_CLE ; sans le
+                   secret : construit mais pas publié)
 ```
 
 ## Conventions

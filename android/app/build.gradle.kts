@@ -3,6 +3,14 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// Clé de signature de TEST : le fichier vigie-nc-test.p12 est dans le dépôt,
+// chiffré (AES-256) par un mot de passe qui, lui, n'y est PAS : il vient du
+// secret GitHub ANDROID_KEYSTORE_PASSWORD. Sans ce secret (PR d'un robot,
+// ordinateur sans le secret), l'appli est signée avec la clé de débogage
+// habituelle : elle se construit, mais n'est pas publiée (android.yml).
+// Ne jamais l'utiliser pour le Play Store.
+val motDePasseCle: String? = System.getenv("ANDROID_KEYSTORE_PASSWORD")?.takeIf { it.isNotBlank() }
+
 android {
     namespace = "com.vigienc.app"
     compileSdk = 35
@@ -23,21 +31,23 @@ android {
         buildConfigField("String", "SUPABASE_KEY", "\"sb_publishable_4qPqI8roa5sE1RnHoNuLWQ_-uO_e51o\"")
     }
 
-    // Clé de signature DE TEST, volontairement dans le dépôt : toutes les
-    // versions de test ont la même signature, on peut donc les installer
-    // par-dessus la précédente. Ne jamais l'utiliser pour le Play Store.
+    // Toutes les versions de test ont la même signature : on les installe
+    // par-dessus la précédente.
     signingConfigs {
-        create("test") {
-            storeFile = file("vigie-test.keystore")
-            storePassword = "vigie-test"
-            keyAlias = "vigie-test"
-            keyPassword = "vigie-test"
+        if (motDePasseCle != null) {
+            create("test") {
+                storeFile = file("vigie-nc-test.p12")
+                storeType = "PKCS12"
+                storePassword = motDePasseCle
+                keyAlias = "vigie-nc"
+                keyPassword = motDePasseCle
+            }
         }
     }
 
     buildTypes {
         debug {
-            signingConfig = signingConfigs.getByName("test")
+            if (motDePasseCle != null) signingConfig = signingConfigs.getByName("test")
         }
         release {
             isMinifyEnabled = false
