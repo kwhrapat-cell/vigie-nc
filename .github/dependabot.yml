@@ -33,3 +33,9 @@ updates:
     groups:
       android:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
+    # Les versions majeures (Android Gradle Plugin 9, etc.) demandent aussi
+    # de changer Gradle et le code : à la main, pas en automatique.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
