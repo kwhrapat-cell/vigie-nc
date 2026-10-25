@@ -83,3 +83,33 @@ test("dessin : couronne pour Gardien et Légende, éclats pour Légende seulemen
   // Taille demandée, proportions gardées (72 × 92)
   assert.match(avatarSvg(1, 54), /width="54" height="69"/);
 });
+
+test("grade sur les signalements : libellé, rien pour 0", () => {
+  assert.equal(niveaux.libelleGrade(0), null);
+  assert.equal(niveaux.libelleGrade(undefined), null);
+  assert.equal(niveaux.libelleGrade(1), "Signalé par une Vigie");
+  assert.equal(niveaux.libelleGrade(2), "Signalé par une Sentinelle");
+  assert.equal(niveaux.libelleGrade(3, true), "Relayé par un Gardien");
+  assert.equal(niveaux.libelleGrade(4), "Signalé par une Légende");
+  assert.equal(niveaux.libelleGrade(9), null);
+});
+
+test("badges : même liste que le grade calculé par la base", () => {
+  // ⚠️ Si cette liste change, changer aussi vigie_nb_badges() dans
+  // supabase/schema.sql (le grade montré sur les signalements).
+  assert.deepEqual(
+    BADGES.map((b) => b.id),
+    [
+      "premiere-vigie",
+      "bon-oeil",
+      "temoin-fiable",
+      "ouvreur-de-route",
+      "sentinelle-cyclone",
+      "vigie-du-quartier",
+      "fidele-au-poste",
+      "oeil-de-faucon",
+      "pilier-de-la-route",
+      "memoire-du-pays",
+    ],
+  );
+});

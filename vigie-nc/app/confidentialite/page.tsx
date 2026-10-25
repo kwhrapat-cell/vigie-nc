@@ -97,6 +97,27 @@ export default function ConfidentialitePage() {
           moins de 5 km. Dans les deux cas, elle n&apos;est <strong>pas enregistrée</strong>. Seule la position
           d&apos;un signalement que tu publies est conservée.
         </p>
+        <p>
+          <strong>Vigies actives autour de toi</strong>{" "}: pendant que l&apos;appli est ouverte (au plus une fois par
+          minute), la base garde une <strong>zone d&apos;environ 5 km</strong> (jamais ta position précise), sous
+          l&apos;empreinte de ta session anonyme, et l&apos;efface après 15 minutes. Elle ne sert qu&apos;à afficher un
+          total (« 12 vigies actives autour de toi »), seulement à partir de 3 personnes. Personne ne voit où sont
+          les autres.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Ton grade (« Signalé par une Sentinelle »)">
+        <p>
+          Pour que ton grade ne puisse pas être trafiqué, la base le calcule elle-même : sous l&apos;empreinte de ta
+          session anonyme, elle compte tes signalements, tes réponses « Toujours là » / « C&apos;est terminé », les
+          confirmations reçues par tes signalements et tes jours d&apos;utilisation. Uniquement des nombres : ni
+          position, ni texte.
+        </p>
+        <p>
+          Sur tes signalements, les autres voient seulement ce grade, <strong>jamais ton nom</strong>, et
+          seulement s&apos;il est partagé par assez de vigies (5 au moins) pour que personne ne puisse te
+          reconnaître ; sinon, le grade en dessous, ou rien.
+        </p>
       </LegalSection>
 
       <LegalSection title="Chiffres d'utilisation">
@@ -255,6 +276,8 @@ export default function ConfidentialitePage() {
             effacée après 24 heures.
           </li>
           <li>Les erreurs de l&apos;appli (sans position ni identifiant) : effacées après 14 jours.</li>
+          <li>La zone d&apos;environ 5 km pour compter les vigies actives : effacée après 15 minutes.</li>
+          <li>Les nombres qui servent à ton grade : effacés après 90 jours sans utilisation.</li>
         </LegalList>
       </LegalSection>
 

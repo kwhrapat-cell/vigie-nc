@@ -53,7 +53,7 @@ declare
   v_q uuid := gen_random_uuid();
   v_r2 uuid := gen_random_uuid();
   v_s uuid := gen_random_uuid();
-  v_t uuid := gen_random_uuid();
+  v_t2 uuid := gen_random_uuid();
   v_u uuid := gen_random_uuid();
   v_cle_m text;
   v_grade uuid;
@@ -939,16 +939,16 @@ begin
   if v_r->>'nombre' is not null or (v_r->>'quelques')::boolean then
     raise exception 'E37 échec : vigie lointaine (%)', v_r;
   end if;
-  perform set_config('request.jwt.claims', json_build_object('sub', v_t, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_t2, 'role', 'authenticated')::text, true);
   v_r := vigies_autour(lat1, lng1 + 0.03);
   if (v_r->>'nombre')::int is distinct from 3 or (v_r->>'quelques')::boolean then
     raise exception 'E37 échec : 3 vigies autour (%)', v_r;
   end if;
   -- appelé tout de suite après : pas de nouvelle écriture
-  select vu_at into v_vu from vigie_presence_zone where cle = vigie_device_key('auth:' || v_t::text);
-  update vigie_presence_zone set vu_at = now() - interval '30 seconds' where cle = vigie_device_key('auth:' || v_t::text);
+  select vu_at into v_vu from vigie_presence_zone where cle = vigie_device_key('auth:' || v_t2::text);
+  update vigie_presence_zone set vu_at = now() - interval '30 seconds' where cle = vigie_device_key('auth:' || v_t2::text);
   v_r := vigies_autour(lat1, lng1 + 0.03);
-  if (select vu_at from vigie_presence_zone where cle = vigie_device_key('auth:' || v_t::text)) > now() - interval '20 seconds' then
+  if (select vu_at from vigie_presence_zone where cle = vigie_device_key('auth:' || v_t2::text)) > now() - interval '20 seconds' then
     raise exception 'E37 échec : écriture plus d''une fois par minute';
   end if;
   -- plus actives depuis 11 minutes : plus comptées ; après 15 minutes, effacées

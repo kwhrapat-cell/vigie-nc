@@ -3,7 +3,15 @@
 import { useEffect, useState } from "react";
 import { avatarSvg } from "@/lib/avatar";
 import { BADGES, Impact, lireImpact } from "@/lib/impact";
-import { badgesManquants, ecrireCagouSurCarte, lireCagouSurCarte, NIVEAUX, rangActuel } from "@/lib/niveaux";
+import {
+  badgesManquants,
+  ecrireCagouSurCarte,
+  libelleGrade,
+  lireCagouSurCarte,
+  NIVEAUX,
+  rangActuel,
+} from "@/lib/niveaux";
+import { fetchMonGrade, type MonGrade } from "@/lib/reports-api";
 
 // Carte « Mon impact » du Profil : ce que ce téléphone a apporté, et les
 // badges. Tout vient du téléphone (lib/impact.ts) : pas de nom, pas de
@@ -12,10 +20,23 @@ import { badgesManquants, ecrireCagouSurCarte, lireCagouSurCarte, NIVEAUX, rangA
 export function MonImpact() {
   const [impact, setImpact] = useState<Impact | null>(null);
   const [cagouCarte, setCagouCarte] = useState(true);
+  // Grade calculé par la base : ce que les autres voient sur mes signalements
+  const [grade, setGrade] = useState<MonGrade | null>(null);
 
   useEffect(() => {
     setImpact(lireImpact());
     setCagouCarte(lireCagouSurCarte());
+    let annule = false;
+    fetchMonGrade()
+      .then((g) => {
+        if (!annule) setGrade(g);
+      })
+      .catch(() => {
+        // pas de réseau ou de session : la ligne n'est pas affichée
+      });
+    return () => {
+      annule = true;
+    };
   }, []);
 
   if (!impact) return null;
@@ -129,6 +150,35 @@ export function MonImpact() {
             />
           </span>
         </button>
+
+        {/* Grade calculé par la base, montré sur mes signalements (jamais mon nom) */}
+        {grade && (
+          <div className="mt-2 border-t border-line pt-2.5">
+            <p className="text-[14.5px] font-semibold">Sur tes signalements</p>
+            {libelleGrade(grade.gradePublic) ? (
+              <p className="mt-0.5 flex items-center gap-2 text-[13.5px] text-mist-dim">
+                <span
+                  className="shrink-0"
+                  aria-hidden="true"
+                  // Dessin fixe de lib/avatar.ts (aucune donnée saisie).
+                  dangerouslySetInnerHTML={{ __html: avatarSvg(grade.gradePublic, 22) }}
+                />
+                <span>Les autres voient « {libelleGrade(grade.gradePublic)} », jamais ton nom.</span>
+              </p>
+            ) : (
+              <p className="mt-0.5 text-[13.5px] text-mist-dim">
+                Rien pour l&apos;instant : un grade n&apos;apparaît que s&apos;il est partagé par au moins {grade.seuil}{" "}
+                vigies, pour que personne ne puisse te reconnaître.
+              </p>
+            )}
+            {grade.rang > grade.gradePublic && grade.rang >= 1 && (
+              <p className="mt-1 text-[12.5px] text-mist-dim">
+                Ton grade compté par la base : {NIVEAUX[grade.rang].nom}. Il s&apos;affichera quand {grade.seuil}{" "}
+                vigies l&apos;auront atteint.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">

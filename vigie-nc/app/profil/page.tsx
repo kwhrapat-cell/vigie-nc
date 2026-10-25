@@ -166,7 +166,11 @@ export default function ProfilPage() {
       <Card title="Confidentialité">
         <ul className="flex flex-col gap-1.5 text-[13.5px] text-mist-dim leading-relaxed list-disc pl-4">
           <li>Pas de compte, pas de nom : les signalements sont anonymes.</li>
-          <li>Ta position sert à chercher les signalements autour de toi, sans être enregistrée. Seule celle d&apos;un signalement que tu publies est gardée.</li>
+          <li>
+            Ta position sert à chercher les signalements autour de toi, sans être enregistrée. Seule celle d&apos;un
+            signalement que tu publies est gardée ; pour compter les vigies actives, une zone d&apos;environ 5 km est
+            gardée 15 minutes.
+          </li>
           <li>
             Les visages détectés sont floutés et la position cachée dans les photos est retirée avant l&apos;envoi ;
             les photos sont effacées après 7 jours.
