@@ -82,3 +82,13 @@ export function sensGlisseListe(dx: number, dy: number): "replier" | "deplier" |
   if (Math.abs(dy) < Math.abs(dx) * 1.5) return null;
   return dy > 0 ? "replier" : "deplier";
 }
+
+/**
+ * Pendant le glissement, de combien la liste suit le doigt (px) : positif =
+ * elle descend (liste dépliée, la carte grandit en direct), négatif = elle
+ * remonte (liste repliée). Jamais au-delà de `maxPx`, ni dans le mauvais sens.
+ */
+export function suiviGlisseListe(dy: number, repliee: boolean, maxPx: number): number {
+  if (repliee) return Math.max(Math.min(dy, 0), -maxPx);
+  return Math.min(Math.max(dy, 0), maxPx);
+}

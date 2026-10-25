@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type TouchEvent } from "react";
 import { estChantier, libelleFinChantier } from "@/lib/chantier";
 import { formatAgeShort, formatDistance } from "@/lib/geo";
-import { readListeRepliee, saveListeRepliee, sensGlisseListe } from "@/lib/preferences";
+import { readListeRepliee, saveListeRepliee, sensGlisseListe, suiviGlisseListe } from "@/lib/preferences";
 import { getReliability } from "@/lib/reliability";
 import {
   Category,
@@ -62,34 +62,63 @@ export function HomeSheet({
   const time = timeLabel(updatedAt);
 
   // Liste repliée : seuls le titre et les compteurs restent, la carte
-  // prend la place. Toucher la barre du haut ou glisser le doigt.
+  // prend la place. Toucher la barre du haut, ou la tirer avec le doigt :
+  // la liste suit le doigt (la carte grandit en direct), puis se range.
   const [repliee, setRepliee] = useState(false);
   useEffect(() => setRepliee(readListeRepliee()), []);
   const changerRepliee = (v: boolean) => {
     setRepliee(v);
     saveListeRepliee(v);
   };
+  const listeRef = useRef<HTMLDivElement>(null);
   const toucher = useRef<{ x: number; y: number } | null>(null);
+  const [suivi, setSuivi] = useState(0);
   const onTouchStart = (e: TouchEvent<HTMLDivElement>) => {
     const t = e.touches[0];
     toucher.current = t ? { x: t.clientX, y: t.clientY } : null;
+  };
+  const onTouchMove = (e: TouchEvent<HTMLDivElement>) => {
+    const debut = toucher.current;
+    const t = e.touches[0];
+    if (!debut || !t) return;
+    const dx = t.clientX - debut.x;
+    const dy = t.clientY - debut.y;
+    if (Math.abs(dy) < Math.abs(dx)) return;
+    const max = repliee ? 160 : (listeRef.current?.offsetHeight ?? 0) + 12;
+    setSuivi(suiviGlisseListe(dy, repliee, max));
   };
   const onTouchEnd = (e: TouchEvent<HTMLDivElement>) => {
     const debut = toucher.current;
     const t = e.changedTouches[0];
     toucher.current = null;
+    setSuivi(0);
     if (!debut || !t) return;
     const sens = sensGlisseListe(t.clientX - debut.x, t.clientY - debut.y);
     if (sens === "replier" && !repliee) changerRepliee(true);
     else if (sens === "deplier" && repliee) changerRepliee(false);
   };
+  const onTouchCancel = () => {
+    toucher.current = null;
+    setSuivi(0);
+  };
 
   // pb-7 : place pour le bouton « + » qui dépasse de la barre du bas.
+  // Pendant le glissement vers le bas, la marge négative rend la place à la
+  // carte au fur et à mesure ; vers le haut, la liste remonte par-dessus.
   return (
     <section
       className="relative z-[12] -mt-4 rounded-t-[22px] bg-panel border-t border-line px-4 pb-7"
+      style={suivi > 0 ? { marginBottom: -suivi } : suivi < 0 ? { transform: `translateY(${suivi}px)` } : undefined}
     >
-      <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      {/* touch-none : le téléphone ne prend pas ce geste pour lui (défilement,
+          « tirer pour actualiser »), la liste reçoit tout le mouvement. */}
+      <div
+        className="touch-none select-none"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchCancel}
+      >
       {/* Barre du haut : replie / déplie la liste (zone de toucher de 44 px) */}
       <button
         type="button"
@@ -167,7 +196,7 @@ export function HomeSheet({
         </p>
       )}
 
-      <div id="liste-proximite" hidden={repliee}>
+      <div id="liste-proximite" ref={listeRef} hidden={repliee}>
       <div className="mt-3 mb-1 flex items-center justify-between gap-2">
         <h3 className="text-[14px] font-medium text-mist-dim">
           {scope === "nc"
