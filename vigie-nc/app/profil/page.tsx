@@ -6,7 +6,8 @@ import { BottomNav } from "@/components/BottomNav";
 import { InstallApp } from "@/components/InstallApp";
 import { MonImpact } from "@/components/MonImpact";
 import { ShareApp } from "@/components/ShareApp";
-import { Logo, ScreenHeader } from "@/components/ui";
+import { Logo, ScreenHeader, SecondaryButton } from "@/components/ui";
+import { Tutoriel } from "@/components/WelcomeNotice";
 import { getEmergencyContacts } from "@/lib/emergency-contacts";
 import { CONTACT_MAILTO, LEGAL } from "@/lib/legal";
 import { MAP_STYLES } from "@/lib/map-styles";
@@ -36,6 +37,7 @@ export default function ProfilPage() {
   const [radius, setRadius] = useState<RadiusKm>(5);
   const [contacts, setContacts] = useState(0);
   const [fond, setFond] = useState<MapStyle>("plan");
+  const [demo, setDemo] = useState(false);
 
   useEffect(() => {
     setRadius(readRadiusKm());
@@ -143,6 +145,13 @@ export default function ProfilPage() {
         <InstallApp />
       </Card>
 
+      <Card title="Les gestes de base">
+        <p className="text-[13.5px] text-mist-dim mb-2.5">
+          Voir ce qui est signalé, signaler en 2 étapes, confirmer en passant : la petite démo de l&apos;accueil.
+        </p>
+        <SecondaryButton onClick={() => setDemo(true)}>Revoir la démo</SecondaryButton>
+      </Card>
+
       <Card title="Fais connaître Vigie NC">
         <p className="text-[13.5px] text-mist-dim mb-2.5">
           Plus on est nombreux à signaler, plus la carte est fiable. Envoie l&apos;appli à ta famille, tes collègues,
@@ -205,6 +214,8 @@ export default function ProfilPage() {
           Espace modérateur
         </Link>
       </section>
+
+      {demo && <Tutoriel mode="revoir" onFermer={() => setDemo(false)} />}
 
       <BottomNav />
     </main>

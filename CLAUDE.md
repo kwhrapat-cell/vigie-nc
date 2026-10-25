@@ -64,7 +64,15 @@ vigie-nc/
   components/     CarteLive (accueil), LiveMap, HomeSheet, ReportDetail,
                   PositionPicker, BottomNav, ui.tsx (Logo, TypeTile, boutons…),
                   VigilanceMeteo (vignette officielle meteo.nc, sans clé),
-                  WelcomeNotice (avertissement à la 1re ouverture), LegalPage,
+                  WelcomeNotice (accueil à la 1re ouverture : démo des gestes
+                  de base en 4 cartes — Voir, Signaler, Confirmer avec scènes
+                  animées en CSS (classes « tuto-* » de globals.css, état final
+                  si le téléphone coupe les animations, pas de vidéo), puis les
+                  règles + conditions ; « Passer » mène aux règles. Tutoriel
+                  mode « revoir » ouvert depuis le Profil. En le fermant, la
+                  bulle « Touche ici pour signaler » (BottomNav) s'affiche une
+                  seule fois, jamais pour qui avait déjà vu l'accueil ; logique
+                  dans lib/tuto.ts), LegalPage,
                   ShareApp (partager l'appli : WhatsApp ou menu du téléphone),
                   InstallApp (installer l'appli : bouton Android, étapes iPhone),
                   OuvrirDansNavigateur (lien ouvert dans Facebook, Messenger,
@@ -178,6 +186,8 @@ vigie-nc/
                      qui exige une clé depuis 2026 ; MapTiler si
                      NEXT_PUBLIC_MAPTILER_KEY ; plan de secours automatique) + emprise NC
     cluster.ts       regroupement des signalements en pastilles chiffrées
+    tuto.ts          démo d'accueil : ordre des cartes, glissement du doigt,
+                     astuce du « + » (« vigie-nc:astuce-signaler » : a-montrer / vue)
     relay-parser.ts  lecture d'un message collé → type + lieu (sur le téléphone)
     legal.ts         éditeur (Tramea Solutions), contact, hébergeurs, date des textes légaux
     site.ts          adresse publique (SITE_URL), texte de partage de l'appli

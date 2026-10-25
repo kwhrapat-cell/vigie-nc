@@ -147,6 +147,507 @@ html .leaflet-container .leaflet-control-attribution a {
   transition: stroke-dashoffset 0.05s linear;
 }
 
+/* ---------- Démo d'accueil (components/WelcomeNotice.tsx) ----------
+   Petites scènes animées en boucle, dessinées avec les vraies couleurs de
+   l'appli (pas de vidéo : rien à télécharger, toujours à jour). Sans
+   animation (réglage du téléphone), chaque scène montre son état final. */
+.tuto-entree-suivante {
+  animation: tuto-entree-g 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.tuto-entree-precedente {
+  animation: tuto-entree-d 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes tuto-entree-g {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes tuto-entree-d {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Carte « Voir » : la zone respire, les signalements apparaissent */
+.tuto-zone {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: tuto-zone 3s ease-in-out infinite;
+}
+@keyframes tuto-zone {
+  0%,
+  100% {
+    transform: scale(0.94);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 1;
+  }
+}
+.tuto-repere {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: tuto-repere 6s cubic-bezier(0.2, 0.8, 0.2, 1) infinite both;
+}
+@keyframes tuto-repere {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  8% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+  12%,
+  86% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  94%,
+  100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+/* Doigt qui montre où toucher (cartes « Signaler » et « Confirmer ») */
+.tuto-doigt {
+  position: absolute;
+  left: 50%;
+  top: 80%;
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
+  background: rgba(234, 246, 244, 0.35);
+  border: 2px solid #eaf6f4;
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.6);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* Carte « Signaler » (7 s) : « + » → type → « Publier » → merci */
+.tuto-s-a {
+  animation: tuto-s-a 7s infinite;
+}
+@keyframes tuto-s-a {
+  0%,
+  20% {
+    opacity: 1;
+  }
+  23%,
+  96% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+.tuto-s-plus {
+  animation: tuto-s-plus 7s infinite;
+}
+@keyframes tuto-s-plus {
+  0%,
+  12% {
+    transform: scale(1);
+  }
+  14% {
+    transform: scale(0.88);
+  }
+  17%,
+  100% {
+    transform: scale(1);
+  }
+}
+.tuto-s-b {
+  opacity: 0;
+  animation: tuto-s-b 7s infinite;
+}
+@keyframes tuto-s-b {
+  0%,
+  20% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  24%,
+  46% {
+    opacity: 1;
+    transform: none;
+  }
+  49%,
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
+.tuto-s-choix {
+  animation: tuto-s-choix 7s infinite;
+}
+@keyframes tuto-s-choix {
+  0%,
+  39% {
+    box-shadow: 0 0 0 0 rgba(234, 246, 244, 0);
+    transform: scale(1);
+  }
+  41% {
+    box-shadow: 0 0 0 3px #eaf6f4;
+    transform: scale(0.95);
+  }
+  44%,
+  47% {
+    box-shadow: 0 0 0 3px #eaf6f4;
+    transform: scale(1);
+  }
+  49%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(234, 246, 244, 0);
+    transform: scale(1);
+  }
+}
+.tuto-s-c {
+  opacity: 0;
+  animation: tuto-s-c 7s infinite;
+}
+@keyframes tuto-s-c {
+  0%,
+  46% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  50%,
+  68% {
+    opacity: 1;
+    transform: none;
+  }
+  71%,
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
+.tuto-s-publier {
+  animation: tuto-s-publier 7s infinite;
+}
+@keyframes tuto-s-publier {
+  0%,
+  60% {
+    transform: scale(1);
+  }
+  62% {
+    transform: scale(0.96);
+  }
+  65%,
+  100% {
+    transform: scale(1);
+  }
+}
+.tuto-s-d {
+  opacity: 0;
+  animation: tuto-s-d 7s infinite;
+}
+@keyframes tuto-s-d {
+  0%,
+  68% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  72% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  75%,
+  92% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+.tuto-doigt-signaler {
+  animation: tuto-doigt-signaler 7s infinite;
+}
+@keyframes tuto-doigt-signaler {
+  0% {
+    opacity: 0;
+    left: 72%;
+    top: 104%;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  5% {
+    opacity: 1;
+    left: 66%;
+    top: 96%;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  11% {
+    opacity: 1;
+    left: 50%;
+    top: 80%;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  14% {
+    opacity: 1;
+    left: 50%;
+    top: 80%;
+    transform: translate(-50%, -50%) scale(0.75);
+  }
+  18% {
+    opacity: 1;
+    left: 50%;
+    top: 80%;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  31%,
+  38% {
+    opacity: 1;
+    left: 74%;
+    top: 27%;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  41% {
+    opacity: 1;
+    left: 74%;
+    top: 27%;
+    transform: translate(-50%, -50%) scale(0.75);
+  }
+  45% {
+    opacity: 1;
+    left: 74%;
+    top: 27%;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  56%,
+  59% {
+    opacity: 1;
+    left: 50%;
+    top: 80%;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  62% {
+    opacity: 1;
+    left: 50%;
+    top: 80%;
+    transform: translate(-50%, -50%) scale(0.75);
+  }
+  65% {
+    opacity: 1;
+    left: 50%;
+    top: 80%;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    left: 50%;
+    top: 80%;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Carte « Confirmer » (6 s) : « Toujours là » → la fiabilité monte */
+.tuto-c-oui {
+  background: rgba(43, 182, 115, 0.1);
+  color: #2bb673;
+  animation: tuto-c-oui 6s infinite;
+}
+@keyframes tuto-c-oui {
+  0%,
+  36% {
+    background: rgba(43, 182, 115, 0.1);
+    color: #2bb673;
+    transform: scale(1);
+  }
+  38% {
+    background: #2bb673;
+    color: #081317;
+    transform: scale(0.96);
+  }
+  41%,
+  92% {
+    background: #2bb673;
+    color: #081317;
+    transform: scale(1);
+  }
+  96%,
+  100% {
+    background: rgba(43, 182, 115, 0.1);
+    color: #2bb673;
+    transform: scale(1);
+  }
+}
+.tuto-c-avant {
+  animation: tuto-c-avant 6s infinite;
+}
+@keyframes tuto-c-avant {
+  0%,
+  40% {
+    opacity: 1;
+  }
+  43%,
+  94% {
+    opacity: 0;
+  }
+  98%,
+  100% {
+    opacity: 1;
+  }
+}
+.tuto-c-apres {
+  opacity: 0;
+  animation: tuto-c-apres 6s infinite;
+}
+@keyframes tuto-c-apres {
+  0%,
+  40% {
+    opacity: 0;
+  }
+  43%,
+  94% {
+    opacity: 1;
+  }
+  98%,
+  100% {
+    opacity: 0;
+  }
+}
+.tuto-c-plus {
+  opacity: 0;
+  animation: tuto-c-plus 6s infinite;
+}
+@keyframes tuto-c-plus {
+  0%,
+  40% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  44% {
+    opacity: 1;
+    transform: none;
+  }
+  62%,
+  100% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+.tuto-doigt-confirmer {
+  animation: tuto-doigt-confirmer 6s infinite;
+}
+@keyframes tuto-doigt-confirmer {
+  0%,
+  8% {
+    opacity: 0;
+    left: 70%;
+    top: 104%;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  16% {
+    opacity: 1;
+    left: 50%;
+    top: 92%;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  30%,
+  35% {
+    opacity: 1;
+    left: 26%;
+    top: 80%;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  38% {
+    opacity: 1;
+    left: 26%;
+    top: 80%;
+    transform: translate(-50%, -50%) scale(0.75);
+  }
+  42% {
+    opacity: 1;
+    left: 26%;
+    top: 80%;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  52%,
+  100% {
+    opacity: 0;
+    left: 26%;
+    top: 80%;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Astuce « Touche ici pour signaler » au-dessus du « + » : bouge trois
+   fois pour attirer l'œil, puis reste immobile */
+.astuce-signaler {
+  transform: translate(-50%, 0);
+  animation: astuce-signaler 2.4s ease-in-out 3;
+}
+@keyframes astuce-signaler {
+  0%,
+  100% {
+    transform: translate(-50%, 0);
+  }
+  50% {
+    transform: translate(-50%, -4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tuto-entree-suivante,
+  .tuto-entree-precedente,
+  .tuto-zone,
+  .tuto-repere,
+  .tuto-doigt,
+  .tuto-s-a,
+  .tuto-s-plus,
+  .tuto-s-b,
+  .tuto-s-choix,
+  .tuto-s-c,
+  .tuto-s-publier,
+  .tuto-s-d,
+  .tuto-c-oui,
+  .tuto-c-avant,
+  .tuto-c-apres,
+  .tuto-c-plus,
+  .astuce-signaler {
+    animation: none !important;
+  }
+  /* État final de chaque scène : l'écran « Publier », la confirmation faite */
+  .tuto-doigt,
+  .tuto-s-a,
+  .tuto-s-b,
+  .tuto-s-d,
+  .tuto-c-avant,
+  .tuto-c-plus {
+    opacity: 0 !important;
+  }
+  .tuto-s-c,
+  .tuto-c-apres {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .tuto-c-oui {
+    background: #2bb673 !important;
+    color: #081317 !important;
+  }
+  .astuce-signaler {
+    transform: translate(-50%, 0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .vigie-marker .ring,
   .vigie-marker.is-ahead::after,
