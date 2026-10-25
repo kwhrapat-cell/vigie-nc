@@ -6,13 +6,15 @@
 // pousser aux faux signalements. Il ne redescend jamais (niveau max gardé),
 // même si de nouveaux badges sont ajoutés plus tard.
 
+// ⚠️ Mêmes paliers dans le SQL : vigie_rang_pour() et vigie_nb_badges()
+// (le grade montré sur les signalements est calculé par la base).
 export const NIVEAUX = [
-  { id: "poussin", nom: "Poussin", badgesMin: 0 },
-  { id: "vigie", nom: "Vigie", badgesMin: 1 },
-  { id: "sentinelle", nom: "Sentinelle", badgesMin: 3 },
-  { id: "gardien", nom: "Gardien", badgesMin: 6 },
-  // Légende : tous les badges (voir NB_BADGES_LEGENDE, aligné sur BADGES).
-  { id: "legende", nom: "Légende", badgesMin: 10 },
+  { id: "poussin", nom: "Poussin", article: "un", badgesMin: 0 },
+  { id: "vigie", nom: "Vigie", article: "une", badgesMin: 1 },
+  { id: "sentinelle", nom: "Sentinelle", article: "une", badgesMin: 3 },
+  { id: "gardien", nom: "Gardien", article: "un", badgesMin: 6 },
+  // Légende : tous les badges (BADGES de lib/impact.ts).
+  { id: "legende", nom: "Légende", article: "une", badgesMin: 10 },
 ] as const;
 
 export type NiveauId = (typeof NIVEAUX)[number]["id"];
@@ -25,6 +27,17 @@ export function rangPourBadges(nbBadges: number): number {
     if (nbBadges >= n.badgesMin) rang = i;
   });
   return rang;
+}
+
+/**
+ * « Signalé par une Sentinelle » (ou « Relayé par… ») pour le grade de
+ * l'auteur calculé par la base ; null s'il n'y a rien à montrer (0).
+ */
+export function libelleGrade(rang: number | null | undefined, relaye = false): string | null {
+  const r = Math.round(rang ?? 0);
+  if (r < 1 || r >= NIVEAUX.length) return null;
+  const n = NIVEAUX[r];
+  return `${relaye ? "Relayé" : "Signalé"} par ${n.article} ${n.nom}`;
 }
 
 /** Badges qu'il manque pour le niveau suivant (null au niveau Légende). */

@@ -505,6 +505,147 @@ as $$
 $$;
 
 -- ---------------------------------------------------------------------
+-- Grade des vigies (« Signalé par une Sentinelle »)
+--   Le grade affiché sur un signalement est calculé ICI, par la base, à
+--   partir de ce que la base a vu (pas du téléphone, qu'on pourrait
+--   trafiquer). Mêmes badges et mêmes paliers que le cagou de l'appli
+--   (lib/impact.ts BADGES, lib/niveaux.ts NIVEAUX) :
+--     rang 0 Poussin, 1 Vigie (1 badge), 2 Sentinelle (3), 3 Gardien (6),
+--     4 Légende (les 10 badges). Le rang ne redescend jamais.
+--   Une ligne par session anonyme (empreinte), uniquement des compteurs :
+--   ni position, ni texte. Effacée après 90 jours sans visite.
+--   Anonymat : un grade n'est montré sur les signalements que s'il est
+--   atteint par au moins vigie_seuil_grade() vigies (5 par défaut), sinon
+--   le grade inférieur le plus partagé : personne ne peut être reconnu
+--   à son grade (une « Légende » seule ne se distingue pas).
+-- ---------------------------------------------------------------------
+-- Premier « Toujours là » d'une autre personne déjà compté pour l'auteur
+alter table reports add column if not exists auteur_confirme_at timestamptz;
+
+create table if not exists vigie_contributions (
+  cle text primary key,
+  nb_signalements int not null default 0,
+  nb_alertes_meteo int not null default 0,
+  nb_confirmes int not null default 0,      -- signalements confirmés par une autre personne
+  nb_votes int not null default 0,          -- « Toujours là » / « C'est terminé » donnés
+  nb_routes_rouvertes int not null default 0,
+  nb_jours int not null default 0,          -- jours différents d'utilisation
+  dernier_jour date,
+  rang smallint not null default 0 check (rang between 0 and 4),
+  maj_at timestamptz not null default now()
+);
+create index if not exists vigie_contributions_rang_idx on vigie_contributions (rang);
+
+-- Nombre de badges, comme BADGES de lib/impact.ts.
+-- ⚠️ Ajouter ici tout badge ajouté dans l'appli (et inversement).
+create or replace function vigie_nb_badges(c vigie_contributions)
+returns int
+language sql
+immutable
+set search_path = public
+as $$
+  select (c.nb_signalements >= 1)::int      -- Première vigie
+       + (c.nb_confirmes >= 1)::int         -- Bon œil
+       + (c.nb_votes >= 5)::int             -- Témoin fiable
+       + (c.nb_routes_rouvertes >= 1)::int  -- Ouvreur de route
+       + (c.nb_alertes_meteo >= 1)::int     -- Sentinelle cyclone
+       + (c.nb_signalements >= 10)::int     -- Vigie du quartier
+       + (c.nb_jours >= 7)::int             -- Fidèle au poste
+       + (c.nb_confirmes >= 10)::int        -- Œil de faucon
+       + (c.nb_votes >= 50)::int            -- Pilier de la route
+       + (c.nb_jours >= 30)::int;           -- Mémoire du pays
+$$;
+
+-- Rang pour un nombre de badges (paliers de lib/niveaux.ts).
+create or replace function vigie_rang_pour(p_badges int)
+returns smallint
+language sql
+immutable
+set search_path = public
+as $$
+  select (case
+    when p_badges >= 10 then 4
+    when p_badges >= 6 then 3
+    when p_badges >= 3 then 2
+    when p_badges >= 1 then 1
+    else 0
+  end)::smallint;
+$$;
+
+-- Vigies qui doivent partager un grade pour qu'il soit montré (5 ; clé
+-- 'grade_seuil' de vigie_config, entre 3 et 50).
+create or replace function vigie_seuil_grade()
+returns int
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select least(greatest(coalesce(
+    (select case when valeur ~ '^[0-9]{1,2}$' then valeur::int end
+     from vigie_config where cle = 'grade_seuil'),
+    5), 3), 50);
+$$;
+
+-- Plus haut grade montré en ce moment : le grade d'un auteur est affiché
+-- plafonné à ce rang (atteint par au moins vigie_seuil_grade() vigies).
+create or replace function vigie_grade_plafond()
+returns smallint
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(max(g.r), 0)::smallint
+  from generate_series(1, 4) as g(r)
+  where (select count(*) from vigie_contributions c where c.rang >= g.r) >= vigie_seuil_grade();
+$$;
+
+-- Ajoute aux compteurs d'une session (interne : appelé par les RPC qui
+-- créent, relaient, votent, et par vigie_presence) et met le rang à jour.
+create or replace function vigie_contribuer(
+  p_cle text,
+  p_signalements int default 0,
+  p_meteo int default 0,
+  p_confirmes int default 0,
+  p_votes int default 0,
+  p_routes int default 0,
+  p_jours int default 0
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_cle is null then
+    return;
+  end if;
+  insert into vigie_contributions as c (
+    cle, nb_signalements, nb_alertes_meteo, nb_confirmes, nb_votes,
+    nb_routes_rouvertes, nb_jours, dernier_jour
+  )
+  values (
+    p_cle, greatest(p_signalements, 0), greatest(p_meteo, 0), greatest(p_confirmes, 0),
+    greatest(p_votes, 0), greatest(p_routes, 0), greatest(p_jours, 0), vigie_jour_local()
+  )
+  on conflict (cle) do update set
+    nb_signalements = c.nb_signalements + excluded.nb_signalements,
+    nb_alertes_meteo = c.nb_alertes_meteo + excluded.nb_alertes_meteo,
+    nb_confirmes = c.nb_confirmes + excluded.nb_confirmes,
+    nb_votes = c.nb_votes + excluded.nb_votes,
+    nb_routes_rouvertes = c.nb_routes_rouvertes + excluded.nb_routes_rouvertes,
+    nb_jours = c.nb_jours + excluded.nb_jours,
+    dernier_jour = excluded.dernier_jour,
+    maj_at = now();
+
+  update vigie_contributions c
+     set rang = greatest(c.rang, vigie_rang_pour(vigie_nb_badges(c)))
+   where c.cle = p_cle;
+end;
+$$;
+
+-- ---------------------------------------------------------------------
 -- Vote (fonction interne, non appelable depuis l'appli)
 -- ---------------------------------------------------------------------
 create or replace function vigie_appliquer_vote(
@@ -582,6 +723,12 @@ begin
     set expires_at = greatest(expires_at, now() + vigie_duree_vie(type)),
         last_confirmed_at = now()
     where id = p_report_id;
+    -- Grade : le premier « Toujours là » d'une autre personne compte une
+    -- fois pour l'auteur (« signalement confirmé »), même si le vote change.
+    if v_auteur is not null and v_report.auteur_confirme_at is null and v_report.confirmations >= 1 then
+      update reports set auteur_confirme_at = now() where id = p_report_id;
+      perform vigie_contribuer(v_auteur, p_confirmes => 1);
+    end if;
     return 'confirme';
   end if;
 
@@ -731,6 +878,8 @@ begin
         perform vigie_demander_resume(v_existant.id);
       end if;
 
+      perform vigie_contribuer(v_key, p_signalements => 1,
+        p_meteo => case when p_type::text in ('inondation', 'meteo') then 1 else 0 end);
       return jsonb_build_object('id', v_existant.id, 'resultat', 'fusionne');
     end if;
   end if;
@@ -747,6 +896,8 @@ begin
     values (v_id, v_key, v_description);
   end if;
 
+  perform vigie_contribuer(v_key, p_signalements => 1,
+    p_meteo => case when p_type::text in ('inondation', 'meteo') then 1 else 0 end);
   return jsonb_build_object('id', v_id, 'resultat', 'cree');
 end;
 $$;
@@ -812,6 +963,11 @@ begin
 
   select * into v_report from reports where id = p_report_id;
 
+  if v_resultat <> 'deja_vote' then
+    perform vigie_contribuer(v_key, p_votes => 1,
+      p_routes => case when p_vote = 'termine' and v_report.resolved_at is not null then 1 else 0 end);
+  end if;
+
   return jsonb_build_object(
     'resultat', v_resultat,
     'confirmations', v_report.confirmations,
@@ -829,9 +985,11 @@ $$;
 -- lecture marche aussi (est_auteur et mon_vote restent vides).
 --   select * from signalements_proches_v3(-22.27, 166.45, 5000);
 -- ---------------------------------------------------------------------
--- Colonnes fin_annoncee (chantiers) puis resume_ia / resume_ia_nb (résumé
--- automatique) ajoutées en fin de liste : le type renvoyé change, il faut
--- supprimer l'ancienne version avant (droits redonnés en bas).
+-- Colonnes fin_annoncee (chantiers), resume_ia / resume_ia_nb (résumé
+-- automatique) puis auteur_grade (grade de l'auteur, plafonné pour
+-- l'anonymat, 0 = rien à montrer) ajoutées en fin de liste : le type
+-- renvoyé change, il faut supprimer l'ancienne version avant (droits
+-- redonnés en bas).
 drop function if exists signalements_proches_v3(double precision, double precision, integer);
 create or replace function signalements_proches_v3(
   p_lat double precision default null,
@@ -860,7 +1018,8 @@ returns table (
   actif boolean,
   fin_annoncee date,
   resume_ia text,
-  resume_ia_nb int
+  resume_ia_nb int,
+  auteur_grade smallint
 )
 language sql
 stable
@@ -870,6 +1029,9 @@ as $$
   with
     moi as (
       select vigie_cle_session() as cle
+    ),
+    plafond as (
+      select vigie_grade_plafond() as rang_max
     ),
     centre as (
       select case when p_lat is null or p_lng is null then null
@@ -885,11 +1047,14 @@ as $$
     true as actif,
     r.fin_annoncee,
     case when r.contenu_masque_at is null then r.resume_ia end as resume_ia,
-    case when r.contenu_masque_at is null and r.resume_ia is not null then r.resume_ia_nb end as resume_ia_nb
+    case when r.contenu_masque_at is null and r.resume_ia is not null then r.resume_ia_nb end as resume_ia_nb,
+    least(coalesce(k.rang, 0), pl.rang_max)::smallint as auteur_grade
   from reports r
   cross join moi m
+  cross join plafond pl
   cross join centre c
   left join report_authors a on a.report_id = r.id
+  left join vigie_contributions k on k.cle = a.device_key
   left join report_votes v on v.report_id = r.id and v.device_key = m.cle
   where r.expires_at > now()
     and r.resolved_at is null
@@ -930,7 +1095,8 @@ returns table (
   actif boolean,
   fin_annoncee date,
   resume_ia text,
-  resume_ia_nb int
+  resume_ia_nb int,
+  auteur_grade smallint
 )
 language sql
 stable
@@ -939,6 +1105,9 @@ set search_path = public, extensions
 as $$
   with moi as (
     select vigie_cle_session() as cle
+  ),
+  plafond as (
+    select vigie_grade_plafond() as rang_max
   )
   select
     r.id, r.type, r.lat, r.lng, r.photo_url, r.description, r.niveau_risque,
@@ -950,10 +1119,13 @@ as $$
     (r.resolved_at is null and r.expires_at > now()) as actif,
     r.fin_annoncee,
     case when r.contenu_masque_at is null then r.resume_ia end as resume_ia,
-    case when r.contenu_masque_at is null and r.resume_ia is not null then r.resume_ia_nb end as resume_ia_nb
+    case when r.contenu_masque_at is null and r.resume_ia is not null then r.resume_ia_nb end as resume_ia_nb,
+    least(coalesce(k.rang, 0), pl.rang_max)::smallint as auteur_grade
   from reports r
   cross join moi m
+  cross join plafond pl
   left join report_authors a on a.report_id = r.id
+  left join vigie_contributions k on k.cle = a.device_key
   left join report_votes v on v.report_id = r.id and v.device_key = m.cle
   where r.id = p_id
     and r.type::text <> 'sos'
@@ -1104,6 +1276,8 @@ begin
 
   insert into report_authors (report_id, device_key) values (v_id, v_key);
 
+  perform vigie_contribuer(v_key, p_signalements => 1,
+    p_meteo => case when p_type::text in ('inondation', 'meteo') then 1 else 0 end);
   return jsonb_build_object('id', v_id, 'resultat', 'relaye');
 end;
 $$;
@@ -2148,6 +2322,11 @@ begin
   values (v_key, v_jour, now())
   on conflict (cle, jour) do update set derniere_vue = excluded.derniere_vue;
 
+  -- Grade : un jour d'utilisation de plus (première visite du jour)
+  if v_vue is null then
+    perform vigie_contribuer(v_key, p_jours => 1);
+  end if;
+
   v_nouveau := not exists (select 1 from vigie_visiteurs where cle = v_key);
   insert into vigie_visiteurs (cle, premier_jour, dernier_jour)
   values (v_key, v_jour, v_jour)
@@ -2294,7 +2473,10 @@ $$;
 --   - le journal de sécurité de Supabase Auth est gardé 30 jours ;
 --   - chiffres d'utilisation : le détail par appareil est ramené à des
 --     totaux par jour, puis effacé après 35 jours (90 jours sans visite
---     pour le premier/dernier jour d'un appareil).
+--     pour le premier/dernier jour d'un appareil) ;
+--   - vigies actives : la zone d'environ 5 km est effacée après 15 minutes ;
+--   - grade : les compteurs d'une session sont effacés après 90 jours
+--     sans visite.
 -- Les signalements eux-mêmes restent, anonymes, pour l'historique.
 -- ---------------------------------------------------------------------
 create or replace function vigie_purger_donnees_appareil()
@@ -2329,6 +2511,12 @@ begin
    where a.created_at < now() - interval '1 year';
   delete from vigie_erreurs e
    where e.jour < vigie_jour_local() - 14;
+  -- Vigies actives : zone gardée 15 minutes au plus ; grade : compteurs
+  -- effacés après 90 jours sans visite (comme les sessions anonymes).
+  delete from vigie_presence_zone z
+   where z.vu_at < now() - interval '15 minutes';
+  delete from vigie_contributions c
+   where coalesce(c.dernier_jour, c.maj_at::date) < vigie_jour_local() - 90;
 
   -- Chiffres d'utilisation : totaux par jour (jours terminés), puis le
   -- détail par appareil est effacé.
@@ -3312,6 +3500,148 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------
+-- Vigies actives autour de toi (« 12 vigies actives autour de toi »)
+--   Pendant que l'appli est ouverte (au plus une fois par minute), le
+--   téléphone donne sa position ; la base n'en garde qu'une ZONE d'environ
+--   5 km (arrondi à 0,05°), sous l'empreinte de la session, et l'efface
+--   après 15 minutes. Elle renvoie seulement un total : les autres vigies
+--   actives (10 dernières minutes) à 10 km autour de cette zone, et
+--   seulement à partir de 3 (en dessous : « quelques », jamais un 1 ou un
+--   2 qui désignerait un voisin). Aucune position n'est jamais montrée.
+-- ---------------------------------------------------------------------
+create table if not exists vigie_presence_zone (
+  cle text primary key,
+  geom geography(Point, 4326) not null,
+  vu_at timestamptz not null default now()
+);
+create index if not exists vigie_presence_zone_geom_idx on vigie_presence_zone using gist (geom);
+create index if not exists vigie_presence_zone_vu_idx on vigie_presence_zone (vu_at);
+
+--   select vigies_autour(-22.27, 166.45);
+--   → {"nombre": 12, "quelques": false} | {"nombre": null, "quelques": true}
+create or replace function vigies_autour(p_lat double precision, p_lng double precision)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_key text := vigie_cle_session();
+  v_zone geography;
+  v_vu timestamptz;
+  v_n int;
+begin
+  if v_key is null then
+    raise exception 'connexion_requise';
+  end if;
+  if p_lat is null or p_lng is null or not vigie_dans_nc(p_lat, p_lng) then
+    raise exception 'position_hors_nc';
+  end if;
+
+  -- Zone d'environ 5 km : jamais la position précise
+  v_zone := st_setsrid(st_makepoint(
+    (round(p_lng::numeric * 20) / 20)::double precision,
+    (round(p_lat::numeric * 20) / 20)::double precision
+  ), 4326)::geography;
+
+  delete from vigie_presence_zone where vu_at < now() - interval '15 minutes';
+
+  select vu_at into v_vu from vigie_presence_zone where cle = v_key;
+  if v_vu is null or v_vu < now() - interval '60 seconds' then
+    insert into vigie_presence_zone (cle, geom, vu_at)
+    values (v_key, v_zone, now())
+    on conflict (cle) do update set geom = excluded.geom, vu_at = excluded.vu_at;
+  end if;
+
+  select count(*)::int into v_n
+  from vigie_presence_zone z
+  where z.cle <> v_key
+    and z.vu_at > now() - interval '10 minutes'
+    and st_dwithin(z.geom, v_zone, 10000);
+
+  return jsonb_build_object(
+    'nombre', case when v_n >= 3 then v_n end,
+    'quelques', v_n between 1 and 2
+  );
+end;
+$$;
+
+-- RPC : mon grade (calculé par la base) et celui que les autres voient sur
+-- mes signalements (plafonné pour l'anonymat).
+--   select mon_grade();  → {"rang": 2, "grade_public": 1, "seuil": 5}
+create or replace function mon_grade()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_key text := vigie_cle_session();
+  v_rang smallint := 0;
+begin
+  if v_key is not null then
+    select coalesce(rang, 0) into v_rang from vigie_contributions where cle = v_key;
+  end if;
+  v_rang := coalesce(v_rang, 0);
+  return jsonb_build_object(
+    'rang', v_rang,
+    'grade_public', least(v_rang, vigie_grade_plafond()),
+    'seuil', vigie_seuil_grade()
+  );
+end;
+$$;
+
+-- Au premier lancement : compteurs repris de ce que la base sait déjà
+-- (signalements, votes et jours de visite encore gardés). Sans effet pour
+-- une session qui a déjà sa ligne (ré-exécution sans risque).
+insert into vigie_contributions as c (
+  cle, nb_signalements, nb_alertes_meteo, nb_confirmes, nb_votes, nb_jours, dernier_jour
+)
+select
+  k.cle,
+  coalesce(s.n, 0),
+  coalesce(s.meteo, 0),
+  coalesce(s.confirmes, 0),
+  coalesce(v.n, 0),
+  coalesce(j.n, 0),
+  j.dernier
+from (
+  select device_key as cle from report_authors
+  union
+  select device_key from report_votes
+  union
+  select cle from vigie_activite
+) k
+left join (
+  select a.device_key,
+         count(*)::int as n,
+         count(*) filter (where r.type::text in ('inondation', 'meteo'))::int as meteo,
+         count(*) filter (where r.confirmations > 0)::int as confirmes
+  from report_authors a
+  join reports r on r.id = a.report_id
+  where r.type::text <> 'sos'
+  group by a.device_key
+) s on s.device_key = k.cle
+left join (
+  select device_key, count(*)::int as n from report_votes group by device_key
+) v on v.device_key = k.cle
+left join (
+  select cle, count(distinct jour)::int as n, max(jour) as dernier from vigie_activite group by cle
+) j on j.cle = k.cle
+on conflict (cle) do nothing;
+
+-- Déjà confirmés avant le grade : comptés ci-dessus, pas une 2e fois.
+update reports r
+   set auteur_confirme_at = coalesce(r.last_confirmed_at, now())
+ where r.auteur_confirme_at is null
+   and r.confirmations > 0
+   and exists (select 1 from report_authors a where a.report_id = r.id);
+
+update vigie_contributions c
+   set rang = greatest(c.rang, vigie_rang_pour(vigie_nb_badges(c)));
+
+-- ---------------------------------------------------------------------
 -- Droits d'accès
 --   - les signalements ne se lisent QUE par les fonctions (RPC) : elles
 --     ne montrent que ce qui doit l'être (signalements actifs, jamais de
@@ -3342,6 +3672,8 @@ alter table vigie_annonce_signal enable row level security;
 alter table report_temoignages enable row level security;
 alter table vigie_ia_appels enable row level security;
 alter table vigie_erreurs enable row level security;
+alter table vigie_contributions enable row level security;
+alter table vigie_presence_zone enable row level security;
 
 drop policy if exists "zones lecture publique" on zones;
 create policy "zones lecture publique" on zones for select using (true);
@@ -3382,6 +3714,8 @@ revoke insert, update, delete on vigie_annonce_signal from anon, authenticated;
 revoke all on report_temoignages from anon, authenticated;
 revoke all on vigie_ia_appels from anon, authenticated;
 revoke all on vigie_erreurs from anon, authenticated;
+revoke all on vigie_contributions from anon, authenticated;
+revoke all on vigie_presence_zone from anon, authenticated;
 
 revoke execute on function vigie_appliquer_vote(uuid, text, text) from public, anon, authenticated;
 revoke execute on function vigie_masquer_contenu(uuid, text) from public, anon, authenticated;
@@ -3402,6 +3736,11 @@ revoke execute on function vigie_texte_annonce(text) from public, anon, authenti
 revoke execute on function vigie_photos_jours() from public, anon, authenticated;
 revoke execute on function photos_a_supprimer(int) from public, anon, authenticated;
 revoke execute on function photos_supprimees(text[]) from public, anon, authenticated;
+revoke execute on function vigie_contribuer(text, int, int, int, int, int, int) from public, anon, authenticated;
+revoke execute on function vigie_nb_badges(vigie_contributions) from public, anon, authenticated;
+revoke execute on function vigie_rang_pour(int) from public, anon, authenticated;
+revoke execute on function vigie_seuil_grade() from public, anon, authenticated;
+revoke execute on function vigie_grade_plafond() from public, anon, authenticated;
 grant execute on function photos_a_supprimer(int) to service_role;
 grant execute on function photos_supprimees(text[]) to service_role;
 revoke execute on function vigie_limite_signalements(text) from public, anon, authenticated;
@@ -3468,6 +3807,11 @@ grant execute on function ia_point_route_preparer(uuid[]) to authenticated;
 -- peut planter avant), lecture avec un code de modérateur.
 revoke execute on function vigie_texte_erreur(text, int) from public, anon, authenticated;
 grant execute on function vigie_erreur_signaler(text, text, text) to anon, authenticated;
+-- Vigies actives et grade : session anonyme obligatoire.
+revoke execute on function vigies_autour(double precision, double precision) from public, anon;
+revoke execute on function mon_grade() from public, anon;
+grant execute on function vigies_autour(double precision, double precision) to authenticated;
+grant execute on function mon_grade() to authenticated;
 grant execute on function moderation_erreurs(text) to anon, authenticated;
 
 -- ---------------------------------------------------------------------

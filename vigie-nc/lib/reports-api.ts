@@ -165,6 +165,7 @@ export interface ReportRow {
   fin_annoncee?: string | null;
   resume_ia?: string | null;
   resume_ia_nb?: number | null;
+  auteur_grade?: number | null;
 }
 
 export function mapRow(row: ReportRow): Report {
@@ -192,6 +193,7 @@ export function mapRow(row: ReportRow): Report {
     endDate: row.fin_annoncee ?? null,
     aiSummary: row.resume_ia ?? null,
     aiSummaryCount: row.resume_ia_nb ?? null,
+    authorGrade: row.auteur_grade ?? 0,
   };
 }
 
@@ -542,6 +544,44 @@ async function liveRpc<T>(fn: string, args: Record<string, unknown>): Promise<T>
   const { data, error } = await supabase.rpc(fn, args);
   if (error) throw new ReportsApiError(codeFromMessage(error.message));
   return data as T;
+}
+
+// ---------------------------------------------------------------------
+// Vigies actives autour et grade (calculés par la base)
+// ---------------------------------------------------------------------
+
+/** « 12 vigies actives autour de toi » : null = rien à montrer. */
+export interface VigiesAutour {
+  nombre: number | null; // à partir de 3 seulement
+  quelques: boolean; // 1 ou 2 : on ne donne pas le chiffre
+}
+
+/**
+ * Vigies actives à 10 km autour (la base ne garde qu'une zone d'environ
+ * 5 km, 15 minutes). Session anonyme obligatoire ; mode démo : rien.
+ */
+export async function fetchVigiesAutour(position: LatLng): Promise<VigiesAutour | null> {
+  if (!supabase) return null;
+  await requireSession();
+  const out = await liveRpc<{ nombre: number | null; quelques: boolean }>("vigies_autour", {
+    p_lat: position.lat,
+    p_lng: position.lng,
+  });
+  return { nombre: out?.nombre ?? null, quelques: Boolean(out?.quelques) };
+}
+
+/** Mon grade selon la base, et celui montré sur mes signalements. */
+export interface MonGrade {
+  rang: number;
+  gradePublic: number;
+  seuil: number;
+}
+
+export async function fetchMonGrade(): Promise<MonGrade | null> {
+  if (!supabase) return null;
+  await requireSession();
+  const out = await liveRpc<{ rang: number; grade_public: number; seuil: number }>("mon_grade", {});
+  return { rang: out?.rang ?? 0, gradePublic: out?.grade_public ?? 0, seuil: out?.seuil ?? 5 };
 }
 
 /** Vérifie un code de modération ; renvoie le nom du modérateur. */

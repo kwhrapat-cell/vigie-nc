@@ -13,6 +13,7 @@ import { ImpactBanner } from "./ImpactBanner";
 import { AUCUN_BANDEAU, Bandeau, masquePar, Presences } from "@/lib/bandeaux";
 import { avatarSvg } from "@/lib/avatar";
 import { useNiveau } from "@/lib/useNiveau";
+import { useVigiesAutour } from "@/lib/useVigiesAutour";
 import { DemandeConfirmation } from "./DemandeConfirmation";
 import { BandeauConduite, BarreConduite, BoutonConduite, useModeConduite } from "./ModeConduite";
 import { Logo } from "./ui";
@@ -40,6 +41,9 @@ export function CarteLive() {
   const [linkedReport, setLinkedReport] = useState<Report | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const selectedSnapshot = useRef<Report | null>(null);
+
+  // « 12 vigies actives autour de toi » (total calculé par la base)
+  const vigies = useVigiesAutour(position);
 
   // Ton cagou à ta position, selon ton niveau (lib/niveaux.ts) ; point bleu
   // simple si tu l'as choisi dans le Profil.
@@ -356,6 +360,7 @@ export function CarteLive() {
         onFilter={setFilter}
         onSelect={selectFromList}
         onEnableLocation={retry}
+        vigies={vigies}
       />
 
       <BottomNav />

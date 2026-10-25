@@ -244,12 +244,14 @@ vigie-nc/
   supabase/schema.sql  schéma complet, ré-exécutable
   supabase/functions/purge-photos  fonction Supabase (Deno) : photos > 7 jours
   supabase/tests/  shim-supabase.sql (faux Supabase pour Postgres + PostGIS)
-                   et essais.sql (35 essais : identité, votes, SOS, photos, droits,
+                   et essais.sql (37 essais : identité, votes, SOS, photos, droits,
                    type « feu », chiffres d'utilisation, annonces générales, chantiers,
-                   témoignages et résumé IA, point route, erreurs des téléphones)
+                   témoignages et résumé IA, point route, erreurs des téléphones,
+                   grade des vigies, vigies actives autour)
 .github/workflows/verification.yml  à chaque PR : tests de la logique (Node 22),
                    build + types, schema.sql deux fois puis essais.sql sur
-                   Postgres + PostGIS
+                   Postgres + PostGIS (le message d'erreur SQL est aussi mis en
+                   annotation sur la PR : lisible sans ouvrir le journal)
 .github/dependabot.yml  mises à jour groupées une fois par mois (npm du site,
                    actions GitHub, Gradle) ; pas de version majeure automatique
 android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le site
@@ -408,6 +410,26 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   notif_url avec /api/annonce au bout) → `annonce_destinataires` (une seule
   fois par annonce). Garde-fous : 10 annonces et 3 notifications par 24 h.
   Limites alignées sur `ANNONCE_*` de `lib/types.ts`.
+- Grade des vigies (« Signalé par une Sentinelle ») : calculé PAR LA BASE,
+  jamais par le téléphone. Table privée `vigie_contributions` (empreinte de
+  session + compteurs : signalements, alertes météo, signalements confirmés
+  par un autre, votes, routes rouvertes, jours ; rang 0-4 qui ne redescend
+  jamais), remplie par `vigie_contribuer` (appelée par creer/relayer/voter
+  _v3, `vigie_appliquer_vote` — premier « Toujours là » d'un autre, une fois,
+  repère `reports.auteur_confirme_at` — et `vigie_presence`, 1er passage du
+  jour). `vigie_nb_badges()` = BADGES de lib/impact.ts, `vigie_rang_pour()`
+  = paliers de lib/niveaux.ts (test JS qui fige la liste des badges).
+  Anonymat : `auteur_grade` (fin de liste de `signalements_proches_v3` /
+  `signalement_detail_v3`) = rang plafonné par `vigie_grade_plafond()` :
+  grade montré seulement s'il est atteint par `vigie_seuil_grade()` vigies
+  (5, clé `grade_seuil`, 3 à 50). `mon_grade()` pour le Profil. Compteurs
+  effacés après 90 jours sans visite. Reprise de l'historique au 1er
+  lancement (insert … on conflict do nothing).
+- Vigies actives autour : `vigies_autour(lat, lng)` (session obligatoire,
+  au plus une écriture par minute) garde dans `vigie_presence_zone` une
+  zone arrondie à 0,05° (~5 km), effacée après 15 min ; renvoie le total
+  des AUTRES vigies actives (10 min) à 10 km, seulement à partir de 3
+  (`quelques` pour 1-2). Appelée toutes les 2 min par lib/useVigiesAutour.ts.
 - Erreurs des téléphones : table privée `vigie_erreurs` (jour + empreinte
   du message, compteur), `vigie_erreur_signaler(message, écran,
   navigateur)` ouverte à tous (même sans session : l'appli peut planter

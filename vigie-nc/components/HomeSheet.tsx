@@ -13,6 +13,7 @@ import {
   REPORT_TYPE_CATEGORY,
 } from "@/lib/types";
 import type { LiveStatus } from "@/lib/useLiveReports";
+import type { VigiesAutour } from "@/lib/reports-api";
 import type { WatchStatus } from "@/lib/useWatchPosition";
 import { ReliabilityBadge, TypeTile } from "./ui";
 import { Cagou } from "./Cagou";
@@ -40,6 +41,7 @@ export function HomeSheet({
   onFilter,
   onSelect,
   onEnableLocation,
+  vigies = null,
 }: {
   allReports: Report[];
   reports: Report[]; // après filtre de catégorie
@@ -54,6 +56,8 @@ export function HomeSheet({
   onFilter: (c: Category | null) => void;
   onSelect: (id: string) => void;
   onEnableLocation: () => void;
+  /** Vigies actives autour (total de la base, à partir de 3), ou null. */
+  vigies?: VigiesAutour | null;
 }) {
   const counts = CATEGORIES.reduce(
     (acc, c) => ({ ...acc, [c]: allReports.filter((r) => REPORT_TYPE_CATEGORY[r.type] === c).length }),
@@ -140,6 +144,17 @@ export function HomeSheet({
           {status === "loading" ? "Chargement…" : time ? `Mis à jour à ${time}` : ""}
         </span>
       </div>
+
+      {/* Vigies actives autour : un total calculé par la base, jamais de
+          position ; le chiffre seulement à partir de 3. */}
+      {vigies && (vigies.nombre != null || vigies.quelques) && (
+        <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-mist-dim" role="status">
+          <span className="w-2 h-2 shrink-0 rounded-full bg-ok animate-blink" aria-hidden="true" />
+          {vigies.nombre != null
+            ? `${vigies.nombre} vigies actives autour de toi`
+            : "Quelques vigies actives autour de toi"}
+        </p>
+      )}
 
       {/* Compteurs Dangers / Perturbations / Infos météo — servent aussi de filtre */}
       <div className="mt-2.5 grid grid-cols-3 gap-2" role="group" aria-label="Filtrer par catégorie">

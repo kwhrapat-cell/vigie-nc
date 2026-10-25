@@ -2,7 +2,7 @@
 -- Essais de schema.sql : identité anonyme, votes, SOS, photos, droits,
 -- type « feu », chiffres d'utilisation, annonces générales, chantiers,
 -- témoignages et résumé automatique (IA), point route (mode conduite),
--- erreurs des téléphones.
+-- erreurs des téléphones, grade des vigies, vigies actives autour.
 -- À lancer APRÈS schema.sql. Chaque essai qui échoue arrête tout avec un
 -- message « Ex échec : … ». Rien n'est envoyé : l'adresse d'envoi des
 -- alertes est retirée pendant l'essai.
@@ -46,6 +46,21 @@ declare
   v_l uuid := gen_random_uuid();
   sig_point_route constant text := 'ia_point_route_preparer(uuid[])';
   code_erreurs constant text := 'code-essai-erreurs-0000000000';
+  v_m uuid := gen_random_uuid();
+  v_n2 uuid := gen_random_uuid();
+  v_o uuid := gen_random_uuid();
+  v_p uuid := gen_random_uuid();
+  v_q uuid := gen_random_uuid();
+  v_r2 uuid := gen_random_uuid();
+  v_s uuid := gen_random_uuid();
+  v_t2 uuid := gen_random_uuid();
+  v_u uuid := gen_random_uuid();
+  v_cle_m text;
+  v_grade uuid;
+  v_vu timestamptz;
+  -- Grade et vigies actives : loin des autres essais (≈ 20 km au nord-ouest)
+  lat1 constant double precision := -22.0700;
+  lng1 constant double precision := 166.3800;
 begin
   delete from vigie_config where cle in ('notif_url', 'securite_url', 'ia_url');
   insert into vigie_config (cle, valeur) values ('photo_host', 'essai.supabase.co')
@@ -771,6 +786,197 @@ begin
     raise exception 'E35 échec : erreurs gardées plus de 14 jours';
   end if;
 
-  raise notice 'ESSAIS OK (35)';
+  -- E36 : grade calculé par la base — signalements, relais, votes, jours,
+  -- confirmations reçues ; rang qui ne redescend jamais ; grade montré
+  -- seulement s'il est partagé (anonymat) ; droits ; purge.
+  delete from vigie_contributions;
+  insert into vigie_config (cle, valeur) values ('grade_seuil', '3')
+  on conflict (cle) do update set valeur = excluded.valeur;
+  v_cle_m := vigie_device_key('auth:' || v_m::text);
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_m, 'role', 'authenticated')::text, true);
+  v_r := creer_signalement_v3('chaussee_degradee', lat1, lng1, null, null, null, 'Essai grade');
+  if v_r->>'resultat' is distinct from 'cree' then raise exception 'E36 échec : création %', v_r; end if;
+  v_grade := (v_r->>'id')::uuid;
+  if (select nb_signalements from vigie_contributions where cle = v_cle_m) is distinct from 1
+     or (select rang from vigie_contributions where cle = v_cle_m) is distinct from 1::smallint then
+    raise exception 'E36 échec : signalement non compté (%)',
+      (select row_to_json(c) from vigie_contributions c where cle = v_cle_m);
+  end if;
+
+  -- un témoin confirme : vote compté pour lui, « confirmé » pour l'auteur ;
+  -- un 2e témoin : l'auteur n'a pas un 2e « signalement confirmé »
+  perform set_config('request.jwt.claims', json_build_object('sub', v_n2, 'role', 'authenticated')::text, true);
+  v_r := voter_signalement_v3(v_grade, 'present', lat1, lng1);
+  v_r := voter_signalement_v3(v_grade, 'present', lat1, lng1); -- même vote : pas recompté
+  if v_r->>'resultat' is distinct from 'deja_vote' then raise exception 'E36 échec : %', v_r; end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_u, 'role', 'authenticated')::text, true);
+  v_r := voter_signalement_v3(v_grade, 'present', lat1 + 0.001, lng1);
+  if (select nb_votes from vigie_contributions where cle = vigie_device_key('auth:' || v_n2::text)) is distinct from 1 then
+    raise exception 'E36 échec : votes du témoin (%)',
+      (select nb_votes from vigie_contributions where cle = vigie_device_key('auth:' || v_n2::text));
+  end if;
+  if (select nb_confirmes from vigie_contributions where cle = v_cle_m) is distinct from 1 then
+    raise exception 'E36 échec : confirmation reçue comptée % fois',
+      (select nb_confirmes from vigie_contributions where cle = v_cle_m);
+  end if;
+
+  -- l'auteur clôt son signalement : vote + route rouverte
+  perform set_config('request.jwt.claims', json_build_object('sub', v_m, 'role', 'authenticated')::text, true);
+  v_r := voter_signalement_v3(v_grade, 'termine');
+  if v_r->>'resultat' is distinct from 'resolu'
+     or (select nb_routes_rouvertes from vigie_contributions where cle = v_cle_m) is distinct from 1 then
+    raise exception 'E36 échec : route rouverte (%)', v_r;
+  end if;
+
+  -- relais et jours d'utilisation
+  perform set_config('request.jwt.claims', json_build_object('sub', v_o, 'role', 'authenticated')::text, true);
+  v_r := relayer_signalement_v3('inondation', lat1 + 0.02, lng1, 'facebook', 'Essai relais');
+  if v_r->>'resultat' is distinct from 'relaye'
+     or (select nb_signalements::text || '/' || nb_alertes_meteo::text from vigie_contributions
+         where cle = vigie_device_key('auth:' || v_o::text)) is distinct from '1/1' then
+    raise exception 'E36 échec : relais non compté (%)', v_r;
+  end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+  perform vigie_presence(null);
+  update vigie_activite set derniere_vue = now() - interval '2 minutes'
+   where cle = vigie_device_key('auth:' || v_p::text);
+  perform vigie_presence(null); -- même jour : pas un 2e jour
+  if (select nb_jours from vigie_contributions where cle = vigie_device_key('auth:' || v_p::text)) is distinct from 1 then
+    raise exception 'E36 échec : jours d''utilisation';
+  end if;
+
+  -- tous les badges : Légende ; le rang ne redescend jamais
+  update vigie_contributions
+     set nb_signalements = 10, nb_confirmes = 10, nb_votes = 50, nb_routes_rouvertes = 1,
+         nb_alertes_meteo = 1, nb_jours = 30
+   where cle = v_cle_m;
+  perform vigie_contribuer(v_cle_m);
+  if (select rang from vigie_contributions where cle = v_cle_m) is distinct from 4::smallint then
+    raise exception 'E36 échec : tous les badges ne donnent pas Légende';
+  end if;
+  update vigie_contributions
+     set nb_signalements = 0, nb_confirmes = 0, nb_votes = 0, nb_routes_rouvertes = 0,
+         nb_alertes_meteo = 0, nb_jours = 0
+   where cle = v_cle_m;
+  perform vigie_contribuer(v_cle_m);
+  if (select rang from vigie_contributions where cle = v_cle_m) is distinct from 4::smallint then
+    raise exception 'E36 échec : le rang a redescendu';
+  end if;
+
+  -- anonymat : une Légende seule ne se voit pas ; à 3 Légendes, si
+  if (select auteur_grade from signalement_detail_v3(v_grade)) is distinct from 0::smallint then
+    raise exception 'E36 échec : grade rare montré (%)', (select auteur_grade from signalement_detail_v3(v_grade));
+  end if;
+  insert into vigie_contributions (cle, rang) values ('essai-legende-1', 4), ('essai-legende-2', 4);
+  if (select auteur_grade from signalement_detail_v3(v_grade)) is distinct from 4::smallint then
+    raise exception 'E36 échec : grade partagé non montré (%)', (select auteur_grade from signalement_detail_v3(v_grade));
+  end if;
+  delete from vigie_contributions where cle = 'essai-legende-2';
+  -- 2 Légendes, mais 3 vigies au moins Sentinelle : affichée « Sentinelle »
+  insert into vigie_contributions (cle, rang) values ('essai-sentinelle', 2);
+  if (select auteur_grade from signalement_detail_v3(v_grade)) is distinct from 2::smallint then
+    raise exception 'E36 échec : plafond du grade (%)', (select auteur_grade from signalement_detail_v3(v_grade));
+  end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_m, 'role', 'authenticated')::text, true);
+  v_r := mon_grade();
+  if (v_r->>'rang')::int <> 4 or (v_r->>'grade_public')::int <> 2 or (v_r->>'seuil')::int <> 3 then
+    raise exception 'E36 échec : mon_grade %', v_r;
+  end if;
+  insert into vigie_config (cle, valeur) values ('grade_seuil', '1')
+  on conflict (cle) do update set valeur = excluded.valeur;
+  if vigie_seuil_grade() <> 3 then
+    raise exception 'E36 échec : seuil sous 3 accepté';
+  end if;
+  delete from vigie_config where cle = 'grade_seuil';
+
+  if has_table_privilege('anon', 'public.vigie_contributions', 'select')
+     or has_table_privilege('authenticated', 'public.vigie_contributions', 'select')
+     or has_function_privilege('authenticated', 'vigie_contribuer(text, integer, integer, integer, integer, integer, integer)', 'execute')
+     or has_function_privilege('anon', 'mon_grade()', 'execute')
+     or not has_function_privilege('authenticated', 'mon_grade()', 'execute') then
+    raise exception 'E36 échec : droits du grade';
+  end if;
+  update vigie_contributions set dernier_jour = vigie_jour_local() - 91 where cle = v_cle_m;
+  perform vigie_purger_donnees_appareil();
+  if exists (select 1 from vigie_contributions where cle = v_cle_m) then
+    raise exception 'E36 échec : compteurs gardés plus de 90 jours sans visite';
+  end if;
+
+  -- E37 : vigies actives autour — session obligatoire, zone arrondie
+  -- (~5 km), total seulement à partir de 3, « quelques » en dessous,
+  -- 10 minutes d'activité, effacé après 15 minutes, droits.
+  delete from vigie_presence_zone;
+  perform set_config('request.jwt.claims', '', true);
+  begin
+    perform vigies_autour(lat1, lng1);
+    raise exception 'E37 échec : sans session';
+  exception when others then
+    if sqlerrm not like '%connexion_requise%' then raise exception 'E37 échec : %', sqlerrm; end if;
+  end;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_q, 'role', 'authenticated')::text, true);
+  v_r := vigies_autour(lat1 + 0.003, lng1 + 0.004);
+  if v_r->>'nombre' is not null or (v_r->>'quelques')::boolean then
+    raise exception 'E37 échec : personne autour (%)', v_r;
+  end if;
+  if exists (
+    select 1 from vigie_presence_zone
+    where cle = vigie_device_key('auth:' || v_q::text)
+      and (abs(st_y(geom::geometry) - (-22.05)) > 0.000001 or abs(st_x(geom::geometry) - 166.40) > 0.000001)
+  ) then
+    raise exception 'E37 échec : position non arrondie (%)',
+      (select st_astext(geom) from vigie_presence_zone where cle = vigie_device_key('auth:' || v_q::text));
+  end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_r2, 'role', 'authenticated')::text, true);
+  v_r := vigies_autour(lat1, lng1);
+  if v_r->>'nombre' is not null or not (v_r->>'quelques')::boolean then
+    raise exception 'E37 échec : 1 autre vigie (%)', v_r;
+  end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_s, 'role', 'authenticated')::text, true);
+  v_r := vigies_autour(lat1 - 0.02, lng1);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_u, 'role', 'authenticated')::text, true);
+  v_r := vigies_autour(lat1 + 0.45, lng1); -- à 50 km : pas compté autour
+  if v_r->>'nombre' is not null or (v_r->>'quelques')::boolean then
+    raise exception 'E37 échec : vigie lointaine (%)', v_r;
+  end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_t2, 'role', 'authenticated')::text, true);
+  v_r := vigies_autour(lat1, lng1 + 0.03);
+  if (v_r->>'nombre')::int is distinct from 3 or (v_r->>'quelques')::boolean then
+    raise exception 'E37 échec : 3 vigies autour (%)', v_r;
+  end if;
+  -- appelé tout de suite après : pas de nouvelle écriture
+  select vu_at into v_vu from vigie_presence_zone where cle = vigie_device_key('auth:' || v_t2::text);
+  update vigie_presence_zone set vu_at = now() - interval '30 seconds' where cle = vigie_device_key('auth:' || v_t2::text);
+  v_r := vigies_autour(lat1, lng1 + 0.03);
+  if (select vu_at from vigie_presence_zone where cle = vigie_device_key('auth:' || v_t2::text)) > now() - interval '20 seconds' then
+    raise exception 'E37 échec : écriture plus d''une fois par minute';
+  end if;
+  -- plus actives depuis 11 minutes : plus comptées ; après 15 minutes, effacées
+  update vigie_presence_zone set vu_at = now() - interval '11 minutes'
+   where cle in (vigie_device_key('auth:' || v_q::text), vigie_device_key('auth:' || v_r2::text));
+  v_r := vigies_autour(lat1, lng1 + 0.03);
+  if v_r->>'nombre' is not null or not (v_r->>'quelques')::boolean then
+    raise exception 'E37 échec : vigies inactives comptées (%)', v_r;
+  end if;
+  update vigie_presence_zone set vu_at = now() - interval '16 minutes'
+   where cle = vigie_device_key('auth:' || v_q::text);
+  perform vigie_purger_donnees_appareil();
+  if exists (select 1 from vigie_presence_zone where cle = vigie_device_key('auth:' || v_q::text)) then
+    raise exception 'E37 échec : zone gardée plus de 15 minutes';
+  end if;
+  if has_table_privilege('anon', 'public.vigie_presence_zone', 'select')
+     or has_table_privilege('authenticated', 'public.vigie_presence_zone', 'select')
+     or has_function_privilege('anon', 'vigies_autour(double precision, double precision)', 'execute')
+     or not has_function_privilege('authenticated', 'vigies_autour(double precision, double precision)', 'execute') then
+    raise exception 'E37 échec : droits des vigies actives';
+  end if;
+  begin
+    perform vigies_autour(-17.5, 150.0);
+    raise exception 'E37 échec : position hors NC acceptée';
+  exception when others then
+    if sqlerrm not like '%position_hors_nc%' then raise exception 'E37 échec : %', sqlerrm; end if;
+  end;
+
+  raise notice 'ESSAIS OK (37)';
 end
 $essais$;

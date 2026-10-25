@@ -98,9 +98,29 @@ jobs:
       - uses: actions/checkout@v7
       - name: Faux Supabase (rôles, auth, storage)
         run: psql -v ON_ERROR_STOP=1 -f vigie-nc/supabase/tests/shim-supabase.sql
+      # En cas d'erreur, le message SQL est aussi affiché sur la pull
+      # request (annotation), sans avoir à ouvrir le journal.
       - name: Schéma (1er passage)
-        run: psql -v ON_ERROR_STOP=1 -1 -f vigie-nc/supabase/schema.sql
+        shell: bash
+        run: |
+          set -o pipefail
+          psql -v ON_ERROR_STOP=1 -1 -f vigie-nc/supabase/schema.sql 2>&1 | tee sortie.txt || {
+            echo "::error title=Schéma SQL (1er passage)::$(grep -m3 -E 'ERROR|ERREUR' sortie.txt | tr '\n' ' ')"
+            exit 1
+          }
       - name: Schéma (2e passage, ré-exécutable)
-        run: psql -v ON_ERROR_STOP=1 -1 -f vigie-nc/supabase/schema.sql
+        shell: bash
+        run: |
+          set -o pipefail
+          psql -v ON_ERROR_STOP=1 -1 -f vigie-nc/supabase/schema.sql 2>&1 | tee sortie.txt || {
+            echo "::error title=Schéma SQL (2e passage)::$(grep -m3 -E 'ERROR|ERREUR' sortie.txt | tr '\n' ' ')"
+            exit 1
+          }
       - name: Essais
-        run: psql -v ON_ERROR_STOP=1 -1 -f vigie-nc/supabase/tests/essais.sql
+        shell: bash
+        run: |
+          set -o pipefail
+          psql -v ON_ERROR_STOP=1 -1 -f vigie-nc/supabase/tests/essais.sql 2>&1 | tee sortie.txt || {
+            echo "::error title=Essais SQL::$(grep -m3 -E 'ERROR|ERREUR' sortie.txt | tr '\n' ' ')"
+            exit 1
+          }
