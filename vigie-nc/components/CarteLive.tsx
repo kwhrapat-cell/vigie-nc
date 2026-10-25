@@ -11,14 +11,7 @@ import { AnnonceBanner } from "./AnnonceBanner";
 import { TravauxBanner } from "./TravauxBanner";
 import { ImpactBanner } from "./ImpactBanner";
 import { DemandeConfirmation } from "./DemandeConfirmation";
-import {
-  BandeauConduite,
-  BoutonConduite,
-  BoutonPointRoute,
-  BoutonReglagesConduite,
-  BoutonVoix,
-  useModeConduite,
-} from "./ModeConduite";
+import { BandeauConduite, BarreConduite, BoutonConduite, useModeConduite } from "./ModeConduite";
 import { Logo } from "./ui";
 import { RecenterButton, ZoneSelector } from "./MapControls";
 import { CONDUITE_RECENTRAGE_MS } from "@/lib/conduite";
@@ -204,10 +197,7 @@ export function CarteLive() {
   }, [position, retry, isNc, changeZone]);
 
   return (
-    <div
-      className={`h-[100dvh] flex flex-col ${enConduite ? "" : "pb-nav"}`}
-      style={enConduite ? { paddingBottom: "env(safe-area-inset-bottom, 0px)" } : undefined}
-    >
+    <div className={`h-[100dvh] flex flex-col ${enConduite ? "" : "pb-nav"}`}>
       {enConduite && (
         <BandeauConduite
           conduite={conduite}
@@ -280,18 +270,8 @@ export function CarteLive() {
               onClick={recenter}
               label={position ? "Revenir sur ma position" : "Activer ma position"}
             />
-            {enConduite ? (
-              <>
-                <BoutonPointRoute conduite={conduite} />
-                <BoutonVoix conduite={conduite} />
-                <BoutonReglagesConduite
-                  ouvert={reglagesConduite}
-                  onClick={() => setReglagesConduite((o) => !o)}
-                />
-              </>
-            ) : (
-              !conduite.dansAppli && <BoutonConduite onClick={conduite.demarrer} />
-            )}
+            {/* En conduite, les commandes sont dans la barre du bas (gros boutons) */}
+            {!enConduite && !conduite.dansAppli && <BoutonConduite onClick={conduite.demarrer} />}
           </div>
         </div>
         <Link
@@ -303,6 +283,14 @@ export function CarteLive() {
           SOS
         </Link>
       </div>
+
+      {enConduite && (
+        <BarreConduite
+          conduite={conduite}
+          reglagesOuverts={reglagesConduite}
+          onReglages={() => setReglagesConduite((o) => !o)}
+        />
+      )}
 
       <div className={enConduite ? "hidden" : "contents"}>
       <HomeSheet

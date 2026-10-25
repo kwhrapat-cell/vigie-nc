@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useRef, useState, type TouchEvent } from "react";
 import { estChantier, libelleFinChantier } from "@/lib/chantier";
 import { formatAgeShort, formatDistance } from "@/lib/geo";
+import { readListeRepliee, saveListeRepliee, sensGlisseListe } from "@/lib/preferences";
 import { getReliability } from "@/lib/reliability";
 import {
   Category,
@@ -59,9 +61,46 @@ export function HomeSheet({
   );
   const time = timeLabel(updatedAt);
 
+  // Liste repliée : seuls le titre et les compteurs restent, la carte
+  // prend la place. Toucher la barre du haut ou glisser le doigt.
+  const [repliee, setRepliee] = useState(false);
+  useEffect(() => setRepliee(readListeRepliee()), []);
+  const changerRepliee = (v: boolean) => {
+    setRepliee(v);
+    saveListeRepliee(v);
+  };
+  const toucher = useRef<{ x: number; y: number } | null>(null);
+  const onTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+    const t = e.touches[0];
+    toucher.current = t ? { x: t.clientX, y: t.clientY } : null;
+  };
+  const onTouchEnd = (e: TouchEvent<HTMLDivElement>) => {
+    const debut = toucher.current;
+    const t = e.changedTouches[0];
+    toucher.current = null;
+    if (!debut || !t) return;
+    const sens = sensGlisseListe(t.clientX - debut.x, t.clientY - debut.y);
+    if (sens === "replier" && !repliee) changerRepliee(true);
+    else if (sens === "deplier" && repliee) changerRepliee(false);
+  };
+
+  // pb-7 : place pour le bouton « + » qui dépasse de la barre du bas.
   return (
-    <section className="relative z-[12] -mt-4 rounded-t-[22px] bg-panel border-t border-line px-4 pt-2.5 pb-7">
-      <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-2.5" />
+    <section
+      className="relative z-[12] -mt-4 rounded-t-[22px] bg-panel border-t border-line px-4 pb-7"
+    >
+      <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      {/* Barre du haut : replie / déplie la liste (zone de toucher de 44 px) */}
+      <button
+        type="button"
+        onClick={() => changerRepliee(!repliee)}
+        aria-expanded={!repliee}
+        aria-controls="liste-proximite"
+        aria-label={repliee ? "Déplier la liste" : "Replier la liste pour agrandir la carte"}
+        className="-mx-4 w-[calc(100%_+_2rem)] h-11 flex items-center justify-center"
+      >
+        <span className="w-10 h-1.5 rounded-full bg-white/25" />
+      </button>
 
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="font-display font-semibold text-[16px]">
@@ -99,6 +138,7 @@ export function HomeSheet({
           );
         })}
       </div>
+      </div>
 
       {!hasCenter && scope === "zone" && (geoStatus === "denied" || geoStatus === "unsupported" || geoStatus === "unavailable") && (
         <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-warn/30 bg-warn/10 px-3 py-2 text-[13.5px] text-mist">
@@ -127,6 +167,7 @@ export function HomeSheet({
         </p>
       )}
 
+      <div id="liste-proximite" hidden={repliee}>
       <div className="mt-3 mb-1 flex items-center justify-between gap-2">
         <h3 className="text-[14px] font-medium text-mist-dim">
           {scope === "nc"
@@ -201,6 +242,7 @@ export function HomeSheet({
           );
         })}
       </ul>
+      </div>
     </section>
   );
 }

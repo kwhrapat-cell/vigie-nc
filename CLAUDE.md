@@ -61,7 +61,10 @@ vigie-nc/
                   + error.tsx / global-error.tsx / not-found.tsx : écran EcranErreur
                     (cagou, Réessayer, Recharger, retour carte, 15/17/18 toujours
                     visibles) au lieu d'une page blanche ; l'erreur est signalée
-  components/     CarteLive (accueil), LiveMap, HomeSheet, ReportDetail,
+  components/     CarteLive (accueil), LiveMap, HomeSheet (liste « À proximité » ;
+                  se replie aux compteurs — barre du haut ou glissement vers le
+                  bas — pour agrandir la carte, choix gardé sur le téléphone :
+                  readListeRepliee de lib/preferences.ts), ReportDetail,
                   PositionPicker, BottomNav, ui.tsx (Logo, TypeTile, boutons…),
                   VigilanceMeteo (vignette officielle meteo.nc, sans clé),
                   WelcomeNotice (accueil à la 1re ouverture : démo des gestes
@@ -116,8 +119,10 @@ vigie-nc/
                   jamais texte, photo, SOS ni position), partage par le menu du
                   téléphone, sinon texte sur WhatsApp ou image à enregistrer ;
                   lien ?src=point-route),
-                  ModeConduite (useModeConduite + BoutonConduite, BoutonVoix,
-                  BoutonReglagesConduite, BandeauConduite : annonces vocales
+                  ModeConduite (useModeConduite + BoutonConduite, BarreConduite
+                  (barre du bas en conduite : gros boutons de 64 px avec texte —
+                  Point route, Voix, Réglages ; les réglages s'ouvrent dans le
+                  bandeau du haut), BandeauConduite : annonces vocales
                   des dangers confirmés devant, écran gardé allumé. Pendant la
                   conduite, CarteLive passe la carte en plein écran : liste,
                   barre du bas et bandeaux masqués (pas démontés), bandeau
@@ -125,7 +130,7 @@ vigie-nc/
                   forcée, recentrage tout seul après 20 s si on a déplacé la
                   carte. Bouton caché dans l'appli Android, repère
                   « VigieNCApp » du navigateur. Point route : au démarrage puis
-                  bouton « route » (BoutonPointRoute), la voix dit tout ce qui est
+                  bouton « Point route » de la BarreConduite, la voix dit tout ce qui est
                   signalé sur les 10 km devant — texte de l'IA (fetchPointRouteIa,
                   6 s au plus côté serveur, 8 s côté téléphone) ou, à défaut,
                   textePointRoute() ; les dangers cités ne sont pas réannoncés tout
