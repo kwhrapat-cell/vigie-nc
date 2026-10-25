@@ -59,3 +59,26 @@ export function readMapStyle(): MapStyle {
 export function saveMapStyle(style: MapStyle): void {
   write(STYLE_KEY, style);
 }
+
+// Liste « À proximité » de l'accueil repliée (la carte prend la place) ou
+// dépliée. Dépliée par défaut ; le choix est gardé sur le téléphone.
+const LISTE_KEY = "vigie-nc:liste-repliee";
+
+export function readListeRepliee(): boolean {
+  return read(LISTE_KEY) === "1";
+}
+
+export function saveListeRepliee(repliee: boolean): void {
+  write(LISTE_KEY, repliee ? "1" : "0");
+}
+
+// Un glissement vertical du doigt sur le haut de la liste la replie (vers
+// le bas) ou la déplie (vers le haut). 40 px au moins, et nettement plus
+// vertical qu'horizontal.
+export const GLISSE_LISTE_MIN_PX = 40;
+
+export function sensGlisseListe(dx: number, dy: number): "replier" | "deplier" | null {
+  if (Math.abs(dy) < GLISSE_LISTE_MIN_PX) return null;
+  if (Math.abs(dy) < Math.abs(dx) * 1.5) return null;
+  return dy > 0 ? "replier" : "deplier";
+}

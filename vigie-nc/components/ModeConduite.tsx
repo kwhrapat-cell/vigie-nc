@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { TypeTile } from "./ui";
 import { RoundButton } from "./MapControls";
 import { distanceM, LatLng } from "@/lib/geo";
@@ -480,51 +480,104 @@ export function BoutonConduite({ onClick }: { onClick: () => void }) {
   );
 }
 
-/** Pendant la conduite, sur la carte : redemander le point route des 10 km devant. */
-export function BoutonPointRoute({ conduite }: { conduite: ModeConduiteEtat }) {
+/** Gros bouton de la barre du bas en conduite : icône + mot, 64 px de haut. */
+function BoutonBarre({
+  actif,
+  libelle,
+  onClick,
+  children,
+  ...aria
+}: {
+  actif: boolean;
+  libelle: string;
+  onClick: () => void;
+  children: ReactNode;
+  "aria-label"?: string;
+  "aria-pressed"?: boolean;
+  "aria-expanded"?: boolean;
+  "aria-controls"?: string;
+}) {
   return (
-    <RoundButton
-      active={conduite.pointRouteEnCours}
-      label={`Point route : ce qui est signalé sur les ${POINT_ROUTE_KM} km devant`}
-      onClick={() => {
-        if (!conduite.pointRouteEnCours) conduite.demanderPointRoute();
-      }}
+    <button
+      type="button"
+      onClick={onClick}
+      {...aria}
+      className={`flex-1 min-w-0 min-h-[64px] rounded-2xl border flex flex-col items-center justify-center gap-1 px-1 text-[14.5px] font-semibold ${
+        actif ? "bg-primary border-primary text-white" : "bg-panel border-line text-mist"
+      }`}
     >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="w-7 h-7"
+        aria-hidden="true"
+      >
+        {children}
+      </svg>
+      <span className="truncate max-w-full">{libelle}</span>
+    </button>
+  );
+}
+
+/**
+ * Barre du bas pendant la conduite : gros boutons à portée du pouce (téléphone
+ * sur un support) — point route, voix, réglages. Les réglages s'ouvrent dans
+ * le bandeau du haut.
+ */
+export function BarreConduite({
+  conduite,
+  reglagesOuverts,
+  onReglages,
+}: {
+  conduite: ModeConduiteEtat;
+  reglagesOuverts: boolean;
+  onReglages: () => void;
+}) {
+  return (
+    <nav
+      aria-label="Commandes du mode conduite"
+      className="shrink-0 relative z-[13] flex gap-2 px-3 pt-2 bg-void/95 border-t border-line"
+      style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 10px)" }}
+    >
+      <BoutonBarre
+        actif={conduite.pointRouteEnCours}
+        libelle={conduite.pointRouteEnCours ? "Point route…" : "Point route"}
+        aria-label={`Point route : ce qui est signalé sur les ${POINT_ROUTE_KM} km devant`}
+        onClick={() => {
+          if (!conduite.pointRouteEnCours) conduite.demanderPointRoute();
+        }}
+      >
         <path d="M7 21l3-18M17 21l-3-18" />
         <path d="M12 5.5v2M12 11v2M12 16.5v2" />
-      </svg>
-    </RoundButton>
-  );
-}
-
-/** Pendant la conduite, sur la carte : couper / remettre la voix. */
-export function BoutonVoix({ conduite }: { conduite: ModeConduiteEtat }) {
-  if (!conduite.voixDispo) return null;
-  return (
-    <RoundButton
-      active={conduite.voix}
-      label={conduite.voix ? "Couper la voix" : "Remettre la voix"}
-      onClick={conduite.changerVoix}
-    >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-        <path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" />
-        {conduite.voix ? <path d="M15.5 9a4.2 4.2 0 0 1 0 6M18.3 6.3a8 8 0 0 1 0 11.4" /> : <path d="M16 9.5l5 5M21 9.5l-5 5" />}
-      </svg>
-    </RoundButton>
-  );
-}
-
-/** Pendant la conduite, sur la carte : ouvre les réglages (portée, trafic dense). */
-export function BoutonReglagesConduite({ ouvert, onClick }: { ouvert: boolean; onClick: () => void }) {
-  return (
-    <RoundButton active={ouvert} label="Réglages du mode conduite" onClick={onClick} expanded={ouvert}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" className="w-5 h-5">
+      </BoutonBarre>
+      {conduite.voixDispo && (
+        <BoutonBarre
+          actif={conduite.voix}
+          libelle={conduite.voix ? "Voix" : "Voix coupée"}
+          aria-label={conduite.voix ? "Voix : allumée. Toucher pour la couper" : "Voix : coupée. Toucher pour la remettre"}
+          aria-pressed={conduite.voix}
+          onClick={conduite.changerVoix}
+        >
+          <path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" />
+          {conduite.voix ? <path d="M15.5 9a4.2 4.2 0 0 1 0 6M18.3 6.3a8 8 0 0 1 0 11.4" /> : <path d="M16 9.5l5 5M21 9.5l-5 5" />}
+        </BoutonBarre>
+      )}
+      <BoutonBarre
+        actif={reglagesOuverts}
+        libelle="Réglages"
+        aria-expanded={reglagesOuverts}
+        aria-controls="reglages-conduite"
+        onClick={onReglages}
+      >
         <path d="M4 7h9M17 7h3M4 17h3M11 17h9" />
         <circle cx="15" cy="7" r="2.2" />
         <circle cx="9" cy="17" r="2.2" />
-      </svg>
-    </RoundButton>
+      </BoutonBarre>
+    </nav>
   );
 }
 
@@ -731,8 +784,8 @@ export function BandeauConduite({
           </div>
           <p className="mt-2 text-[13px] leading-snug text-mist-dim">
             Téléphone sur un support, ou tenu par un passager. Ne touche pas l&apos;écran en roulant. Seuls les
-            dangers confirmés sont annoncés, à vol d&apos;oiseau. Le point route (au départ, ou bouton « route » sur
-            la carte) cite tout ce qui est signalé sur les {POINT_ROUTE_KM} km devant ; il peut être écrit par
+            dangers confirmés sont annoncés, à vol d&apos;oiseau. Le point route (au départ, ou bouton « Point route »
+            en bas de l&apos;écran) cite tout ce qui est signalé sur les {POINT_ROUTE_KM} km devant ; il peut être écrit par
             l&apos;IA et se tromper.
           </p>
         </div>
