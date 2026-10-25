@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PositionPicker } from "@/components/PositionPicker";
 import { PrimaryButton, ScreenHeader, SecondaryButton, TypeIcon, TypeTile } from "@/components/ui";
+import { couleurSur } from "@/lib/contraste";
 import { LatLng } from "@/lib/geo";
 import { analyzeRelayText, RelayableType } from "@/lib/relay-parser";
 import { searchPlace } from "@/lib/place";
@@ -201,7 +202,7 @@ export default function RelayerPage() {
               <label htmlFor="relay-text" className="text-[14.5px] text-mist-dim">
                 Colle le message
               </label>
-              <button type="button" onClick={pasteFromClipboard} className="rounded-lg border border-lagoon/40 px-3 py-1.5 text-[14px] font-medium text-lagoon">
+              <button type="button" onClick={pasteFromClipboard} className="min-h-[44px] rounded-lg border border-lagoon/40 px-3 text-[14px] font-medium text-lagoon">
                 Coller
               </button>
             </div>
@@ -240,10 +241,10 @@ export default function RelayerPage() {
                           setType(t);
                           setTypeTouched(true);
                         }}
-                        className={`h-[64px] rounded-xl flex flex-col items-center justify-center gap-1 text-white text-[13px] font-semibold ${
+                        className={`h-[64px] rounded-xl flex flex-col items-center justify-center gap-1 text-[13px] font-semibold ${
                           selected ? "ring-2 ring-mist ring-offset-2 ring-offset-void" : type ? "opacity-45" : ""
                         }`}
-                        style={{ background: REPORT_TYPE_HEX[t] }}
+                        style={{ background: REPORT_TYPE_HEX[t], color: couleurSur(REPORT_TYPE_HEX[t]) }}
                       >
                         <TypeIcon type={t} className="w-5 h-5" />
                         <span className="px-1 text-center leading-tight">{REPORT_TYPE_SHORT[t]}</span>

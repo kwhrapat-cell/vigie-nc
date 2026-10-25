@@ -104,7 +104,7 @@ export function AnnonceCard({
             type="button"
             onClick={onHide}
             aria-label="Réduire l'annonce"
-            className="-mr-2 -mt-1.5 w-10 h-10 shrink-0 flex items-center justify-center text-mist-dim"
+            className="-mr-2 -mt-1.5 w-11 h-11 shrink-0 flex items-center justify-center text-mist-dim"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
               <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
@@ -127,7 +127,7 @@ export function AnnonceCard({
             type="button"
             onClick={onNext}
             aria-label="Annonce suivante"
-            className="py-2 pl-1 font-medium text-mist"
+            className="min-h-[44px] px-2 -mr-1 flex items-center font-medium text-mist"
           >
             {position.index + 1}/{position.total} ›
           </button>

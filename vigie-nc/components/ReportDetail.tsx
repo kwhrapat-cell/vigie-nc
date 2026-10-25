@@ -215,7 +215,7 @@ export function ReportDetail({
             type="button"
             onClick={onClose}
             aria-label="Fermer"
-            className="-mt-1 -mr-1 w-10 h-10 flex items-center justify-center text-mist-dim text-xl"
+            className="-mt-1 -mr-1 w-11 h-11 flex items-center justify-center text-mist-dim text-xl"
           >
             ✕
           </button>

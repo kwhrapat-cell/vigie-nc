@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
 import { clusterByDistance } from "@/lib/cluster";
+import { couleurSur } from "@/lib/contraste";
 import { distanceM, LatLng } from "@/lib/geo";
 import { BACKUP_PLAN_LAYER, MAP_STYLES, NC_BOUNDS } from "@/lib/map-styles";
 import type { MapStyle } from "@/lib/preferences";
@@ -220,7 +221,7 @@ export function LiveMap({
         L.marker([c.lat, c.lng], {
           icon: L.divIcon({
             className: "",
-            html: `<div class="vigie-cluster" style="width:${size}px;height:${size}px;background:${color};box-shadow:0 0 0 5px ${color}40,0 6px 14px -4px rgba(0,0,0,.6)">${n}</div>`,
+            html: `<div class="vigie-cluster" style="width:${size}px;height:${size}px;background:${color};color:${couleurSur(color)};box-shadow:0 0 0 5px ${color}40,0 6px 14px -4px rgba(0,0,0,.6)">${n}</div>`,
             iconSize: [size, size],
             iconAnchor: [size / 2, size / 2],
           }),
@@ -259,7 +260,7 @@ export function LiveMap({
               pulse
                 ? `<span class="ring" style="background:${color}22;border:1px solid ${color}"></span>`
                 : ""
-            }<span class="core" style="background:${color}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${
+            }<span class="core" style="background:${color};color:${couleurSur(color)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${
               REPORT_TYPE_ICON[r.type]
             }</svg></span></div>`,
             iconSize: [30, 30],

@@ -14,8 +14,8 @@ const config: Config = {
         line: "#1E363D", // bordures
         lagoon: "#22B8B0", // accent
         "lagoon-dim": "#7FC9C4",
-        primary: "#1C9890", // boutons principaux
-        "primary-strong": "#23ADA4",
+        primary: "#167F78", // boutons principaux (blanc dessus : 4,8 pour 1, lisible au soleil)
+        "primary-strong": "#136B65", // bouton appuyé : un peu plus foncé
         rust: "#C1440E",
         "rust-bright": "#E8622F",
         ochre: "#E8A33D",

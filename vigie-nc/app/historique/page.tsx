@@ -171,7 +171,7 @@ export default function HistoriquePage() {
                   aria-label={`${monthLong(m.mois)} : ${m.total} signalement${m.total > 1 ? "s" : ""}`}
                   className="flex-1 h-full flex flex-col items-center justify-end gap-1"
                 >
-                  {m.total > 0 && <span className="font-mono text-[8.5px] text-mist-dim">{m.total}</span>}
+                  {m.total > 0 && <span className="font-mono text-[12px] leading-none text-mist-dim">{m.total}</span>}
                   <div
                     className={`w-full rounded-t-[3px] ${peakIndexes.has(i) ? "bg-danger" : "bg-primary"}`}
                     style={{ height: `${Math.max((m.total / max) * 100, m.total > 0 ? 6 : 2)}%` }}
@@ -181,7 +181,7 @@ export default function HistoriquePage() {
             </div>
             <div className="flex gap-1.5 mt-1">
               {stats.parMois.map((m) => (
-                <span key={m.mois} className="flex-1 text-center font-mono text-[9px] text-mist-dim">
+                <span key={m.mois} className="flex-1 text-center font-mono text-[12px] text-mist-dim">
                   {monthShort(m.mois)}
                 </span>
               ))}

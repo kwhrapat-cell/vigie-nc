@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type TouchEvent } from "react";
+import { couleurSur } from "@/lib/contraste";
 import { RELIABILITY_HEX } from "@/lib/reliability";
 import {
   cartePrecedente,
@@ -277,7 +278,7 @@ function Repere({ type, x, y, delai }: { type: ReportType; x: number; y: number;
       <g
         transform={`translate(${x - 8.4} ${y - 8.4}) scale(0.7)`}
         fill="none"
-        stroke="#fff"
+        stroke={couleurSur(REPORT_TYPE_HEX[type])}
         strokeWidth={2.2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -362,10 +363,10 @@ function SceneSignaler() {
         {TYPES_DEMO.map((t) => (
           <span
             key={t}
-            className={`rounded-xl flex flex-col items-center justify-center gap-1 text-white text-[13px] font-semibold ${
+            className={`rounded-xl flex flex-col items-center justify-center gap-1 text-[13px] font-semibold ${
               t === "inondation" ? "tuto-s-choix" : ""
             }`}
-            style={{ background: REPORT_TYPE_HEX[t] }}
+            style={{ background: REPORT_TYPE_HEX[t], color: couleurSur(REPORT_TYPE_HEX[t]) }}
           >
             <TypeIcon type={t} className="w-6 h-6" />
             {REPORT_TYPE_LABELS[t]}

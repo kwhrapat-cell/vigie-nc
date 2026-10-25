@@ -91,7 +91,7 @@ export function PartagePointRoute({
       <button
         type="button"
         onClick={ouvrir}
-        className="shrink-0 min-h-[40px] flex items-center gap-1.5 rounded-full border border-lagoon/50 bg-lagoon/10 px-3 text-[13.5px] font-semibold text-lagoon"
+        className="shrink-0 min-h-[44px] flex items-center gap-1.5 rounded-full border border-lagoon/50 bg-lagoon/10 px-3 text-[13.5px] font-semibold text-lagoon"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4" aria-hidden="true">
           <circle cx="18" cy="5" r="2.5" />
