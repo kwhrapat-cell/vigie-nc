@@ -10,6 +10,7 @@ import { WelcomeNotice } from "./WelcomeNotice";
 import { AnnonceBanner } from "./AnnonceBanner";
 import { TravauxBanner } from "./TravauxBanner";
 import { ImpactBanner } from "./ImpactBanner";
+import { AUCUN_BANDEAU, Bandeau, masquePar, Presences } from "@/lib/bandeaux";
 import { DemandeConfirmation } from "./DemandeConfirmation";
 import { BandeauConduite, BarreConduite, BoutonConduite, useModeConduite } from "./ModeConduite";
 import { Logo } from "./ui";
@@ -37,6 +38,23 @@ export function CarteLive() {
   const [linkedReport, setLinkedReport] = useState<Report | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const selectedSnapshot = useRef<Report | null>(null);
+
+  // Bandeaux au-dessus de la carte : un seul à la fois, le plus important
+  // d'abord (lib/bandeaux.ts). Chacun dit s'il a quelque chose à montrer.
+  const [presences, setPresences] = useState<Presences>(AUCUN_BANDEAU);
+  const presence = useCallback((b: Bandeau, v: boolean) => {
+    setPresences((p) => (p[b] === v ? p : { ...p, [b]: v }));
+  }, []);
+  const presenceAnnonce = useCallback(
+    (niveau: "alerte" | "info" | null) => {
+      presence("annonce-alerte", niveau === "alerte");
+      presence("annonce-info", niveau === "info");
+    },
+    [presence],
+  );
+  const presenceDemande = useCallback((v: boolean) => presence("demande", v), [presence]);
+  const presenceTravaux = useCallback((v: boolean) => presence("travaux", v), [presence]);
+  const presenceImpact = useCallback((v: boolean) => presence("impact", v), [presence]);
 
   // Mode conduite : la carte prend tout l'écran et suit le conducteur.
   const conduite = useModeConduite();
@@ -228,17 +246,37 @@ export function CarteLive() {
         </div>
       </header>
 
+      {/* Un seul bandeau à la fois (lib/bandeaux.ts) : annonce urgente,
+          « Tu passes par là ? », annonce info, travaux, merci. Les autres
+          attendent leur tour sans rien perdre. */}
+
       {/* Annonces générales : vues par tout le monde, quelle que soit la zone */}
-      <AnnonceBanner />
-
-      {/* Travaux près de toi (10 km), à l'ouverture de l'appli */}
-      <TravauxBanner position={position} onOpen={openFromBanner} />
-
-      {/* Mes signalements confirmés par d'autres (gardés sur le téléphone) */}
-      <ImpactBanner onOpen={openById} />
+      <AnnonceBanner
+        masque={!presences["annonce-alerte"] && masquePar("annonce-info", presences)}
+        onPresence={presenceAnnonce}
+      />
 
       {/* « Tu passes par là ? » : jamais pendant la conduite */}
-      {!enConduite && <DemandeConfirmation reports={reports} position={position} onVoted={patchReport} />}
+      {!enConduite && (
+        <DemandeConfirmation
+          reports={reports}
+          position={position}
+          onVoted={patchReport}
+          masque={masquePar("demande", presences)}
+          onPresence={presenceDemande}
+        />
+      )}
+
+      {/* Travaux près de toi (10 km), à l'ouverture de l'appli */}
+      <TravauxBanner
+        position={position}
+        onOpen={openFromBanner}
+        masque={masquePar("travaux", presences)}
+        onPresence={presenceTravaux}
+      />
+
+      {/* Mes signalements confirmés par d'autres (gardés sur le téléphone) */}
+      <ImpactBanner onOpen={openById} masque={masquePar("impact", presences)} onPresence={presenceImpact} />
 
       {banner && (
         <div role="status" className="mx-4 mb-2 rounded-xl border border-lagoon/30 bg-lagoon/10 px-3 py-2 text-[14px] text-mist">

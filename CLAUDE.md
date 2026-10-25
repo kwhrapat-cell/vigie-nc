@@ -97,8 +97,14 @@ vigie-nc/
                   TravauxBanner (bandeau « Travaux à X km » à l'ouverture :
                   travaux en cours à 10 km, une recherche par ouverture,
                   nouvelle ouverture = retour après 30 min ; chaque travaux
-                  montré une fois par jour au plus, liste « vigie-nc:travaux-vus »
+                  montré une fois par jour au plus — compté « vu » après 2 s à
+                  l'écran ou si on le touche —, liste « vigie-nc:travaux-vus »
                   sur le téléphone ; constantes TRAVAUX_BANDEAU_* de lib/types.ts),
+                  Bandeaux de l'accueil : UN SEUL à la fois (lib/bandeaux.ts :
+                  annonce urgence/vigilance > « Tu passes par là ? » > annonce
+                  info > travaux > merci) ; chacun signale sa présence
+                  (onPresence) et attend son tour (masque) sans rien perdre ;
+                  une annonce en attente reste visible en pastille,
                   ShareRedirect (page /s/[id] → carte),
                   ErreurReporter (dans le layout : erreurs et promesses rejetées
                   de la page → lib/erreurs.ts),
@@ -191,6 +197,7 @@ vigie-nc/
                      qui exige une clé depuis 2026 ; MapTiler si
                      NEXT_PUBLIC_MAPTILER_KEY ; plan de secours automatique) + emprise NC
     cluster.ts       regroupement des signalements en pastilles chiffrées
+    bandeaux.ts      ordre des bandeaux de l'accueil (un seul affiché à la fois)
     contraste.ts     contraste des couleurs (règle WCAG) ; couleurSur(fond) = couleur
                      du texte/icône sur une couleur de type ou de catégorie
                      (blanc, foncé sur l'orange et le jaune où le blanc passe sous 3:1)

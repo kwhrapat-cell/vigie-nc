@@ -31,8 +31,23 @@ export function texteConfirmation(n: NouvelleConfirmation): string {
     : `Quelqu'un a confirmé ${quoi}. Merci, tu aides tout le monde sur la route !`;
 }
 
-export function ImpactBanner({ onOpen }: { onOpen: (id: string) => void }) {
+export function ImpactBanner({
+  onOpen,
+  masque = false,
+  onPresence,
+}: {
+  onOpen: (id: string) => void;
+  /** Un bandeau plus important est affiché : le merci attend (lib/bandeaux.ts). */
+  masque?: boolean;
+  onPresence?: (present: boolean) => void;
+}) {
   const [nouvelle, setNouvelle] = useState<{ id: string; texte: string; badges: string } | null>(null);
+
+  const present = nouvelle != null;
+  useEffect(() => {
+    onPresence?.(present);
+  }, [present, onPresence]);
+  useEffect(() => () => onPresence?.(false), [onPresence]);
 
   useEffect(() => {
     noterOuverture();
@@ -68,13 +83,14 @@ export function ImpactBanner({ onOpen }: { onOpen: (id: string) => void }) {
     };
   }, []);
 
+  // S'efface tout seul après 20 s… d'affichage (pas pendant qu'il attend).
   useEffect(() => {
-    if (!nouvelle) return;
+    if (!nouvelle || masque) return;
     const t = window.setTimeout(() => setNouvelle(null), DUREE_MS);
     return () => window.clearTimeout(t);
-  }, [nouvelle]);
+  }, [nouvelle, masque]);
 
-  if (!nouvelle) return null;
+  if (!nouvelle || masque) return null;
   return (
     <div
       role="status"
