@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { ASTUCE_SIGNALER_EVENT, ecrireAstuceSignaler, lireAstuceSignaler } from "@/lib/tuto";
 
 type Tab = { href: string; label: string; icon: string };
 
@@ -56,10 +58,60 @@ function NavTab({ tab, active }: { tab: Tab; active: boolean }) {
   );
 }
 
+/** L'astuce du « + » est-elle à montrer ? (suit l'accueil, sur ce téléphone) */
+function useAstuceSignaler(): boolean {
+  const [montrer, setMontrer] = useState(false);
+  useEffect(() => {
+    const maj = () => setMontrer(lireAstuceSignaler());
+    maj();
+    window.addEventListener(ASTUCE_SIGNALER_EVENT, maj);
+    return () => window.removeEventListener(ASTUCE_SIGNALER_EVENT, maj);
+  }, []);
+  return montrer;
+}
+
+/**
+ * Bulle « Touche ici pour signaler » au-dessus du « + », montrée une seule
+ * fois aux nouveaux, juste après l'accueil. Disparaît dès qu'on touche le
+ * « + », la bulle ou sa croix.
+ */
+function AstuceSignaler() {
+  return (
+    <div
+      role="note"
+      className="astuce-signaler absolute left-1/2 bottom-[calc(100%_+_34px)] flex items-stretch rounded-xl bg-mist text-void shadow-[0_10px_24px_-8px_rgba(0,0,0,0.8)]"
+    >
+      <Link
+        href="/signaler"
+        onClick={() => ecrireAstuceSignaler("vue")}
+        className="flex items-center gap-1.5 min-h-[44px] pl-3.5 pr-1 whitespace-nowrap font-display font-semibold text-[14.5px]"
+      >
+        Touche ici pour signaler
+      </Link>
+      <button
+        type="button"
+        onClick={() => ecrireAstuceSignaler("vue")}
+        aria-label="Fermer l'astuce"
+        className="w-11 min-h-[44px] flex items-center justify-center text-void/70"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" className="w-4 h-4" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </button>
+      {/* pointe vers le « + » */}
+      <span
+        className="absolute left-1/2 -bottom-[6px] -ml-[6px] w-3 h-3 rotate-45 bg-mist"
+        aria-hidden="true"
+      />
+    </div>
+  );
+}
+
 /** Barre du bas des maquettes : 4 onglets + bouton « + » central. */
 export function BottomNav() {
   const pathname = usePathname();
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  const astuce = useAstuceSignaler();
 
   return (
     <nav
@@ -71,10 +123,14 @@ export function BottomNav() {
         {LEFT.map((t) => (
           <NavTab key={t.href} tab={t} active={isActive(t.href)} />
         ))}
-        <div className="flex-1 flex justify-center">
+        <div className="relative flex-1 flex justify-center">
+          {astuce && <AstuceSignaler />}
           <Link
             href="/signaler"
             aria-label="Signaler un événement"
+            onClick={() => {
+              if (astuce) ecrireAstuceSignaler("vue");
+            }}
             className="-mt-6 w-[58px] h-[58px] rounded-full bg-primary flex items-center justify-center shadow-[0_10px_24px_-6px_rgba(28,152,144,0.7)] border-4 border-void animate-fab-in"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.6} strokeLinecap="round" className="w-6 h-6">
