@@ -241,6 +241,9 @@ export interface Report {
   endDate?: string | null; // chantier : date de fin annoncée (AAAA-MM-JJ), voir lib/chantier.ts
   aiSummary?: string | null; // résumé automatique des témoignages (IA), 2 témoins au moins
   aiSummaryCount?: number | null; // nombre de témoignages résumés
+  // Grade de l'auteur, calculé par la base (0 = rien à montrer : grade trop
+  // rare pour rester anonyme, ou Poussin). Voir lib/niveaux.ts libelleGrade.
+  authorGrade?: number;
 }
 
 export interface EmergencyContact {

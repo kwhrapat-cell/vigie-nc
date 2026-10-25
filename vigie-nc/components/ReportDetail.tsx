@@ -7,6 +7,8 @@ import { idsBadges, nouveauxBadges, texteNouveauxBadges } from "@/lib/impact";
 import { libelleFinChantier } from "@/lib/chantier";
 import { distanceM, formatAge, formatDistance, formatDuration, LatLng } from "@/lib/geo";
 import { getReliability, RELIABILITY_HEX } from "@/lib/reliability";
+import { avatarSvg } from "@/lib/avatar";
+import { libelleGrade } from "@/lib/niveaux";
 import {
   FlagReason,
   FLAG_REASON_LABELS,
@@ -242,6 +244,23 @@ export function ReportDetail({
               </span>
             )}
           </div>
+        )}
+
+        {/* Grade de l'auteur, calculé par la base (jamais son nom) : seulement
+            s'il est partagé par assez de vigies pour rester anonyme. */}
+        {!isSos && libelleGrade(report.authorGrade, Boolean(report.relaySource)) && (
+          <p className="mt-2 flex items-center gap-2 text-[14px] text-mist">
+            <span
+              className="shrink-0 -my-1"
+              aria-hidden="true"
+              // Dessin fixe de lib/avatar.ts (aucune donnée saisie).
+              dangerouslySetInnerHTML={{ __html: avatarSvg(report.authorGrade ?? 0, 24) }}
+            />
+            <span>
+              {libelleGrade(report.authorGrade, Boolean(report.relaySource))}
+              {report.isMine && <span className="text-mist-dim"> (toi)</span>}
+            </span>
+          </p>
         )}
 
         {!active && (
