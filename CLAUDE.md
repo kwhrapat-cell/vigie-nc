@@ -186,6 +186,9 @@ vigie-nc/
                      qui exige une clé depuis 2026 ; MapTiler si
                      NEXT_PUBLIC_MAPTILER_KEY ; plan de secours automatique) + emprise NC
     cluster.ts       regroupement des signalements en pastilles chiffrées
+    contraste.ts     contraste des couleurs (règle WCAG) ; couleurSur(fond) = couleur
+                     du texte/icône sur une couleur de type ou de catégorie
+                     (blanc, foncé sur l'orange et le jaune où le blanc passe sous 3:1)
     tuto.ts          démo d'accueil : ordre des cartes, glissement du doigt,
                      astuce du « + » (« vigie-nc:astuce-signaler » : a-montrer / vue)
     relay-parser.ts  lecture d'un message collé → type + lieu (sur le téléphone)
@@ -258,7 +261,9 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   automatique, photo et détails repliés en option).
 - Couleurs : jetons Tailwind (`void`, `panel`, `panel-2`, `line`, `primary`,
   `lagoon`, `danger`, `warn`, `info`, `ok`, `mist`, `mist-dim`). Couleurs
-  par type/catégorie dans `lib/types.ts`.
+  par type/catégorie dans `lib/types.ts`. Texte ou icône posé sur une de ces
+  couleurs : `couleurSur()` de `lib/contraste.ts`, jamais `text-white` en dur.
+  Texte blanc sur `primary` ≥ 4,5:1 (vérifié par tests/contraste.test.ts).
 - Toute lecture/écriture de données passe par `lib/reports-api.ts`, qui gère
   aussi le mode démo. Ne jamais appeler `supabase.from(...).insert` depuis
   un écran.

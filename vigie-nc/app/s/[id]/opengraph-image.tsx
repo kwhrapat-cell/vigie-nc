@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { fetchPublicReport, quandNoumea, shareReliability } from "@/lib/report-public";
 import { getReliability, RELIABILITY_HEX } from "@/lib/reliability";
+import { couleurSur } from "@/lib/contraste";
 import { REPORT_TYPE_HEX, REPORT_TYPE_ICON } from "@/lib/types";
 
 // Image d'aperçu d'un signalement partagé (WhatsApp, Facebook, SMS…) :
@@ -39,8 +40,8 @@ function loadFonts(): Promise<Font[]> {
   return fontsPromise;
 }
 
-function iconSrc(paths: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+function iconSrc(paths: string, couleur = "#ffffff"): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${couleur}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 }
 
@@ -146,7 +147,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={iconSrc(REPORT_TYPE_ICON[r.type])} width={112} height={112} alt="" />
+            <img src={iconSrc(REPORT_TYPE_ICON[r.type], couleurSur(REPORT_TYPE_HEX[r.type]))} width={112} height={112} alt="" />
           </div>
           <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
             <div style={{ fontSize: 76, fontWeight: 600, lineHeight: 1.05 }}>{r.label}</div>

@@ -6,6 +6,7 @@
 // position de la personne qui partage.
 
 import { cagouSvg } from "./cagou";
+import { couleurSur } from "./contraste";
 import { formatAgeShort } from "./geo";
 import { estChantier, libelleFinChantier } from "./chantier";
 import {
@@ -117,7 +118,8 @@ function chargerSvg(svg: string): Promise<HTMLImageElement | null> {
 }
 
 function iconeSvg(type: Report["type"]): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="96" height="96" fill="none" stroke="#fff" color="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${REPORT_TYPE_ICON[type]}</svg>`;
+  const c = couleurSur(REPORT_TYPE_HEX[type]);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="96" height="96" fill="none" stroke="${c}" color="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${REPORT_TYPE_ICON[type]}</svg>`;
 }
 
 /** Dessine l'image du point route (PNG 1080 × 1350). */

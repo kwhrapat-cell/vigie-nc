@@ -574,7 +574,7 @@ export function BandeauConduite({
       aria-label="Mode conduite"
       className="shrink-0 relative z-[13] px-3 pb-2 pt-[max(env(safe-area-inset-top),10px)] bg-void/95 border-b border-line"
     >
-      <p className="flex items-center gap-1.5 font-mono text-[11.5px] tracking-wider uppercase text-lagoon-dim">
+      <p className="flex items-center gap-1.5 font-mono text-[12px] tracking-wider uppercase text-lagoon-dim">
         <span className="w-1.5 h-1.5 rounded-full bg-lagoon animate-blink" />
         Mode conduite · {voix && voixDispo ? `voix jusqu'à ${portee} km` : "voix coupée"}
       </p>

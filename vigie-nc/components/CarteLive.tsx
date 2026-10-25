@@ -223,13 +223,13 @@ export function CarteLive() {
         {/* Les alertes sont dans la barre du bas : pas de deuxième cloche ici. */}
         <div className="flex items-center gap-2">
           {isSupabaseConfigured ? (
-            <span className="flex items-center gap-1.5 font-mono text-[11.5px] tracking-wider text-lagoon-dim bg-lagoon/10 border border-lagoon/30 px-2 py-1 rounded-full">
+            <span className="flex items-center gap-1.5 font-mono text-[12px] tracking-wider text-lagoon-dim bg-lagoon/10 border border-lagoon/30 px-2 py-1 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-lagoon animate-blink" />
               EN DIRECT
             </span>
           ) : (
             <span
-              className="font-mono text-[11.5px] tracking-wider text-ochre bg-ochre/10 border border-ochre/30 px-2 py-1 rounded-full"
+              className="font-mono text-[12px] tracking-wider text-ochre bg-ochre/10 border border-ochre/30 px-2 py-1 rounded-full"
               title="Base de données non branchée : données de démonstration, rien n'est enregistré"
             >
               MODE DÉMO

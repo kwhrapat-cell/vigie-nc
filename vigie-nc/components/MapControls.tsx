@@ -38,7 +38,7 @@ export function ZoneSelector({
             title={disabled ? "Position nécessaire" : o.title}
             disabled={disabled}
             onClick={() => onChange(o.value)}
-            className={`min-w-[44px] h-9 rounded-full px-2.5 text-[14px] font-medium transition-colors disabled:opacity-40 ${
+            className={`relative min-w-[44px] h-9 rounded-full px-2.5 text-[14px] font-medium transition-colors disabled:opacity-40 before:absolute before:inset-x-0 before:-inset-y-1 before:content-[''] ${
               selected ? "bg-primary text-white" : "text-mist-dim"
             } ${o.value === "nc" ? "font-display font-bold tracking-wide" : ""}`}
           >

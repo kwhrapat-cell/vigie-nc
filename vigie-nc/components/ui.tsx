@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { getReliability, RELIABILITY_HEX } from "@/lib/reliability";
+import { couleurSur } from "@/lib/contraste";
 import { Report, ReportType, REPORT_TYPE_HEX, REPORT_TYPE_ICON } from "@/lib/types";
 
 /** Icône d'un type de signalement (traits, couleur = currentColor). */
@@ -27,8 +28,8 @@ export function TypeIcon({ type, className }: { type: ReportType; className?: st
 export function TypeTile({ type, size = 40 }: { type: ReportType; size?: number }) {
   return (
     <span
-      className="shrink-0 rounded-xl flex items-center justify-center text-white"
-      style={{ width: size, height: size, background: REPORT_TYPE_HEX[type] }}
+      className="shrink-0 rounded-xl flex items-center justify-center"
+      style={{ width: size, height: size, background: REPORT_TYPE_HEX[type], color: couleurSur(REPORT_TYPE_HEX[type]) }}
     >
       <TypeIcon type={type} className="w-[55%] h-[55%]" />
     </span>
@@ -80,7 +81,7 @@ export function Logo({ withTagline = false }: { withTagline?: boolean }) {
           VIGIE <span className="text-lagoon">NC</span>
         </span>
         {withTagline && (
-          <span className="block font-display text-[10.5px] tracking-[0.12em] text-mist-dim mt-0.5">
+          <span className="block font-display text-[12px] tracking-[0.08em] text-mist-dim mt-0.5">
             VEILLE &amp; SOLIDARITÉ DU TERRITOIRE
           </span>
         )}
@@ -111,11 +112,11 @@ export function ScreenHeader({
   return (
     <header className="flex items-center gap-2 px-2 pt-4 pb-2 shrink-0">
       {onBack ? (
-        <button type="button" onClick={onBack} aria-label="Retour" className="w-10 h-10 flex items-center justify-center text-mist">
+        <button type="button" onClick={onBack} aria-label="Retour" className="w-11 h-11 flex items-center justify-center text-mist">
           {back}
         </button>
       ) : backHref ? (
-        <Link href={backHref} aria-label="Retour" className="w-10 h-10 flex items-center justify-center text-mist">
+        <Link href={backHref} aria-label="Retour" className="w-11 h-11 flex items-center justify-center text-mist">
           {back}
         </Link>
       ) : (
@@ -125,7 +126,7 @@ export function ScreenHeader({
         <h1 className="font-display font-semibold text-[17px] leading-tight truncate">{title}</h1>
         {subtitle && <p className="text-[13.5px] text-lagoon mt-0.5">{subtitle}</p>}
       </div>
-      {right ?? <span className="w-10" />}
+      {right ?? <span className="w-11" />}
     </header>
   );
 }

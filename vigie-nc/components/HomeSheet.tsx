@@ -113,7 +113,7 @@ export function HomeSheet({
             <button
               type="button"
               onClick={onEnableLocation}
-              className="shrink-0 rounded-lg border border-warn/40 px-2.5 py-1.5 text-[13px] font-medium text-warn"
+              className="shrink-0 min-h-[44px] rounded-lg border border-warn/40 px-3 text-[14px] font-medium text-warn"
             >
               Réessayer
             </button>

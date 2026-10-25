@@ -410,7 +410,7 @@ export function AlertSettings() {
               role="radio"
               aria-checked={rayon === km}
               onClick={() => setRayon(km)}
-              className={`min-h-[40px] rounded-lg text-[15px] font-medium ${
+              className={`min-h-[44px] rounded-lg text-[15px] font-medium ${
                 rayon === km ? "bg-primary text-white" : "text-mist-dim"
               }`}
             >

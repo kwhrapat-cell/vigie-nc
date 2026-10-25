@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PositionPicker } from "@/components/PositionPicker";
 import { Cagou } from "@/components/Cagou";
+import { couleurSur } from "@/lib/contraste";
 import { idsBadges, nouveauxBadges, texteNouveauxBadges } from "@/lib/impact";
 import { PrimaryButton, ScreenHeader, SecondaryButton, TypeIcon, TypeTile } from "@/components/ui";
 import { distanceM, formatDuration, LatLng } from "@/lib/geo";
@@ -290,8 +291,8 @@ export default function SignalerPage() {
                 key={t}
                 type="button"
                 onClick={() => choisirType(t)}
-                className="h-[80px] rounded-2xl flex flex-col items-center justify-center gap-1.5 text-white text-[15px] font-semibold active:scale-[0.97] transition-transform"
-                style={{ background: REPORT_TYPE_HEX[t] }}
+                className="h-[80px] rounded-2xl flex flex-col items-center justify-center gap-1.5 text-[15px] font-semibold active:scale-[0.97] transition-transform"
+                style={{ background: REPORT_TYPE_HEX[t], color: couleurSur(REPORT_TYPE_HEX[t]) }}
               >
                 <TypeIcon type={t} className="w-8 h-8" />
                 {REPORT_TYPE_SHORT[t]}
@@ -436,7 +437,7 @@ export default function SignalerPage() {
                       <button
                         type="button"
                         onClick={() => handlePhoto(null)}
-                        className="absolute top-2 right-2 rounded-full bg-void/85 px-3 py-1.5 text-[13px]"
+                        className="absolute top-2 right-2 min-h-[44px] flex items-center rounded-full bg-void/85 px-4 text-[14px] font-medium"
                       >
                         Retirer
                       </button>

@@ -131,7 +131,7 @@ export function BottomNav() {
             onClick={() => {
               if (astuce) ecrireAstuceSignaler("vue");
             }}
-            className="-mt-6 w-[58px] h-[58px] rounded-full bg-primary flex items-center justify-center shadow-[0_10px_24px_-6px_rgba(28,152,144,0.7)] border-4 border-void animate-fab-in"
+            className="-mt-6 w-[58px] h-[58px] rounded-full bg-primary flex items-center justify-center shadow-[0_10px_24px_-6px_rgba(22,127,120,0.7)] border-4 border-void animate-fab-in"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.6} strokeLinecap="round" className="w-6 h-6">
               <path d="M12 5v14M5 12h14" />
