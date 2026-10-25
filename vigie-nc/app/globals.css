@@ -101,6 +101,29 @@ body {
   justify-content: center;
 }
 
+/* Ton cagou à ta position (lib/avatar.ts, niveaux de lib/niveaux.ts) */
+.vigie-avatar {
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.55));
+}
+.avatar-legende .eclat {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: avatar-eclat 2.4s ease-in-out infinite;
+}
+@keyframes avatar-eclat {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.7);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
 /* Position de l'utilisateur */
 .user-dot {
   width: 18px;
@@ -645,6 +668,13 @@ html .leaflet-container .leaflet-control-attribution a {
   }
   .astuce-signaler {
     transform: translate(-50%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-legende .eclat {
+    animation: none;
+    opacity: 1;
   }
 }
 

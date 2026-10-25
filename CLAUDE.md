@@ -112,8 +112,10 @@ vigie-nc/
                   merci après un signalement, service indisponible),
                   ImpactBanner (accueil : « N personnes ont confirmé ton
                   signalement », relit au plus 5 de MES signalements toutes
-                  les 10 min par signalement_detail_v3), MonImpact (Profil :
-                  chiffres + badges), DemandeConfirmation (« Tu passes par
+                  les 10 min par signalement_detail_v3 ; fête aussi la montée
+                  de niveau du cagou : « Ton cagou devient Sentinelle ! »),
+                  MonImpact (Profil : niveau du cagou, progression, interrupteur
+                  « Mon cagou sur la carte », chiffres + badges), DemandeConfirmation (« Tu passes par
                   là ? » : à 300 m d'un signalement ni à moi ni voté, arrêté
                   (vitesse < 3 m/s), une demande par signalement et une toutes
                   les 10 min, jamais en conduite),
@@ -198,6 +200,18 @@ vigie-nc/
                      NEXT_PUBLIC_MAPTILER_KEY ; plan de secours automatique) + emprise NC
     cluster.ts       regroupement des signalements en pastilles chiffrées
     bandeaux.ts      ordre des bandeaux de l'accueil (un seul affiché à la fois)
+    niveaux.ts       niveaux du cagou (repère de TA position, façon Waze, vu par toi
+                     seul) : Poussin 0 badge, Vigie 1, Sentinelle 3, Gardien 6,
+                     Légende = tous les badges (BADGES de impact.ts ; ajouter un
+                     badge rend Légende plus dur, d'où le niveau max gardé
+                     « vigie-nc:niveau-max » : il ne redescend jamais). Monte avec
+                     les badges, jamais avec un simple nombre de signalements.
+                     Réglage « vigie-nc:cagou-carte » (point bleu simple sinon).
+                     Jamais montré aux autres (anonymat, pas de position partagée)
+    avatar.ts        dessin SVG du cagou à ta position selon le niveau (bulle
+                     au-dessus, point bleu = position exacte, ancre AVATAR_POINT) ;
+                     sous les signalements sur la carte (zIndexOffset négatif)
+    useNiveau.ts     niveau relu à chaque changement d'impact (IMPACT_EVENT)
     contraste.ts     contraste des couleurs (règle WCAG) ; couleurSur(fond) = couleur
                      du texte/icône sur une couleur de type ou de catégorie
                      (blanc, foncé sur l'orange et le jaune où le blanc passe sous 3:1)
