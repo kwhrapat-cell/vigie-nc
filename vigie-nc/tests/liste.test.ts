@@ -1,7 +1,7 @@
 // Liste « À proximité » de l'accueil : repliée ou dépliée.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readListeRepliee, saveListeRepliee, sensGlisseListe } from "../lib/preferences";
+import { readListeRepliee, saveListeRepliee, sensGlisseListe, suiviGlisseListe } from "../lib/preferences";
 
 test("liste : glisser vers le bas replie, vers le haut déplie", () => {
   assert.equal(sensGlisseListe(5, 80), "replier");
@@ -28,4 +28,13 @@ test("liste : dépliée par défaut, choix gardé sur le téléphone", () => {
   } finally {
     delete (globalThis as { window?: unknown }).window;
   }
+});
+
+test("liste : elle suit le doigt, dans le bon sens et sans dépasser", () => {
+  assert.equal(suiviGlisseListe(120, false, 300), 120); // dépliée, on tire vers le bas
+  assert.equal(suiviGlisseListe(500, false, 300), 300); // pas plus loin que la liste
+  assert.equal(suiviGlisseListe(-50, false, 300), 0); // dépliée : vers le haut, rien
+  assert.equal(suiviGlisseListe(-90, true, 160), -90); // repliée, on tire vers le haut
+  assert.equal(suiviGlisseListe(-400, true, 160), -160);
+  assert.equal(suiviGlisseListe(40, true, 160), 0); // repliée : vers le bas, rien
 });
