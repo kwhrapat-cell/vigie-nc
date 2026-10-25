@@ -18,6 +18,8 @@ import { Report, TRAVAUX_BANDEAU_RAYON_M, TRAVAUX_BANDEAU_REOUVERTURE_MS } from 
 // jour) : la liste des travaux vus reste sur ce téléphone.
 
 const VUS_KEY = "vigie-nc:travaux-vus";
+// Un travaux compte comme « vu » après ce temps à l'écran.
+const TRAVAUX_VU_APRES_MS = 2_000;
 const VUS_MAX = 50;
 
 /** Travaux déjà montrés : identifiant → jour (AAAA-MM-JJ, heure de Nouméa). */
@@ -47,9 +49,14 @@ function noterVu(id: string): void {
 export function TravauxBanner({
   position,
   onOpen,
+  masque = false,
+  onPresence,
 }: {
   position: LatLng | null;
   onOpen: (report: Report) => void;
+  /** Un bandeau plus important est affiché : on attend (lib/bandeaux.ts). */
+  masque?: boolean;
+  onPresence?: (present: boolean) => void;
 }) {
   const [travaux, setTravaux] = useState<Report[]>([]);
   const [closed, setClosed] = useState(false);
@@ -109,14 +116,24 @@ export function TravauxBanner({
       });
   }, [hasPosition, opening]);
 
-  // Travaux affiché à l'écran : noté comme vu pour aujourd'hui.
-  const i = Math.min(index, Math.max(0, travaux.length - 1));
-  const shownId = !closed && travaux.length > 0 ? travaux[i].id : null;
+  const present = !closed && travaux.length > 0;
   useEffect(() => {
-    if (shownId) noterVu(shownId);
+    onPresence?.(present);
+  }, [present, onPresence]);
+  useEffect(() => () => onPresence?.(false), [onPresence]);
+
+  // Travaux affiché à l'écran : noté comme vu pour aujourd'hui, après
+  // 2 secondes à l'écran (pas s'il n'a fait que passer avant qu'un bandeau
+  // plus important prenne sa place), ou tout de suite si on le touche.
+  const i = Math.min(index, Math.max(0, travaux.length - 1));
+  const shownId = present && !masque ? travaux[i].id : null;
+  useEffect(() => {
+    if (!shownId) return;
+    const t = window.setTimeout(() => noterVu(shownId), TRAVAUX_VU_APRES_MS);
+    return () => window.clearTimeout(t);
   }, [shownId]);
 
-  if (closed || travaux.length === 0) return null;
+  if (!present || masque) return null;
 
   const t = travaux[i];
   const chantier = estChantier(t) && t.endDate ? t.endDate : null;
@@ -133,7 +150,10 @@ export function TravauxBanner({
       >
         <button
           type="button"
-          onClick={() => onOpen(t)}
+          onClick={() => {
+            noterVu(t.id);
+            onOpen(t);
+          }}
           className="flex flex-1 min-w-0 min-h-[48px] items-center gap-2.5 py-1.5 text-left"
         >
           <TypeTile type="travaux" size={30} />
@@ -147,7 +167,10 @@ export function TravauxBanner({
         {travaux.length > 1 && (
           <button
             type="button"
-            onClick={() => setIndex((i + 1) % travaux.length)}
+            onClick={() => {
+              noterVu(t.id);
+              setIndex((i + 1) % travaux.length);
+            }}
             aria-label="Travaux suivants"
             className="min-h-[44px] px-1.5 text-[13px] font-medium text-ochre"
           >
@@ -156,7 +179,10 @@ export function TravauxBanner({
         )}
         <button
           type="button"
-          onClick={() => setClosed(true)}
+          onClick={() => {
+            noterVu(t.id);
+            setClosed(true);
+          }}
           aria-label="Fermer le bandeau des travaux"
           className="w-11 h-11 shrink-0 flex items-center justify-center text-mist-dim"
         >

@@ -137,8 +137,19 @@ export function AnnonceCard({
   );
 }
 
-/** Bandeau de l'accueil : annonces en cours pour toute la Calédonie. */
-export function AnnonceBanner() {
+/**
+ * Bandeau de l'accueil : annonces en cours pour toute la Calédonie.
+ * `masque` : un bandeau plus important est affiché (lib/bandeaux.ts) —
+ * l'annonce reste alors visible en petite pastille. `onPresence` dit à
+ * l'accueil s'il y a une annonce à montrer, et de quel niveau.
+ */
+export function AnnonceBanner({
+  masque = false,
+  onPresence,
+}: {
+  masque?: boolean;
+  onPresence?: (niveau: "alerte" | "info" | null) => void;
+} = {}) {
   const annonces = useAnnonces();
   const [hidden, setHidden] = useState<string[]>([]);
   const [index, setIndex] = useState(0);
@@ -162,6 +173,14 @@ export function AnnonceBanner() {
 
   const visibles = useMemo(() => annonces.filter((a) => !hidden.includes(a.id)), [annonces, hidden]);
 
+  // Urgence ou vigilance : passe avant tous les autres bandeaux.
+  const niveauPresent: "alerte" | "info" | null =
+    visibles.length === 0 ? null : visibles.some((a) => a.niveau !== "info") ? "alerte" : "info";
+  useEffect(() => {
+    onPresence?.(niveauPresent);
+  }, [niveauPresent, onPresence]);
+  useEffect(() => () => onPresence?.(null), [onPresence]);
+
   // Annonce ouverte depuis une notification : affichée en premier.
   useEffect(() => {
     if (!opened) return;
@@ -171,7 +190,9 @@ export function AnnonceBanner() {
 
   if (annonces.length === 0) return null;
 
-  if (visibles.length === 0) {
+  // Réduite par la personne, ou en attente derrière un bandeau plus
+  // important : petite pastille, jamais plus.
+  if (visibles.length === 0 || masque) {
     const top = annonces[0];
     const s = STYLES[top.niveau];
     return (

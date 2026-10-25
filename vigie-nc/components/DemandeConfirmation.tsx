@@ -60,19 +60,32 @@ export function DemandeConfirmation({
   reports,
   position,
   onVoted,
+  masque = false,
+  onPresence,
 }: {
   reports: Report[];
   position: GeoPosition | null;
   onVoted: (id: string, patch: Partial<Report> | null) => void;
+  /** Une annonce d'urgence est affichée : on ne demande rien (lib/bandeaux.ts). */
+  masque?: boolean;
+  onPresence?: (present: boolean) => void;
 }) {
   const [demande, setDemande] = useState<Report | null>(null);
   const [busy, setBusy] = useState<Vote | null>(null);
   const [merci, setMerci] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
 
-  // Cherche un signalement à faire confirmer (une seule demande à la fois).
+  const present = demande != null || merci != null;
   useEffect(() => {
-    if (demande || merci || !position) return;
+    onPresence?.(present);
+  }, [present, onPresence]);
+  useEffect(() => () => onPresence?.(false), [onPresence]);
+
+  // Cherche un signalement à faire confirmer (une seule demande à la fois),
+  // pas pendant qu'un bandeau plus important est affiché : la demande
+  // serait comptée sans avoir été vue.
+  useEffect(() => {
+    if (masque || demande || merci || !position) return;
     if (position.accuracy > PRECISION_MAX_M) return;
     if (position.speed != null && position.speed > VITESSE_MAX_MS) return;
     const m = lireMemoire();
@@ -93,7 +106,7 @@ export function DemandeConfirmation({
     if (!proche) return;
     noterDemande(proche.r.id);
     setDemande({ ...proche.r, distanceM: proche.d });
-  }, [reports, position, demande, merci]);
+  }, [reports, position, demande, merci, masque]);
 
   // Le merci s'efface tout seul.
   useEffect(() => {
@@ -125,6 +138,7 @@ export function DemandeConfirmation({
     }
   }
 
+  if (masque) return null;
   if (merci) {
     return (
       <div role="status" className="mx-4 mb-2 flex items-center gap-3 rounded-2xl border border-ok/40 bg-ok/10 px-3 py-2.5">
