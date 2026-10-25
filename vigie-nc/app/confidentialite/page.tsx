@@ -191,8 +191,8 @@ export default function ConfidentialitePage() {
           <li>Tes réglages (rayon, fond de carte) et le texte collé pour relayer une info.</li>
           <li>
             « Mon impact » : la liste de tes 30 derniers signalements (identifiant, type, lieu, heure), le nombre de
-            tes réponses « Toujours là » / « C&apos;est terminé », les jours où tu as ouvert l&apos;appli et tes
-            badges. Ça sert à te dire quand d&apos;autres confirment ce que tu as signalé : l&apos;appli relit ces
+            tes réponses « Toujours là » / « C&apos;est terminé », les jours où tu as ouvert l&apos;appli, tes
+            badges et le niveau de ton cagou (le repère de ta position sur la carte, que toi seul vois). Ça sert à te dire quand d&apos;autres confirment ce que tu as signalé : l&apos;appli relit ces
             signalements comme n&apos;importe quel signalement public. Rien de tout ça n&apos;est envoyé, et il
             n&apos;y a pas de classement entre utilisateurs. Aussi : les signalements pour lesquels l&apos;appli
             t&apos;a déjà demandé « Tu passes par là ? », pour ne pas te le redemander.

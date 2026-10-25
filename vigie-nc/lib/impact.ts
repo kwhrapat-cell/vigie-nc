@@ -71,11 +71,19 @@ export function lireImpact(): Impact {
   }
 }
 
+// Prévient l'appli qu'il a changé (le cagou de la carte peut monter de niveau).
+export const IMPACT_EVENT = "vigie-nc:impact-change";
+
 function ecrire(impact: Impact): void {
   try {
     window.localStorage.setItem(CLE, JSON.stringify(impact));
   } catch {
     // stockage indisponible : l'impact repartira de zéro
+  }
+  try {
+    window.dispatchEvent(new Event(IMPACT_EVENT));
+  } catch {
+    // pas de fenêtre (tests, rendu serveur)
   }
 }
 
@@ -224,6 +232,30 @@ export const BADGES: Badge[] = [
     nom: "Fidèle au poste",
     comment: "Ouvre Vigie NC 7 jours différents.",
     obtenu: (i) => i.nbJours >= 7,
+  },
+  // Badges du sommet (niveaux Gardien et Légende du cagou, lib/niveaux.ts) :
+  // des contributions utiles dans la durée, jamais un simple nombre de
+  // signalements.
+  {
+    id: "oeil-de-faucon",
+    emoji: "🦅",
+    nom: "Œil de faucon",
+    comment: "10 de tes signalements confirmés par d'autres.",
+    obtenu: (i) => i.nbSignalementsConfirmes >= 10,
+  },
+  {
+    id: "pilier-de-la-route",
+    emoji: "🧭",
+    nom: "Pilier de la route",
+    comment: "Réponds 50 fois « Toujours là » ou « C'est terminé ».",
+    obtenu: (i) => i.nbVotes >= 50,
+  },
+  {
+    id: "memoire-du-pays",
+    emoji: "🌿",
+    nom: "Mémoire du pays",
+    comment: "Ouvre Vigie NC 30 jours différents.",
+    obtenu: (i) => i.nbJours >= 30,
   },
 ];
 

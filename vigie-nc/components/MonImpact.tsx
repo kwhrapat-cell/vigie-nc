@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Cagou } from "./Cagou";
+import { avatarSvg } from "@/lib/avatar";
 import { BADGES, Impact, lireImpact } from "@/lib/impact";
+import { badgesManquants, ecrireCagouSurCarte, lireCagouSurCarte, NIVEAUX, rangActuel } from "@/lib/niveaux";
 
 // Carte « Mon impact » du Profil : ce que ce téléphone a apporté, et les
 // badges. Tout vient du téléphone (lib/impact.ts) : pas de nom, pas de
@@ -10,13 +11,23 @@ import { BADGES, Impact, lireImpact } from "@/lib/impact";
 
 export function MonImpact() {
   const [impact, setImpact] = useState<Impact | null>(null);
+  const [cagouCarte, setCagouCarte] = useState(true);
 
   useEffect(() => {
     setImpact(lireImpact());
+    setCagouCarte(lireCagouSurCarte());
   }, []);
 
   if (!impact) return null;
   const obtenus = BADGES.filter((b) => b.obtenu(impact));
+  // Niveau du cagou (lib/niveaux.ts) : il monte avec les badges, jamais ne redescend.
+  const rang = rangActuel(obtenus.length);
+  const niveau = NIVEAUX[rang];
+  const suivant = NIVEAUX[rang + 1];
+  const manque = badgesManquants(rang, obtenus.length);
+  const progression = suivant
+    ? Math.min(1, (obtenus.length - niveau.badgesMin) / Math.max(1, suivant.badgesMin - niveau.badgesMin))
+    : 1;
   const chiffres = [
     { n: impact.nbSignalements, texte: impact.nbSignalements > 1 ? "signalements" : "signalement" },
     {
@@ -38,7 +49,86 @@ export function MonImpact() {
               : `${obtenus.length} badge${obtenus.length > 1 ? "s" : ""} sur ${BADGES.length}. Merci pour la route !`}
           </p>
         </div>
-        <Cagou size={56} />
+        <span
+          className="shrink-0"
+          // Dessin fixe de lib/avatar.ts (aucune donnée saisie).
+          dangerouslySetInnerHTML={{ __html: avatarSvg(rang, 56) }}
+        />
+      </div>
+
+      {/* Mon cagou : niveau, progression, et le choix de l'afficher sur la carte */}
+      <div className="mt-3 rounded-lg bg-void/40 border border-line px-3 py-3">
+        <p className="font-display font-semibold text-[16px]">
+          Mon cagou : <span className={rang >= 3 ? "text-ochre" : "text-lagoon"}>{niveau.nom}</span>
+        </p>
+        <p className="text-[13.5px] text-mist-dim">
+          {suivant && manque != null
+            ? `Encore ${manque} badge${manque > 1 ? "s" : ""} pour devenir ${suivant.nom}.`
+            : "Tu es une Légende de la route. Merci !"}
+        </p>
+        <div
+          className="mt-2 h-2 rounded-full bg-line overflow-hidden"
+          role="progressbar"
+          aria-label={suivant ? `Vers le niveau ${suivant.nom}` : "Niveau maximum"}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(progression * 100)}
+        >
+          <div
+            className={`h-full rounded-full ${rang >= 3 ? "bg-ochre" : "bg-lagoon"}`}
+            style={{ width: `${Math.round(progression * 100)}%` }}
+          />
+        </div>
+
+        <ol className="mt-3 -mx-2 grid grid-cols-5" aria-label="Les niveaux du cagou">
+          {NIVEAUX.map((n, i) => (
+            <li key={n.id} className={`flex flex-col items-center ${i > rang ? "opacity-35 grayscale" : ""}`}>
+              <span
+                aria-hidden="true"
+                // Dessin fixe de lib/avatar.ts (aucune donnée saisie).
+                dangerouslySetInnerHTML={{ __html: avatarSvg(i, 40) }}
+              />
+              <span
+                className={`mt-0.5 whitespace-nowrap text-[12px] tracking-[-0.01em] ${
+                  i === rang ? (rang >= 3 ? "text-ochre" : "text-lagoon") : "text-mist-dim"
+                }`}
+              >
+                {n.nom}
+                <span className="sr-only">
+                  {i < rang ? " : atteint" : i === rang ? " : ton niveau" : ` : ${n.badgesMin} badges`}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ol>
+
+        <button
+          type="button"
+          role="switch"
+          aria-checked={cagouCarte}
+          onClick={() => {
+            setCagouCarte(!cagouCarte);
+            ecrireCagouSurCarte(!cagouCarte);
+          }}
+          className="mt-3 w-full min-h-[44px] flex items-center justify-between gap-3 text-left"
+        >
+          <span className="text-[14.5px]">
+            Mon cagou sur la carte
+            <span className="block text-[12.5px] text-mist-dim">
+              {cagouCarte ? "Il marque ta position." : "Point bleu simple à la place."}
+            </span>
+          </span>
+          <span
+            className={`relative shrink-0 w-12 h-7 rounded-full border transition-colors ${
+              cagouCarte ? "bg-primary border-primary" : "bg-panel-2 border-line"
+            }`}
+            aria-hidden="true"
+          >
+            <span
+              className={`absolute top-[3px] w-5 h-5 rounded-full bg-mist transition-all ${cagouCarte ? "left-[23px]" : "left-[3px]"}`}
+            />
+          </span>
+        </button>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
@@ -73,7 +163,7 @@ export function MonImpact() {
       </ul>
 
       <p className="mt-3 text-[12px] text-mist-dim">
-        Tout reste sur ton téléphone : pas de nom, pas de classement. Juste pour toi.
+        Tout reste sur ton téléphone : pas de nom, pas de classement. Ton cagou, toi seul le vois.
       </p>
     </section>
   );

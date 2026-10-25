@@ -3,9 +3,12 @@
 import { useEffect, useState } from "react";
 import { Cagou } from "./Cagou";
 import { fetchReport } from "@/lib/reports-api";
+import { avatarSvg } from "@/lib/avatar";
+import { badgesManquants, Niveau, NIVEAUX, noterRang } from "@/lib/niveaux";
 import {
   aVerifier,
   idsBadges,
+  IMPACT_EVENT,
   noterNouvelles,
   noterOuverture,
   nouveauxBadges,
@@ -42,8 +45,23 @@ export function ImpactBanner({
   onPresence?: (present: boolean) => void;
 }) {
   const [nouvelle, setNouvelle] = useState<{ id: string; texte: string; badges: string } | null>(null);
+  // Ton cagou vient de monter de niveau (lib/niveaux.ts) : on le fête.
+  const [promotion, setPromotion] = useState<{ niveau: Niveau; rang: number; manque: number | null } | null>(null);
 
-  const present = nouvelle != null;
+  useEffect(() => {
+    const verifier = () => {
+      const nb = idsBadges().length;
+      const n = noterRang(nb);
+      if (!n || n.id === "poussin") return;
+      const rang = NIVEAUX.findIndex((x) => x.id === n.id);
+      setPromotion({ niveau: n, rang, manque: badgesManquants(rang, nb) });
+    };
+    verifier();
+    window.addEventListener(IMPACT_EVENT, verifier);
+    return () => window.removeEventListener(IMPACT_EVENT, verifier);
+  }, []);
+
+  const present = nouvelle != null || promotion != null;
   useEffect(() => {
     onPresence?.(present);
   }, [present, onPresence]);
@@ -85,12 +103,57 @@ export function ImpactBanner({
 
   // S'efface tout seul après 20 s… d'affichage (pas pendant qu'il attend).
   useEffect(() => {
-    if (!nouvelle || masque) return;
+    if (!nouvelle || promotion || masque) return;
     const t = window.setTimeout(() => setNouvelle(null), DUREE_MS);
     return () => window.clearTimeout(t);
-  }, [nouvelle, masque]);
+  }, [nouvelle, promotion, masque]);
+  useEffect(() => {
+    if (!promotion || masque) return;
+    const t = window.setTimeout(() => setPromotion(null), DUREE_MS);
+    return () => window.clearTimeout(t);
+  }, [promotion, masque]);
 
-  if (!nouvelle || masque) return null;
+  if (masque) return null;
+
+  if (promotion) {
+    const suivant = NIVEAUX[promotion.rang + 1];
+    return (
+      <div
+        role="status"
+        className="mx-4 mb-2 flex items-center gap-3 rounded-2xl border border-ochre/50 bg-ochre/10 px-3 py-2.5 animate-pop-in"
+      >
+        <span
+          className="shrink-0"
+          // Dessin fixe de lib/avatar.ts (aucune donnée saisie).
+          dangerouslySetInnerHTML={{ __html: avatarSvg(promotion.rang, 44) }}
+        />
+        <div className="flex-1 min-w-0">
+          <p className="font-display font-semibold text-[16px] text-mist">
+            Ton cagou devient {promotion.niveau.nom} !
+          </p>
+          <p className="text-[14px] leading-snug text-mist-dim">
+            {suivant && promotion.manque != null
+              ? `Il te suit sur la carte. Prochain niveau : ${suivant.nom}, encore ${promotion.manque} badge${
+                  promotion.manque > 1 ? "s" : ""
+                }.`
+              : "Le plus haut niveau. Merci pour la route !"}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setPromotion(null)}
+          aria-label="Fermer"
+          className="self-start w-11 h-11 -mr-2 -mt-1 flex items-center justify-center text-mist-dim"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+    );
+  }
+
+  if (!nouvelle) return null;
   return (
     <div
       role="status"

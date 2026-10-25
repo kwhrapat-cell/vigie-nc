@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
+import { AVATAR_HAUTEUR, AVATAR_LARGEUR, AVATAR_POINT } from "@/lib/avatar";
 import { clusterByDistance } from "@/lib/cluster";
 import { couleurSur } from "@/lib/contraste";
 import { distanceM, LatLng } from "@/lib/geo";
@@ -37,6 +38,25 @@ interface Props {
   onFollowChange: (follow: boolean) => void;
   /** Mode conduite : événements des 10 km devant, mis en évidence (jamais regroupés). */
   highlightIds?: Set<string>;
+  /** Ton cagou à ta position (SVG de lib/avatar.ts), ou null pour le point bleu simple. */
+  avatar?: string | null;
+}
+
+// Taille du cagou sur la carte (dessin de lib/avatar.ts, 72 × 92 à l'échelle)
+const AVATAR_CARTE_L = 54;
+const AVATAR_ECHELLE = AVATAR_CARTE_L / AVATAR_LARGEUR;
+
+/** Repère de ta position : ton cagou (épingle dont la pointe est le point bleu) ou le point simple. */
+function iconePosition(L: typeof Leaflet, avatar: string | null): Leaflet.DivIcon {
+  if (!avatar) {
+    return L.divIcon({ className: "", html: '<div class="user-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+  }
+  return L.divIcon({
+    className: "",
+    html: avatar,
+    iconSize: [AVATAR_CARTE_L, AVATAR_HAUTEUR * AVATAR_ECHELLE],
+    iconAnchor: [AVATAR_POINT.x * AVATAR_ECHELLE, AVATAR_POINT.y * AVATAR_ECHELLE],
+  });
 }
 
 function dominantColor(items: Report[]): string {
@@ -62,6 +82,7 @@ export function LiveMap({
   onSelect,
   onFollowChange,
   highlightIds,
+  avatar = null,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const leafletRef = useRef<typeof Leaflet | null>(null);
@@ -69,6 +90,8 @@ export function LiveMap({
   const tilesRef = useRef<Leaflet.Layer[]>([]);
   const markersRef = useRef<Leaflet.LayerGroup | null>(null);
   const userMarkerRef = useRef<Leaflet.Marker | null>(null);
+  const avatarRef = useRef(avatar);
+  avatarRef.current = avatar;
   const circleRef = useRef<Leaflet.Circle | null>(null);
   const lastFitRef = useRef<{ lat: number; lng: number; radiusM: number } | null>(null);
   const [ready, setReady] = useState(false);
@@ -279,6 +302,15 @@ export function LiveMap({
     draw();
   }, [ready, reports, selectedId, highlightIds]);
 
+  // Niveau du cagou qui change (ou réglage du Profil) : nouveau dessin.
+  useEffect(() => {
+    const L = leafletRef.current;
+    const m = userMarkerRef.current;
+    if (!ready || !L || !m) return;
+    m.setIcon(iconePosition(L, avatar));
+    m.setZIndexOffset(avatar ? -10000 : 2000);
+  }, [ready, avatar]);
+
   // 4. Position de l'utilisateur + cercle de la zone surveillée
   useEffect(() => {
     const L = leafletRef.current;
@@ -292,14 +324,11 @@ export function LiveMap({
       const latlng: [number, number] = [position.lat, position.lng];
       if (!userMarkerRef.current) {
         userMarkerRef.current = L.marker(latlng, {
-          icon: L.divIcon({
-            className: "",
-            html: '<div class="user-dot"></div>',
-            iconSize: [18, 18],
-            iconAnchor: [9, 9],
-          }),
+          icon: iconePosition(L, avatarRef.current),
           interactive: false,
-          zIndexOffset: 2000,
+          // Le cagou passe sous les signalements (ils restent lisibles) ;
+          // le point simple reste au-dessus, comme avant.
+          zIndexOffset: avatarRef.current ? -10000 : 2000,
         }).addTo(map);
       } else {
         userMarkerRef.current.setLatLng(latlng);

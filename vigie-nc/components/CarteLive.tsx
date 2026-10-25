@@ -11,6 +11,8 @@ import { AnnonceBanner } from "./AnnonceBanner";
 import { TravauxBanner } from "./TravauxBanner";
 import { ImpactBanner } from "./ImpactBanner";
 import { AUCUN_BANDEAU, Bandeau, masquePar, Presences } from "@/lib/bandeaux";
+import { avatarSvg } from "@/lib/avatar";
+import { useNiveau } from "@/lib/useNiveau";
 import { DemandeConfirmation } from "./DemandeConfirmation";
 import { BandeauConduite, BarreConduite, BoutonConduite, useModeConduite } from "./ModeConduite";
 import { Logo } from "./ui";
@@ -38,6 +40,14 @@ export function CarteLive() {
   const [linkedReport, setLinkedReport] = useState<Report | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const selectedSnapshot = useRef<Report | null>(null);
+
+  // Ton cagou à ta position, selon ton niveau (lib/niveaux.ts) ; point bleu
+  // simple si tu l'as choisi dans le Profil.
+  const niveau = useNiveau();
+  const avatar = useMemo(
+    () => (niveau.pret && niveau.cagouSurCarte ? avatarSvg(niveau.rang, 54) : null),
+    [niveau.pret, niveau.cagouSurCarte, niveau.rang],
+  );
 
   // Bandeaux au-dessus de la carte : un seul à la fois, le plus important
   // d'abord (lib/bandeaux.ts). Chacun dit s'il a quelque chose à montrer.
@@ -297,6 +307,7 @@ export function CarteLive() {
           onSelect={setSelectedId}
           onFollowChange={setFollow}
           highlightIds={enConduite ? conduite.idsDevant : undefined}
+          avatar={avatar}
         />
         <div className="absolute top-2.5 left-3 right-3 z-10 flex items-start justify-between gap-2 pointer-events-none">
           <div className="pointer-events-auto">
