@@ -11,6 +11,7 @@ import { PrimaryButton, ScreenHeader, SecondaryButton, TypeIcon, TypeTile } from
 import { distanceM, formatDuration, LatLng } from "@/lib/geo";
 import { GeoPosition, useGeolocation } from "@/lib/useGeolocation";
 import { reversePlace } from "@/lib/place";
+import { NOM_APPLI, URGENCES } from "@/lib/territoire";
 import { preparePhoto } from "@/lib/face-blur";
 import {
   createReport,
@@ -46,7 +47,7 @@ const RISK_COLORS: Record<RiskLevel, string> = { faible: "#2BB673", moyen: "#F09
 const RESULT_TEXT: Record<CreateResult, { title: string; text: string }> = {
   cree: {
     title: "Merci !",
-    text: "Ton signalement est sur la carte et aide tout le monde à mieux circuler. Quand quelqu'un le confirmera, tu le verras en ouvrant Vigie NC.",
+    text: `Ton signalement est sur la carte et aide tout le monde à mieux circuler. Quand quelqu'un le confirmera, tu le verras en ouvrant ${NOM_APPLI}.`,
   },
   fusionne: {
     title: "Merci, c'est confirmé !",
@@ -339,7 +340,8 @@ export default function SignalerPage() {
 
           {type === "feu" && (
             <p className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-[14px] leading-relaxed" role="note">
-              Un feu ? Appelle d&apos;abord le <a href="tel:18" className="underline font-semibold">18</a>{" "}(pompiers)
+              Un feu ? Appelle d&apos;abord le{" "}
+              <a href={`tel:${URGENCES.pompiers}`} className="underline font-semibold">{URGENCES.pompiers}</a>{" "}(pompiers)
               si personne ne l&apos;a fait. Signale de loin et à l&apos;arrêt : ne t&apos;approche pas.
             </p>
           )}

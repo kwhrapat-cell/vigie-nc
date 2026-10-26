@@ -1,14 +1,15 @@
 // Chantiers de longue durée : des travaux avec une date de fin annoncée par
 // une source officielle (mairie, Province…), fixée depuis /moderation
 // (moderation_chantier dans supabase/schema.sql). Ils restent sur la carte
-// jusqu'au soir de ce jour, heure de Nouméa.
+// jusqu'au soir de ce jour, heure du territoire (Nouméa en Calédonie).
 
+import { TERRITOIRE } from "./territoire";
 import type { Report } from "./types";
 
 // ⚠️ Doit rester aligné sur vigie_chantier_jours_max() dans supabase/schema.sql.
 export const CHANTIER_JOURS_MAX = 183;
 
-const TZ = "Pacific/Noumea";
+const TZ = TERRITOIRE.fuseau;
 const jourIso = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" });
 // Les dates « AAAA-MM-JJ » sont lues à midi UTC puis écrites en UTC : le
 // jour affiché ne dépend pas du fuseau du téléphone.
@@ -20,8 +21,8 @@ function lire(d: string): Date | null {
   return m ? new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12)) : null;
 }
 
-/** Aujourd'hui à Nouméa, au format AAAA-MM-JJ. */
-export function aujourdhuiNoumea(now: Date = new Date()): string {
+/** Aujourd'hui dans le territoire (heure de Nouméa en Calédonie), au format AAAA-MM-JJ. */
+export function aujourdhuiLocal(now: Date = new Date()): string {
   return jourIso.format(now);
 }
 
@@ -37,7 +38,7 @@ export function ajouterJours(d: string, n: number): string {
 export function formatJour(d: string, now: Date = new Date()): string {
   const x = lire(d);
   if (!x) return d;
-  return d.slice(0, 4) === aujourdhuiNoumea(now).slice(0, 4) ? jourCourt.format(x) : jourAnnee.format(x);
+  return d.slice(0, 4) === aujourdhuiLocal(now).slice(0, 4) ? jourCourt.format(x) : jourAnnee.format(x);
 }
 
 /** Un chantier : des travaux avec une date de fin annoncée. */
@@ -47,7 +48,7 @@ export function estChantier(r: Pick<Report, "type" | "endDate">): boolean {
 
 /** « jusqu'au 15 déc. », ou « fin annoncée le 15 déc., dépassée ». */
 export function libelleFinChantier(fin: string, now: Date = new Date()): string {
-  return fin < aujourdhuiNoumea(now)
+  return fin < aujourdhuiLocal(now)
     ? `fin annoncée le ${formatJour(fin, now)}, dépassée`
     : `jusqu'au ${formatJour(fin, now)}`;
 }

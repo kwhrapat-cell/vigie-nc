@@ -6,7 +6,7 @@ import { AVATAR_HAUTEUR, AVATAR_LARGEUR, AVATAR_POINT } from "@/lib/avatar";
 import { clusterByDistance } from "@/lib/cluster";
 import { couleurSur } from "@/lib/contraste";
 import { distanceM, LatLng } from "@/lib/geo";
-import { BACKUP_PLAN_LAYER, MAP_STYLES, NC_BOUNDS } from "@/lib/map-styles";
+import { BACKUP_PLAN_LAYER, MAP_STYLES, EMPRISE_TERRITOIRE } from "@/lib/map-styles";
 import type { MapStyle } from "@/lib/preferences";
 import { getReliability } from "@/lib/reliability";
 import {
@@ -127,7 +127,7 @@ export function LiveMap({
         attributionControl: true,
         minZoom: 6,
       });
-      map.fitBounds(NC_BOUNDS, { padding: [8, 8] });
+      map.fitBounds(EMPRISE_TERRITOIRE, { padding: [8, 8] });
 
       // Dès que l'utilisateur déplace la carte à la main, on arrête de la
       // recentrer automatiquement sur lui.
@@ -156,7 +156,7 @@ export function LiveMap({
             m.invalidateSize();
             if (!suivi) return;
             if (vue === "nc" || !hasPosition) {
-              m.fitBounds(NC_BOUNDS, { padding: [8, 8], animate: false });
+              m.fitBounds(EMPRISE_TERRITOIRE, { padding: [8, 8], animate: false });
             } else if (circleRef.current) {
               m.fitBounds(circleRef.current.getBounds(), { padding: [12, 12], animate: false });
             }
@@ -369,7 +369,7 @@ export function LiveMap({
 
     if (scope === "nc") {
       if (prev.scope !== "nc" || (follow && !prev.follow)) {
-        map.flyToBounds(NC_BOUNDS, { padding: [8, 8], duration: 0.8 });
+        map.flyToBounds(EMPRISE_TERRITOIRE, { padding: [8, 8], duration: 0.8 });
       }
       lastFitRef.current = null;
       return;

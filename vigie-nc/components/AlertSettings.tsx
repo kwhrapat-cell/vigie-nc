@@ -29,6 +29,7 @@ import {
   ReportsApiError,
 } from "@/lib/reports-api";
 import { useGeolocation } from "@/lib/useGeolocation";
+import { NOM_APPLI, PHRASES } from "@/lib/territoire";
 
 type Phase = "chargement" | "inactif" | "edition" | "actif";
 
@@ -81,7 +82,7 @@ function WhatTriggers() {
       <li>• Accident, route coupée, inondation, danger, météo.</li>
       <li>• Seulement quand une 2e personne confirme, ou qu&apos;une source officielle vérifie.</li>
       <li>• 5 alertes par heure au maximum.</li>
-      <li>• Et, rarement, les annonces importantes pour toute la Calédonie (cyclone, évacuation…).</li>
+      <li>• Et, rarement, les annonces importantes pour {PHRASES.toutLeTerritoire} (cyclone, évacuation…).</li>
     </ul>
   );
 }
@@ -183,7 +184,7 @@ export function AlertSettings() {
       const code = e instanceof ReportsApiError ? e.code : "";
       setError(
         code === "position_hors_nc"
-          ? "Choisis un lieu en Nouvelle-Calédonie."
+          ? `Choisis un lieu ${PHRASES.enNom}.`
           : errorMessage(e, "Impossible d'activer les alertes sur ce téléphone pour le moment. Réessaie plus tard."),
       );
     } finally {
@@ -264,7 +265,7 @@ export function AlertSettings() {
         <Title>Alertes sur ton iPhone</Title>
         <Note>
           Sur iPhone, les alertes marchent seulement dans l&apos;appli ajoutée à l&apos;écran d&apos;accueil :
-          ajoute Vigie NC, ouvre-la depuis sa nouvelle icône, puis reviens ici (onglet Alertes).
+          ajoute {NOM_APPLI}, ouvre-la depuis sa nouvelle icône, puis reviens ici (onglet Alertes).
         </Note>
         <div className="mt-2.5">
           <InstallApp />
@@ -292,7 +293,7 @@ export function AlertSettings() {
       <Card>
         <Title>Alertes sur ton téléphone</Title>
         <Note>
-          Ce navigateur ne peut pas recevoir d&apos;alertes. Ouvre Vigie NC dans <strong className="text-mist">Chrome</strong>{" "}
+          Ce navigateur ne peut pas recevoir d&apos;alertes. Ouvre {NOM_APPLI} dans <strong className="text-mist">Chrome</strong>{" "}
           (Android) ou depuis l&apos;écran d&apos;accueil (iPhone).
         </Note>
       </Card>
@@ -311,9 +312,9 @@ export function AlertSettings() {
       <Card>
         <Title>Alertes bloquées</Title>
         <Note>
-          Les notifications de Vigie NC sont refusées sur ce téléphone. Pour les réactiver : dans les réglages du
-          navigateur (ou de l&apos;appli), ouvre <strong className="text-mist">Notifications</strong>, autorise Vigie
-          NC, puis recharge cette page.
+          Les notifications de {NOM_APPLI} sont refusées sur ce téléphone. Pour les réactiver : dans les réglages du
+          navigateur (ou de l&apos;appli), ouvre <strong className="text-mist">Notifications</strong>, autorise{" "}
+          {NOM_APPLI}, puis recharge cette page.
         </Note>
         {messages}
       </Card>

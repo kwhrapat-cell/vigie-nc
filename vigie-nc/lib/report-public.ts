@@ -6,6 +6,7 @@
 // carte : type, lieu, heures, confirmations. Ni photo, ni texte saisi.
 
 import { getReliability } from "./reliability";
+import { NOM_APPLI, TERRITOIRE } from "./territoire";
 import { RelaySource, ReportType, REPORT_TYPE_LABELS } from "./types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -72,12 +73,12 @@ export async function fetchPublicReport(id: string): Promise<PublicReport | null
   }
 }
 
-/** « le 20 oct. à 17 h 45 » (heure de Nouméa) */
-export function quandNoumea(iso: string): string {
+/** « le 20 oct. à 17 h 45 » (heure du territoire : Nouméa en Calédonie) */
+export function quandLocal(iso: string): string {
   const d = new Date(iso);
-  const jour = d.toLocaleDateString("fr-FR", { timeZone: "Pacific/Noumea", day: "numeric", month: "short" });
+  const jour = d.toLocaleDateString("fr-FR", { timeZone: TERRITOIRE.fuseau, day: "numeric", month: "short" });
   const heure = d
-    .toLocaleTimeString("fr-FR", { timeZone: "Pacific/Noumea", hour: "2-digit", minute: "2-digit" })
+    .toLocaleTimeString("fr-FR", { timeZone: TERRITOIRE.fuseau, hour: "2-digit", minute: "2-digit" })
     .replace(":", " h ");
   return `le ${jour} à ${heure}`;
 }
@@ -100,5 +101,5 @@ export function shareReliability(r: PublicReport): string {
 /** Description de l'aperçu. Jamais de promesse que la route est sûre. */
 export function shareDescription(r: PublicReport): string {
   const etat = r.actif ? shareReliability(r) : "Terminé";
-  return `${etat} · signalé ${quandNoumea(r.createdAt)}. Info citoyenne à vérifier sur place : voir la carte en direct sur Vigie NC.`;
+  return `${etat} · signalé ${quandLocal(r.createdAt)}. Info citoyenne à vérifier sur place : voir la carte en direct sur ${NOM_APPLI}.`;
 }

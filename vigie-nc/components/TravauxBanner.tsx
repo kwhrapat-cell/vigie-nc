@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { TypeTile } from "./ui";
-import { aujourdhuiNoumea, estChantier, libelleFinChantier } from "@/lib/chantier";
+import { aujourdhuiLocal, estChantier, libelleFinChantier } from "@/lib/chantier";
 import { distanceM, formatAge, formatDistance, LatLng } from "@/lib/geo";
 import { fetchNearby } from "@/lib/reports-api";
 import { Report, TRAVAUX_BANDEAU_RAYON_M, TRAVAUX_BANDEAU_REOUVERTURE_MS } from "@/lib/types";
@@ -35,7 +35,7 @@ function lireVus(): Record<string, string> {
 
 function noterVu(id: string): void {
   try {
-    const jour = aujourdhuiNoumea();
+    const jour = aujourdhuiLocal();
     // On ne garde que les travaux vus aujourd'hui : demain, ils reviennent.
     const garde = Object.entries(lireVus())
       .filter(([cle, j]) => j === jour && cle !== id)
@@ -101,7 +101,7 @@ export function TravauxBanner({
         if (id !== requestId.current) return;
         const now = Date.now();
         const vus = lireVus();
-        const jour = aujourdhuiNoumea();
+        const jour = aujourdhuiLocal();
         const found = list
           .filter((r) => r.type === "travaux" && r.active !== false && new Date(r.expiresAt).getTime() > now)
           .filter((r) => vus[r.id] !== jour)

@@ -5,6 +5,7 @@ import { AnnonceCard, finAnnonce } from "./AnnonceBanner";
 import { PrimaryButton } from "./ui";
 import { formatAge } from "@/lib/geo";
 import { errorMessage, modAnnoncePublier, modAnnonceRetirer, ModAnnonces, modAnnonces } from "@/lib/reports-api";
+import { majuscule, NOM_APPLI, PHRASES, premierMotAppuye } from "@/lib/territoire";
 import {
   Annonce,
   ANNONCE_DUREES_H,
@@ -91,9 +92,9 @@ export function ModAnnoncesPanel({ code }: { code: string }) {
     const avecNotif = notifier && peutNotifier;
     const abonnes = data?.abonnes ?? 0;
     const message =
-      `Publier cette annonce (${ANNONCE_NIVEAU_LABELS[niveau]}) pour TOUTE la Calédonie, pendant ${dureeH} h ?` +
+      `Publier cette annonce (${ANNONCE_NIVEAU_LABELS[niveau]}) pour ${premierMotAppuye(PHRASES.toutLeTerritoire)}, pendant ${dureeH} h ?` +
       (avecNotif
-        ? `\n\nUne notification partira aussi vers ${abonnes} téléphone${abonnes > 1 ? "s" : ""} abonné${abonnes > 1 ? "s" : ""}, partout en Calédonie.`
+        ? `\n\nUne notification partira aussi vers ${abonnes} téléphone${abonnes > 1 ? "s" : ""} abonné${abonnes > 1 ? "s" : ""}, partout ${PHRASES.enCourt}.`
         : "");
     if (!window.confirm(message)) return;
 
@@ -134,7 +135,7 @@ export function ModAnnoncesPanel({ code }: { code: string }) {
     <div className="mt-3 flex flex-col gap-3">
       {/* ---------------- Nouvelle annonce ---------------- */}
       <section className="mx-4 rounded-xl border border-line bg-panel px-3.5 py-3.5">
-        <h2 className="font-display font-semibold text-[14.5px]">Nouvelle annonce pour toute la Calédonie</h2>
+        <h2 className="font-display font-semibold text-[14.5px]">Nouvelle annonce pour {PHRASES.toutLeTerritoire}</h2>
         <p className="mt-1 text-[11.5px] text-mist-dim leading-relaxed">
           Elle s&apos;affiche en haut de la carte de <strong className="text-mist">tout le monde</strong>, quelle que
           soit sa zone, jusqu&apos;à l&apos;heure de fin. Seulement des faits vérifiés, jamais de nom de personne.
@@ -183,7 +184,7 @@ export function ModAnnoncesPanel({ code }: { code: string }) {
           value={source}
           onChange={(e) => setSource(e.target.value)}
           maxLength={ANNONCE_SOURCE_MAX}
-          placeholder="ex. Sécurité civile — vide = Vigie NC"
+          placeholder={`ex. Sécurité civile — vide = ${NOM_APPLI}`}
           className="mt-1.5 w-full rounded-xl border border-line bg-panel-2 px-3 py-2.5 text-[13.5px] focus:outline-none focus:border-lagoon"
         />
         <p className="mt-1 text-[11px] text-mist-dim">Écris une source seulement si l&apos;info vient vraiment d&apos;elle.</p>
@@ -226,7 +227,7 @@ export function ModAnnoncesPanel({ code }: { code: string }) {
                 ? "Pas pour une simple info : choisis Vigilance ou Urgence."
                 : notifRestantes === 0
                   ? "Déjà 3 notifications ces dernières 24 h : c'est le maximum."
-                  : `Partout en Calédonie, même loin. À garder pour les vraies urgences : encore ${notifRestantes} possible${notifRestantes > 1 ? "s" : ""} sur 24 h.`}
+                  : `${majuscule(`partout ${PHRASES.enCourt}`)}, même loin. À garder pour les vraies urgences : encore ${notifRestantes} possible${notifRestantes > 1 ? "s" : ""} sur 24 h.`}
             </span>
           </span>
         </label>
@@ -248,7 +249,7 @@ export function ModAnnoncesPanel({ code }: { code: string }) {
         )}
 
         <PrimaryButton className="mt-3" disabled={busy || !texteOk} onClick={publier}>
-          {busy ? "Publication…" : "Publier pour toute la Calédonie"}
+          {busy ? "Publication…" : `Publier pour ${PHRASES.toutLeTerritoire}`}
         </PrimaryButton>
       </section>
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { OuvrirDansNavigateur } from "./OuvrirDansNavigateur";
 import { AppliIntegree, appliIntegree } from "@/lib/navigateur-integre";
+import { NOM_APPLI } from "@/lib/territoire";
 
 // Événement propre à Chrome / Edge / Samsung Internet sur Android : il
 // permet d'ouvrir la fenêtre « Installer l'application » depuis un bouton.
@@ -61,12 +62,12 @@ export function InstallApp() {
   if (!platform) return null;
 
   if (installed) {
-    return <p className="text-[14px] text-ok">Vigie NC est installée sur ce téléphone.</p>;
+    return <p className="text-[14px] text-ok">{NOM_APPLI} est installée sur ce téléphone.</p>;
   }
 
   // Lien ouvert depuis Facebook, Messenger… : l'installation n'y marche pas.
   if (integree) {
-    return <OuvrirDansNavigateur appli={integree} pour="installer Vigie NC sur ton écran d'accueil" />;
+    return <OuvrirDansNavigateur appli={integree} pour={`installer ${NOM_APPLI} sur ton écran d'accueil`} />;
   }
 
   async function install() {
@@ -91,7 +92,7 @@ export function InstallApp() {
           <rect x="6.5" y="2.5" width="11" height="19" rx="2.5" />
           <path d="M12 7.5v7M9 11.5l3 3 3-3" />
         </svg>
-        {promptEvent ? "Installer Vigie NC" : "Ajouter à l'écran d'accueil"}
+        {promptEvent ? `Installer ${NOM_APPLI}` : "Ajouter à l'écran d'accueil"}
       </button>
 
       {showSteps && (
@@ -108,14 +109,14 @@ export function InstallApp() {
                 <strong className="text-mist">Ajouter</strong>.
               </li>
               <li>
-                Ouvre ensuite Vigie NC depuis sa nouvelle icône. Elle garde ses propres réglages : ajoute aussi
+                Ouvre ensuite {NOM_APPLI} depuis sa nouvelle icône. Elle garde ses propres réglages : ajoute aussi
                 tes contacts SOS dedans.
               </li>
             </>
           ) : (
             <>
               <li>
-                Ouvre Vigie NC dans <strong className="text-mist">Chrome</strong> et touche le menu{" "}
+                Ouvre {NOM_APPLI} dans <strong className="text-mist">Chrome</strong> et touche le menu{" "}
                 <strong className="text-mist">⋮</strong>.
               </li>
               <li>

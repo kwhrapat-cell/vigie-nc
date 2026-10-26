@@ -2,7 +2,7 @@
 -- Essais de schema.sql : identité anonyme, votes, SOS, photos, droits,
 -- type « feu », chiffres d'utilisation, annonces générales, chantiers,
 -- témoignages et résumé automatique (IA), point route (mode conduite),
--- erreurs des téléphones.
+-- erreurs des téléphones, territoire (fuseau et emprise).
 -- À lancer APRÈS schema.sql. Chaque essai qui échoue arrête tout avec un
 -- message « Ex échec : … ». Rien n'est envoyé : l'adresse d'envoi des
 -- alertes est retirée pendant l'essai.
@@ -771,6 +771,67 @@ begin
     raise exception 'E35 échec : erreurs gardées plus de 14 jours';
   end if;
 
-  raise notice 'ESSAIS OK (35)';
+  -- E36 territoire : sans réglage, la Calédonie à l'identique ; avec
+  -- vigie_regler_territoire, fuseau et emprise d'un autre territoire.
+  declare
+    v_fz_avant text := (select valeur from vigie_config where cle = 'fuseau');
+    v_em_avant text := (select valeur from vigie_config where cle = 'emprise');
+  begin
+    delete from vigie_config where cle in ('fuseau', 'emprise');
+    if vigie_fuseau() <> 'Pacific/Noumea' then
+      raise exception 'E36 échec : fuseau par défaut (%)', vigie_fuseau();
+    end if;
+    if vigie_jour_local('2026-10-24 13:30:00+00'::timestamptz) <> date '2026-10-25'
+       or vigie_jour_local('2026-10-24 12:30:00+00'::timestamptz) <> date '2026-10-24' then
+      raise exception 'E36 échec : jour de Nouméa';
+    end if;
+    if not vigie_dans_nc(-22.27, 166.45) or not vigie_dans_nc(-20.9, 167.25)
+       or vigie_dans_nc(48.85, 2.35) or vigie_dans_nc(-17.53, -149.57) or vigie_dans_nc(-23.3, 166.4) then
+      raise exception 'E36 échec : emprise de la Calédonie par défaut';
+    end if;
+    -- Réglage invalide : refusé, rien n'est enregistré
+    begin
+      perform vigie_regler_territoire('Pacifique/Nulle-Part', -28, -7.5, -155, -134);
+      raise exception 'E36 échec : fuseau invalide accepté';
+    exception when others then
+      if sqlerrm not like '%fuseau_invalide%' then raise exception 'E36 échec : %', sqlerrm; end if;
+    end;
+    begin
+      perform vigie_regler_territoire('Pacific/Tahiti', -7.5, -28, -155, -134);
+      raise exception 'E36 échec : emprise invalide acceptée';
+    exception when others then
+      if sqlerrm not like '%emprise_invalide%' then raise exception 'E36 échec : %', sqlerrm; end if;
+    end;
+    if exists (select 1 from vigie_config where cle in ('fuseau', 'emprise')) then
+      raise exception 'E36 échec : réglage invalide enregistré';
+    end if;
+    -- Autre territoire (exemple : Polynésie)
+    perform vigie_regler_territoire('Pacific/Tahiti', -28.0, -7.5, -155.0, -134.0);
+    if vigie_fuseau() <> 'Pacific/Tahiti'
+       or vigie_jour_local('2026-10-24 13:30:00+00'::timestamptz) <> date '2026-10-24'
+       or vigie_jour_local('2026-10-25 10:30:00+00'::timestamptz) <> date '2026-10-25' then
+      raise exception 'E36 échec : fuseau réglé (%)', vigie_fuseau();
+    end if;
+    if not vigie_dans_nc(-17.53, -149.57) or vigie_dans_nc(-22.27, 166.45) then
+      raise exception 'E36 échec : emprise réglée';
+    end if;
+    -- Valeur abîmée à la main : on retombe sur la Calédonie, sans planter
+    update vigie_config set valeur = 'n''importe quoi' where cle in ('fuseau', 'emprise');
+    if vigie_fuseau() <> 'Pacific/Noumea' or not vigie_dans_nc(-22.27, 166.45) then
+      raise exception 'E36 échec : valeur abîmée mal gérée';
+    end if;
+    if has_function_privilege('anon',
+         'vigie_regler_territoire(text, double precision, double precision, double precision, double precision)', 'execute')
+       or has_function_privilege('authenticated',
+         'vigie_regler_territoire(text, double precision, double precision, double precision, double precision)', 'execute') then
+      raise exception 'E36 échec : droits du réglage du territoire';
+    end if;
+    -- Remise en état
+    delete from vigie_config where cle in ('fuseau', 'emprise');
+    if v_fz_avant is not null then insert into vigie_config values ('fuseau', v_fz_avant); end if;
+    if v_em_avant is not null then insert into vigie_config values ('emprise', v_em_avant); end if;
+  end;
+
+  raise notice 'ESSAIS OK (36)';
 end
 $essais$;

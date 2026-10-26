@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ScreenHeader } from "@/components/ui";
 import { getEmergencyContacts } from "@/lib/emergency-contacts";
+import { NOM_APPLI, URGENCES } from "@/lib/territoire";
 import { useGeolocation } from "@/lib/useGeolocation";
 
 const HOLD_MS = 3000;
@@ -161,9 +162,9 @@ export default function SosPage() {
             <p className="mb-2">Appeler les secours</p>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { n: "15", l: "SAMU" },
-                { n: "17", l: "Police / gend." },
-                { n: "18", l: "Pompiers" },
+                { n: URGENCES.samu, l: "SAMU" },
+                { n: URGENCES.police, l: "Police / gend." },
+                { n: URGENCES.pompiers, l: "Pompiers" },
               ].map((s) => (
                 <a key={s.n} href={`tel:${s.n}`} className="min-h-[44px] rounded-lg bg-danger py-2 text-center text-white">
                   <span className="block font-display font-bold text-[18px] leading-tight">{s.n}</span>
@@ -205,7 +206,7 @@ export default function SosPage() {
         </ul>
 
         <p className="mt-5 text-center text-[13px] text-mist-dim leading-relaxed">
-          Vigie NC ne prévient pas les secours à ta place : appelle-les. Ta position n&apos;est jamais publiée sur la
+          {NOM_APPLI} ne prévient pas les secours à ta place : appelle-les. Ta position n&apos;est jamais publiée sur la
           carte : elle ne va qu&apos;aux personnes à qui tu envoies le message.
         </p>
       </section>

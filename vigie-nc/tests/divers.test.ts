@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { getReliability } from "../lib/reliability";
-import { ajouterJours, aujourdhuiNoumea, estChantier, libelleFinChantier } from "../lib/chantier";
+import { ajouterJours, aujourdhuiLocal, estChantier, libelleFinChantier } from "../lib/chantier";
 import { analyzeRelayText } from "../lib/relay-parser";
 
 const base = { confirmations: 0, infirmations: 0, officialSource: null, relaySource: null };
@@ -18,8 +18,8 @@ test("fiabilité : 4 niveaux", () => {
 
 test("chantiers : dates de Nouméa", () => {
   // 23 h 30 à Nouméa le 24 = 12 h 30 UTC le 24 ; 00 h 30 à Nouméa le 25 = 13 h 30 UTC le 24
-  assert.equal(aujourdhuiNoumea(new Date("2026-10-24T12:30:00Z")), "2026-10-24");
-  assert.equal(aujourdhuiNoumea(new Date("2026-10-24T13:30:00Z")), "2026-10-25");
+  assert.equal(aujourdhuiLocal(new Date("2026-10-24T12:30:00Z")), "2026-10-24");
+  assert.equal(aujourdhuiLocal(new Date("2026-10-24T13:30:00Z")), "2026-10-25");
   assert.equal(ajouterJours("2026-12-31", 1), "2027-01-01");
   assert.ok(estChantier({ type: "travaux", endDate: "2026-12-15" }));
   assert.ok(!estChantier({ type: "accident", endDate: "2026-12-15" }));

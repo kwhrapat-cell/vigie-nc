@@ -9,6 +9,7 @@ import { cagouSvg } from "./cagou";
 import { couleurSur } from "./contraste";
 import { formatAgeShort } from "./geo";
 import { estChantier, libelleFinChantier } from "./chantier";
+import { majuscule, NOM_APPLI, PHRASES, TERRITOIRE } from "./territoire";
 import {
   dessinerPointRoute,
   DonneesDessin,
@@ -65,21 +66,21 @@ export function communePrincipale(reports: Report[]): string | null {
 
 /** « Dumbéa et alentours · 5 km », « 5 km autour de moi », « Toute la Calédonie ». */
 export function zonePointRoute(reports: Report[], toutLeTerritoire: boolean, rayonKm: number): string {
-  if (toutLeTerritoire) return "Toute la Calédonie";
+  if (toutLeTerritoire) return majuscule(PHRASES.toutLeTerritoire);
   const c = communePrincipale(reports);
   return c ? `${c} et alentours · ${rayonKm} km` : `${rayonKm} km autour de moi`;
 }
 
-/** « samedi 24 octobre · 12 h 10 » (heure de Nouméa). */
+/** « samedi 24 octobre · 12 h 10 » (heure du territoire : Nouméa en Calédonie). */
 export function quandPointRoute(d = new Date()): string {
   const jour = d.toLocaleDateString("fr-FR", {
     weekday: "long",
     day: "numeric",
     month: "long",
-    timeZone: "Pacific/Noumea",
+    timeZone: TERRITOIRE.fuseau,
   });
   const heure = d
-    .toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Pacific/Noumea" })
+    .toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: TERRITOIRE.fuseau })
     .replace(":", " h ");
   return `${jour} · ${heure}`;
 }
@@ -92,7 +93,7 @@ function depuis(r: Report): string {
 /** Texte à partager avec l'image (ou seul, si le téléphone ne partage pas d'image). */
 export function textePartage(reports: Report[], zone: string): string {
   const liste = evenementsAPartager(reports);
-  const lignes = [`Point route Vigie NC · ${zone} · ${quandPointRoute()}`];
+  const lignes = [`Point route ${NOM_APPLI} · ${zone} · ${quandPointRoute()}`];
   if (liste.length === 0) {
     lignes.push("Rien de signalé pour l'instant. Bonne route !");
   } else {
@@ -163,6 +164,7 @@ export async function imagePointRoute(reports: Report[], zone: string): Promise<
     autres: Math.max(0, liste.length - montres.length),
     cagou,
     site: SITE_URL.replace(/^https?:\/\//, ""),
+    sigle: TERRITOIRE.sigle,
   };
 
   const canvas = document.createElement("canvas");

@@ -409,15 +409,88 @@ begin
 end;
 $$;
 
--- Emprise de la Nouvelle-Calédonie (Grande Terre, Belep, îles Loyauté,
--- île des Pins) — refuse les positions aberrantes ou envoyées par des robots.
-create or replace function vigie_dans_nc(p_lat double precision, p_lng double precision)
-returns boolean
+-- ---------------------------------------------------------------------
+-- Territoire servi par cette base (une base par territoire, comme le site :
+-- voir TERRITOIRES.md et vigie-nc/lib/territoire.ts). Deux réglages dans
+-- vigie_config ; SANS ces clés, c'est la Nouvelle-Calédonie, à l'identique :
+--   'fuseau'  : fuseau horaire IANA (défaut 'Pacific/Noumea')
+--   'emprise' : 'lat_min,lat_max,lng_min,lng_max' des positions acceptées
+--               (défaut '-23.2,-19.0,163.0,168.6')
+-- Pour les régler en une fois (valeurs vérifiées) :
+--   select vigie_regler_territoire('Pacific/Tahiti', -28.0, -7.5, -155.0, -134.0);
+-- ---------------------------------------------------------------------
+
+-- Fuseau horaire du territoire : jour local (chiffres, purges), fin des
+-- chantiers, mémoire du territoire.
+create or replace function vigie_fuseau()
+returns text
 language sql
-immutable
+stable
+security definer
 set search_path = public
 as $$
-  select p_lat between -23.2 and -19.0 and p_lng between 163.0 and 168.6;
+  select coalesce(
+    (select btrim(valeur) from vigie_config
+      where cle = 'fuseau' and btrim(valeur) ~ '^[A-Za-z_]+(/[A-Za-z0-9_+-]+)*$'),
+    'Pacific/Noumea');
+$$;
+
+-- Emprise du territoire — refuse les positions aberrantes ou envoyées par
+-- des robots. En Calédonie (sans clé 'emprise') : Grande Terre, Belep, îles
+-- Loyauté, île des Pins. Nom gardé d'origine (appelée par les RPC).
+create or replace function vigie_dans_nc(p_lat double precision, p_lng double precision)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_txt text;
+  v float8[];
+begin
+  select valeur into v_txt from vigie_config where cle = 'emprise';
+  if v_txt ~ '^\s*-?[0-9]+(\.[0-9]+)?\s*(,\s*-?[0-9]+(\.[0-9]+)?\s*){3}$' then
+    v := string_to_array(regexp_replace(v_txt, '\s', '', 'g'), ',')::float8[];
+    return p_lat between v[1] and v[2] and p_lng between v[3] and v[4];
+  end if;
+  return p_lat between -23.2 and -19.0 and p_lng between 163.0 and 168.6;
+end;
+$$;
+
+-- Réglage du territoire en une commande, dans l'éditeur SQL (jamais depuis
+-- l'appli) : vérifie le fuseau et l'emprise avant de les enregistrer.
+create or replace function vigie_regler_territoire(
+  p_fuseau text,
+  p_lat_min double precision,
+  p_lat_max double precision,
+  p_lng_min double precision,
+  p_lng_max double precision
+)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+begin
+  if p_fuseau is null or not exists (select 1 from pg_timezone_names where name = p_fuseau)
+     or p_fuseau !~ '^[A-Za-z_]+(/[A-Za-z0-9_+-]+)*$' then
+    raise exception 'fuseau_invalide';
+  end if;
+  if p_lat_min is null or p_lat_max is null or p_lng_min is null or p_lng_max is null
+     or p_lat_min >= p_lat_max or p_lng_min >= p_lng_max
+     or p_lat_min < -90 or p_lat_max > 90 or p_lng_min < -180 or p_lng_max > 180 then
+    raise exception 'emprise_invalide';
+  end if;
+  insert into vigie_config (cle, valeur) values ('fuseau', p_fuseau)
+  on conflict (cle) do update set valeur = excluded.valeur;
+  insert into vigie_config (cle, valeur)
+  values ('emprise', concat_ws(',', p_lat_min, p_lat_max, p_lng_min, p_lng_max))
+  on conflict (cle) do update set valeur = excluded.valeur;
+  return jsonb_build_object('fuseau', vigie_fuseau(),
+                            'emprise', (select valeur from vigie_config where cle = 'emprise'));
+end;
 $$;
 
 -- ---------------------------------------------------------------------
@@ -961,7 +1034,7 @@ $$;
 
 -- ---------------------------------------------------------------------
 -- RPC : mémoire du territoire — statistiques des 12 derniers mois autour
--- d'une position (ou sur toute la Calédonie si la position est nulle).
+-- d'une position (ou sur tout le territoire si la position est nulle).
 -- Les SOS sont exclus : ce sont des urgences de personnes, pas des
 -- informations sur le territoire.
 --   select statistiques_zone(-22.27, 166.45, 5000);
@@ -983,13 +1056,14 @@ as $$
                   else st_setsrid(st_makepoint(p_lng, p_lat), 4326)::geography end as pt
     ),
     debut as (
-      select (date_trunc('month', timezone('Pacific/Noumea', now())) - interval '11 months') as mois
+      select f.tz, (date_trunc('month', timezone(f.tz, now())) - interval '11 months') as mois
+      from (select vigie_fuseau() as tz) f
     ),
     zone as (
-      select r.*, timezone('Pacific/Noumea', r.created_at) as local_at
+      select r.*, timezone(d.tz, r.created_at) as local_at
       from reports r, centre c, debut d
       where r.type::text <> 'sos'
-        and timezone('Pacific/Noumea', r.created_at) >= d.mois
+        and timezone(d.tz, r.created_at) >= d.mois
         and (
           c.pt is null
           or st_dwithin(r.geom, c.pt, least(greatest(coalesce(p_rayon_m, 5000), 500), 20000))
@@ -1537,8 +1611,8 @@ begin
   update reports
   set source_officielle = v_source,
       fin_annoncee = p_fin,
-      -- minuit à la fin du jour annoncé, heure de Nouméa
-      expires_at = (p_fin + 1)::timestamp at time zone 'Pacific/Noumea',
+      -- minuit à la fin du jour annoncé, heure du territoire (Nouméa)
+      expires_at = (p_fin + 1)::timestamp at time zone vigie_fuseau(),
       resolved_at = null
   where id = p_report_id;
 
@@ -2106,14 +2180,14 @@ create table if not exists vigie_stats_jour (
   max_simultanes int not null default 0
 );
 
--- Jour calendaire à Nouméa
+-- Jour calendaire dans le territoire (à Nouméa en Calédonie)
 create or replace function vigie_jour_local(p_t timestamptz default now())
 returns date
 language sql
 stable
 set search_path = public
 as $$
-  select (timezone('Pacific/Noumea', p_t))::date;
+  select (timezone(vigie_fuseau(), p_t))::date;
 $$;
 
 -- RPC : « ce téléphone utilise l'appli ». Session anonyme obligatoire ;
@@ -3400,6 +3474,8 @@ revoke execute on function vigie_emettre_signal() from public, anon, authenticat
 revoke execute on function vigie_emettre_signal_annonce() from public, anon, authenticated;
 revoke execute on function vigie_texte_annonce(text) from public, anon, authenticated;
 revoke execute on function vigie_photos_jours() from public, anon, authenticated;
+-- Réglage du territoire : éditeur SQL seulement, jamais depuis l'appli.
+revoke execute on function vigie_regler_territoire(text, double precision, double precision, double precision, double precision) from public, anon, authenticated;
 revoke execute on function photos_a_supprimer(int) from public, anon, authenticated;
 revoke execute on function photos_supprimees(text[]) from public, anon, authenticated;
 grant execute on function photos_a_supprimer(int) to service_role;

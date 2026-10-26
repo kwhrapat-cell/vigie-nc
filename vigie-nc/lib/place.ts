@@ -5,6 +5,8 @@
 // l'étape « Localisation » : usage modéré, conforme aux règles du service.
 // En cas d'échec, l'appli affiche simplement les coordonnées.
 
+import { cadreRecherche, TERRITOIRE } from "./territoire";
+
 interface NominatimResult {
   name?: string;
   namedetails?: Record<string, string>;
@@ -57,15 +59,15 @@ export async function reversePlace(lat: number, lng: number): Promise<string | n
 }
 
 /**
- * Cherche un lieu en Nouvelle-Calédonie à partir de son nom (« Radier de la
+ * Cherche un lieu dans le territoire (lib/territoire.ts) à partir de son nom (« Radier de la
  * Coulée, Mont-Dore »). Essaie les recherches dans l'ordre et renvoie la
  * première trouvée. Seul le nom du lieu est envoyé, jamais un texte copié.
  */
 export async function searchPlace(queries: string[]): Promise<{ lat: number; lng: number; query: string } | null> {
   for (const q of queries.slice(0, 4)) {
     const url =
-      "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=nc&accept-language=fr" +
-      `&viewbox=163.5,-19.5,168.2,-22.8&bounded=1&q=${encodeURIComponent(q)}`;
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=${TERRITOIRE.codePays}&accept-language=fr` +
+      `&viewbox=${cadreRecherche()}&bounded=1&q=${encodeURIComponent(q)}`;
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 6000);

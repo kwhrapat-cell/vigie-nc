@@ -5,7 +5,7 @@ import { TypeTile } from "@/components/ui";
 import {
   fetchPublicReport,
   isReportId,
-  quandNoumea,
+  quandLocal,
   shareDescription,
   shareReliability,
   shareTitle,
@@ -56,7 +56,7 @@ export default async function SharedReportPage({ params }: Props) {
           <TypeTile type={r.type} size={56} />
           <h1 className="mt-3 font-display font-semibold text-[20px] leading-tight">{shareTitle(r)}</h1>
           <p className="mt-1 text-[14.5px] text-mist-dim">
-            {r.actif ? shareReliability(r) : "Terminé"} · signalé {quandNoumea(r.createdAt)}
+            {r.actif ? shareReliability(r) : "Terminé"} · signalé {quandLocal(r.createdAt)}
           </p>
         </>
       ) : (

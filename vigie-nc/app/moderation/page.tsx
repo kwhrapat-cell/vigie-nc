@@ -7,7 +7,7 @@ import { ModIaPanel } from "@/components/ModIaPanel";
 import { ModStatsPanel } from "@/components/ModStatsPanel";
 import { SecurityAlarm } from "@/components/SecurityAlarm";
 import { PrimaryButton, ScreenHeader, TypeTile } from "@/components/ui";
-import { ajouterJours, aujourdhuiNoumea, CHANTIER_JOURS_MAX, libelleFinChantier } from "@/lib/chantier";
+import { ajouterJours, aujourdhuiLocal, CHANTIER_JOURS_MAX, libelleFinChantier } from "@/lib/chantier";
 import { formatAge } from "@/lib/geo";
 import {
   errorMessage,
@@ -298,7 +298,7 @@ function ModCard({ item, code, onDone }: { item: ModItem; code: string; onDone: 
   }
 
   function ouvrirChantier() {
-    const aujourdhui = aujourdhuiNoumea();
+    const aujourdhui = aujourdhuiLocal();
     setChantierSource(item.sourceOfficielle ?? "");
     setChantierFin(item.finAnnoncee && item.finAnnoncee >= aujourdhui ? item.finAnnoncee : ajouterJours(aujourdhui, 30));
     setChantierOpen(true);
@@ -319,7 +319,7 @@ function ModCard({ item, code, onDone }: { item: ModItem; code: string; onDone: 
   }
 
   const motifs = Object.entries(item.motifs) as [FlagReason, number][];
-  const aujourdhui = aujourdhuiNoumea();
+  const aujourdhui = aujourdhuiLocal();
 
   return (
     <article className="mx-4 rounded-xl border border-line bg-panel px-3.5 py-3">

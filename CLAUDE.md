@@ -148,6 +148,11 @@ vigie-nc/
                   le mode conduite (recherche d'au moins 13 km, rayonRechercheSite).
                   Pas encore dans l'appli Android)
   lib/
+    territoire.ts    fiche du territoire (NEXT_PUBLIC_TERRITOIRE, « nc » par défaut) :
+                     nom de l'appli, sigle, phrases (« toute la Calédonie »…), fuseau,
+                     centre et emprise de la carte, recherche des lieux, météo
+                     officielle, numéros d'urgence. Jamais de valeur propre à la NC
+                     en dur ailleurs : passer par cette fiche (voir TERRITOIRES.md)
     types.ts         types de signalement, couleurs, icônes, durées, rayons
     reports-api.ts   SEUL point d'accès aux données depuis le navigateur (RPC
                      Supabase ou démo)
@@ -244,7 +249,7 @@ vigie-nc/
   supabase/schema.sql  schéma complet, ré-exécutable
   supabase/functions/purge-photos  fonction Supabase (Deno) : photos > 7 jours
   supabase/tests/  shim-supabase.sql (faux Supabase pour Postgres + PostGIS)
-                   et essais.sql (35 essais : identité, votes, SOS, photos, droits,
+                   et essais.sql (36 essais : identité, votes, SOS, photos, droits,
                    type « feu », chiffres d'utilisation, annonces générales, chantiers,
                    témoignages et résumé IA, point route, erreurs des téléphones)
 .github/workflows/verification.yml  à chaque PR : tests de la logique (Node 22),
@@ -298,6 +303,10 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   SQL.
 
 ## Base de données
+
+- Territoire : `vigie_fuseau()` et `vigie_dans_nc()` lisent les clés
+  `fuseau` et `emprise` de `vigie_config` (sans clé = Calédonie) ; réglage
+  par `vigie_regler_territoire(...)` dans l'éditeur SQL (voir TERRITOIRES.md).
 
 - Écritures **uniquement via les RPC** `security definer` ; les tables
   `report_authors` et `report_votes` ne sont jamais lisibles depuis l'appli.

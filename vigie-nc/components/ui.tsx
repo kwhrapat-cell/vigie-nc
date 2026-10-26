@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { getReliability, RELIABILITY_HEX } from "@/lib/reliability";
 import { couleurSur } from "@/lib/contraste";
+import { TERRITOIRE } from "@/lib/territoire";
 import { Report, ReportType, REPORT_TYPE_HEX, REPORT_TYPE_ICON } from "@/lib/types";
 
 /** Icône d'un type de signalement (traits, couleur = currentColor). */
@@ -59,7 +60,7 @@ export function ReliabilityBadge({
   );
 }
 
-/** Logo « Signal » : repère + ondes (en direct, on veille), « VIGIE NC ». */
+/** Logo « Signal » : repère + ondes (en direct, on veille), « VIGIE NC » (sigle du territoire). */
 export function Logo({ withTagline = false }: { withTagline?: boolean }) {
   return (
     <span className="flex items-center gap-2">
@@ -78,7 +79,7 @@ export function Logo({ withTagline = false }: { withTagline?: boolean }) {
       </svg>
       <span className="leading-none">
         <span className="font-display font-bold text-[17px] tracking-tight">
-          VIGIE <span className="text-lagoon">NC</span>
+          VIGIE <span className="text-lagoon">{TERRITOIRE.sigle}</span>
         </span>
         {withTagline && (
           <span className="block font-display text-[12px] tracking-[0.08em] text-mist-dim mt-0.5">

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { PrimaryButton, SecondaryButton } from "./ui";
 import { imagePointRoute, textePartage, zonePointRoute } from "@/lib/point-route-partage";
+import { NOM_APPLI } from "@/lib/territoire";
 import { Report } from "@/lib/types";
 
 // Bouton « Partager » de l'accueil : fabrique sur le téléphone une image
@@ -117,7 +118,7 @@ export function PartagePointRoute({
             </h2>
             <p className="mt-0.5 text-[14px] text-mist-dim">
               Pour ta famille, ton quartier, ton groupe Facebook : une image avec ce qui est signalé autour de toi
-              et le lien de Vigie NC.
+              et le lien de {NOM_APPLI}.
             </p>
 
             <div className="mt-3 flex justify-center rounded-xl border border-line bg-void/50 p-2 min-h-[200px] items-center">

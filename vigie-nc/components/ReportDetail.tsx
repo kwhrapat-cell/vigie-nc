@@ -7,6 +7,7 @@ import { idsBadges, nouveauxBadges, texteNouveauxBadges } from "@/lib/impact";
 import { libelleFinChantier } from "@/lib/chantier";
 import { distanceM, formatAge, formatDistance, formatDuration, LatLng } from "@/lib/geo";
 import { getReliability, RELIABILITY_HEX } from "@/lib/reliability";
+import { NOM_APPLI, URGENCES } from "@/lib/territoire";
 import {
   FlagReason,
   FLAG_REASON_LABELS,
@@ -174,10 +175,10 @@ export function ReportDetail({
   // qui, les nouveaux visiteurs arrivés par un partage.
   async function share() {
     const url = `${window.location.origin}/s/${report.id}?src=partage`;
-    const text = `${report.label}${report.place ? ` — ${report.place}` : ""} (signalé sur Vigie NC)`;
+    const text = `${report.label}${report.place ? ` — ${report.place}` : ""} (signalé sur ${NOM_APPLI})`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: "Vigie NC", text, url });
+        await navigator.share({ title: NOM_APPLI, text, url });
       } else {
         await navigator.clipboard.writeText(`${text} ${url}`);
         setMessage("Lien copié : tu peux le coller dans un message.");
@@ -282,16 +283,16 @@ export function ReportDetail({
         {report.type === "feu" && active && (
           <p className="mt-3 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-[14px] leading-relaxed">
             Feu : ne t&apos;approche pas. Si les pompiers ne sont pas encore prévenus, appelle le{" "}
-            <a href="tel:18" className="underline font-semibold">18</a>.
+            <a href={`tel:${URGENCES.pompiers}`} className="underline font-semibold">{URGENCES.pompiers}</a>.
           </p>
         )}
 
         {isSos ? (
           <div className="mt-3 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-[14px] leading-relaxed">
             Quelqu&apos;un a demandé de l&apos;aide ici. Si tu es à proximité et en sécurité, préviens les secours :{" "}
-            <a href="tel:15" className="underline font-medium">15</a> SAMU ·{" "}
-            <a href="tel:17" className="underline font-medium">17</a> gendarmerie / police ·{" "}
-            <a href="tel:18" className="underline font-medium">18</a> pompiers
+            <a href={`tel:${URGENCES.samu}`} className="underline font-medium">{URGENCES.samu}</a> SAMU ·{" "}
+            <a href={`tel:${URGENCES.police}`} className="underline font-medium">{URGENCES.police}</a> gendarmerie / police ·{" "}
+            <a href={`tel:${URGENCES.pompiers}`} className="underline font-medium">{URGENCES.pompiers}</a> pompiers
           </div>
         ) : (
           <div className="mt-2 divide-y divide-line border-y border-line">

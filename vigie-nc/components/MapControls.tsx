@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { MAP_STYLES } from "@/lib/map-styles";
 import { MapStyle, RADIUS_OPTIONS_KM, type ZoneChoice } from "@/lib/preferences";
+import { majuscule, PHRASES, TERRITOIRE } from "@/lib/territoire";
 
 const ZONE_OPTIONS: { value: ZoneChoice; label: string; title: string }[] = [
-  { value: "nc", label: "NC", title: "Toute la Nouvelle-Calédonie" },
+  { value: "nc", label: TERRITOIRE.sigle, title: majuscule(PHRASES.toutLeNom) },
   ...RADIUS_OPTIONS_KM.map((km) => ({ value: km as ZoneChoice, label: `${km} km`, title: `${km} km autour de moi` })),
 ];
 

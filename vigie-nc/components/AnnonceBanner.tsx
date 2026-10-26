@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatAge } from "@/lib/geo";
 import { useAnnonces } from "@/lib/useAnnonces";
+import { majuscule, NOM_APPLI, PHRASES, TERRITOIRE } from "@/lib/territoire";
 import { Annonce, ANNONCE_NIVEAU_LABELS, AnnonceNiveau } from "@/lib/types";
 
 // Bandeau des annonces générales, en haut de la carte : vu par tout le
@@ -21,12 +22,12 @@ const STYLES: Record<AnnonceNiveau, { box: string; accent: string; icon: string 
   info: { box: "border-lagoon/35 bg-lagoon/10", accent: "text-lagoon", icon: "bg-lagoon/20 text-lagoon" },
 };
 
-const TZ = "Pacific/Noumea";
+const TZ = TERRITOIRE.fuseau;
 const heure = new Intl.DateTimeFormat("fr-FR", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
 const jour = new Intl.DateTimeFormat("fr-FR", { timeZone: TZ, weekday: "short", day: "numeric" });
 const jourCle = new Intl.DateTimeFormat("fr-FR", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" });
 
-/** « jusqu'à 18:30 » ou « jusqu'au mer. 21, 08:00 » (heure de Nouméa) */
+/** « jusqu'à 18:30 » ou « jusqu'au mer. 21, 08:00 » (heure du territoire : Nouméa en Calédonie) */
 export function finAnnonce(iso: string, now = Date.now()): string {
   const d = new Date(iso);
   if (jourCle.format(d) === jourCle.format(new Date(now))) return `jusqu'à ${heure.format(d)}`;
@@ -80,7 +81,7 @@ export function AnnonceCard({
 
   return (
     <section
-      aria-label={`Annonce pour toute la Calédonie : ${ANNONCE_NIVEAU_LABELS[annonce.niveau]}`}
+      aria-label={`Annonce pour ${PHRASES.toutLeTerritoire} : ${ANNONCE_NIVEAU_LABELS[annonce.niveau]}`}
       className={`rounded-xl border px-3 pt-2.5 pb-1.5 ${s.box}`}
     >
       <div className="flex items-start gap-2.5">
@@ -89,7 +90,7 @@ export function AnnonceCard({
         </span>
         <div className="flex-1 min-w-0">
           <p className={`font-mono text-[12px] tracking-wider uppercase truncate ${s.accent}`}>
-            {ANNONCE_NIVEAU_LABELS[annonce.niveau]} · {annonce.source ?? "Vigie NC"}
+            {ANNONCE_NIVEAU_LABELS[annonce.niveau]} · {annonce.source ?? NOM_APPLI}
           </p>
           <p
             className={`mt-0.5 text-[15px] leading-snug text-mist whitespace-pre-line break-words ${
@@ -115,7 +116,7 @@ export function AnnonceCard({
 
       <div className="mt-0.5 flex items-center gap-2 pl-[38px] text-[12.5px] text-mist-dim">
         <span className="flex-1 min-w-0 truncate">
-          Toute la NC · {formatAge(annonce.createdAt)} · {finAnnonce(annonce.expiresAt)}
+          {majuscule(PHRASES.toutLeSigle)} · {formatAge(annonce.createdAt)} · {finAnnonce(annonce.expiresAt)}
         </span>
         {long && (
           <button type="button" onClick={() => setOpen((o) => !o)} className={`py-2 font-medium ${s.accent}`}>

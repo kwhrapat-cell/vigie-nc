@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type TouchEvent } from "react";
 import { couleurSur } from "@/lib/contraste";
 import { RELIABILITY_HEX } from "@/lib/reliability";
+import { NOM_APPLI, PHRASES, URGENCES } from "@/lib/territoire";
 import {
   cartePrecedente,
   carteSuivante,
@@ -43,7 +44,10 @@ function markSeen(): void {
 const REGLES = [
   { texte: "Info des usagers : elle peut se tromper, vérifie sur place.", urgent: false },
   { texte: "Au volant, pas de téléphone en main : le mode conduite parle pour toi.", urgent: false },
-  { texte: "Urgence : Vigie NC ne prévient pas les secours, appelle le 15, le 17 ou le 18.", urgent: true },
+  {
+    texte: `Urgence : ${NOM_APPLI} ne prévient pas les secours, appelle le ${URGENCES.samu}, le ${URGENCES.police} ou le ${URGENCES.pompiers}.`,
+    urgent: true,
+  },
 ];
 
 /**
@@ -131,7 +135,7 @@ export function Tutoriel({ mode, onFermer }: { mode: "accueil" | "revoir"; onFer
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label={mode === "accueil" ? "Bienvenue sur Vigie NC" : "Les gestes de base"}
+        aria-label={mode === "accueil" ? `Bienvenue sur ${NOM_APPLI}` : "Les gestes de base"}
         tabIndex={-1}
         onKeyDown={onKeyDown}
         className="w-full max-w-md rounded-t-[22px] bg-panel border-t border-line px-5 pt-3 max-h-[92dvh] overflow-y-auto overflow-x-hidden outline-none"
@@ -162,7 +166,7 @@ export function Tutoriel({ mode, onFermer }: { mode: "accueil" | "revoir"; onFer
               <CarteDemo
                 scene={<SceneVoir />}
                 titre="Sache ce qui t'attend sur la route"
-                texte={"Accidents, inondations, routes coupées, travaux\u00a0: signalés en direct par les Calédoniens, autour de toi (1, 3 ou 5\u00a0km). Gratuit et sans compte."}
+                texte={`Accidents, inondations, routes coupées, travaux\u00a0: signalés en direct par les ${PHRASES.habitants}, autour de toi (1, 3 ou 5\u00a0km). Gratuit et sans compte.`}
               />
             )}
             {carte === "signaler" && (
@@ -235,7 +239,7 @@ function CarteRegles({ mode }: { mode: "accueil" | "revoir" }) {
     <>
       <div className="flex items-center gap-3">
         <h2 className="flex-1 font-display font-bold text-[22px] leading-tight">Avant de prendre la route</h2>
-        <Cagou size={72} titre="Le cagou de Vigie NC" />
+        <Cagou size={72} titre={`Le cagou de ${NOM_APPLI}`} />
       </div>
       <ul className="mt-3 flex flex-col gap-2.5" aria-label="Les règles">
         {REGLES.map((r) => (

@@ -1,10 +1,13 @@
+import { TERRITOIRE } from "./territoire";
+
 export interface LatLng {
   lat: number;
   lng: number;
 }
 
-// Centre du Grand Nouméa — vue par défaut quand la position est inconnue.
-export const GRAND_NOUMEA: LatLng = { lat: -22.24, lng: 166.47 };
+// Vue par défaut quand la position est inconnue (Grand Nouméa en
+// Calédonie) : centre du territoire, lib/territoire.ts.
+export const CENTRE_PAR_DEFAUT: LatLng = TERRITOIRE.centre;
 
 const EARTH_RADIUS_M = 6_371_008.8;
 

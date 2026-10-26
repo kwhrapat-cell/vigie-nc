@@ -6,6 +6,7 @@
 // garder les deux alignées.
 
 import { distanceM, type LatLng } from "./geo";
+import { NOM_APPLI } from "./territoire";
 import { ALERT_TYPES, type Report, type ReportType } from "./types";
 
 // Portée de la voix, au choix : jusqu'où devant on annonce les dangers.
@@ -271,7 +272,7 @@ export function citesPointRoute(liste: DangerDevant[]): DangerDevant[] {
 export function textePointRoute(liste: DangerDevant[], avecCap: boolean): string {
   const debut = avecCap ? "Sur les 10 prochains kilomètres" : "À moins de 10 kilomètres";
   if (liste.length === 0) {
-    return `Rien de signalé sur Vigie NC ${
+    return `Rien de signalé sur ${NOM_APPLI} ${
       avecCap ? "sur les 10 prochains kilomètres" : "à moins de 10 kilomètres"
     }. Reste prudent : tout n'est pas forcément signalé.`;
   }

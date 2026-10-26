@@ -7,6 +7,7 @@ import {
   addEmergencyContact,
   removeEmergencyContact,
 } from "@/lib/emergency-contacts";
+import { TERRITOIRE } from "@/lib/territoire";
 import { EmergencyContact } from "@/lib/types";
 
 export default function ContactsPage() {
@@ -79,7 +80,7 @@ export default function ContactsPage() {
         <input
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          placeholder="Téléphone (ex: +687 XX.XX.XX)"
+          placeholder={`Téléphone (ex: ${TERRITOIRE.exempleTelephone})`}
           inputMode="tel"
           className="rounded-xl bg-panel border border-line px-3 py-3 text-[15px] placeholder:text-mist-dim/60 focus:outline-none focus:border-lagoon"
         />

@@ -17,6 +17,7 @@ import type { WatchStatus } from "@/lib/useWatchPosition";
 import { ReliabilityBadge, TypeTile } from "./ui";
 import { Cagou } from "./Cagou";
 import { PartagePointRoute } from "./PartagePointRoute";
+import { majuscule, PHRASES } from "@/lib/territoire";
 
 const CATEGORIES: Category[] = ["danger", "perturbation", "meteo"];
 
@@ -133,7 +134,7 @@ export function HomeSheet({
 
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="font-display font-semibold text-[16px]">
-          {scope === "nc" ? "Toute la Calédonie" : hasCenter ? "Autour de moi" : "En Calédonie"}
+          {scope === "nc" ? majuscule(PHRASES.toutLeTerritoire) : hasCenter ? "Autour de moi" : majuscule(PHRASES.enCourt)}
           {hasCenter && <span className="text-mist-dim font-normal text-[14px]"> · {radiusKm} km</span>}
         </h2>
         <span className="font-mono text-[12px] text-mist-dim">
@@ -173,10 +174,10 @@ export function HomeSheet({
         <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-warn/30 bg-warn/10 px-3 py-2 text-[13.5px] text-mist">
           <span className="flex-1">
             {geoStatus === "denied"
-              ? "Position refusée : tu vois toute la Calédonie. Autorise la localisation pour ne voir que ta zone."
+              ? `Position refusée : tu vois ${PHRASES.toutLeTerritoire}. Autorise la localisation pour ne voir que ta zone.`
               : geoStatus === "unsupported"
-                ? "Ce téléphone ne donne pas sa position : tu vois toute la Calédonie."
-                : "Position introuvable pour l'instant : tu vois toute la Calédonie."}
+                ? `Ce téléphone ne donne pas sa position : tu vois ${PHRASES.toutLeTerritoire}.`
+                : `Position introuvable pour l'instant : tu vois ${PHRASES.toutLeTerritoire}.`}
           </span>
           {geoStatus !== "unsupported" && (
             <button

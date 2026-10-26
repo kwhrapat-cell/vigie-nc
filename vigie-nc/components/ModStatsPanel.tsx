@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ErreurTelephone, errorMessage, modErreurs, ModStats, modStats } from "@/lib/reports-api";
+import { NOM_APPLI, TERRITOIRE } from "@/lib/territoire";
 
 // Onglet « Chiffres » de /moderation : les totaux à montrer aux
 // investisseurs, financeurs et mairies. Comptage anonyme (un appareil =
@@ -59,7 +60,7 @@ function delaiTexte(min: number | null): string {
 function resume(s: ModStats): string {
   const pct = s.signalements.mois > 0 ? Math.round((100 * s.signalements.confirmesMois) / s.signalements.mois) : null;
   const lignes = [
-    `Vigie NC — chiffres au ${new Date().toLocaleDateString("fr-FR", { timeZone: "Pacific/Noumea" })}`,
+    `${NOM_APPLI} — chiffres au ${new Date().toLocaleDateString("fr-FR", { timeZone: TERRITOIRE.fuseau })}`,
     `• ${n(s.mois)} utilisateurs actifs sur 30 jours (${n(s.semaine)} sur 7 jours, ${n(s.aujourdhui)} aujourd'hui)`,
     s.record ? `• Record : ${n(s.record.nombre)} personnes connectées en même temps (${jourLong(s.record.jour)})` : null,
     `• ${n(s.signalements.mois)} signalements en 30 jours${pct != null ? `, dont ${pct} % confirmés` : ""}`,
@@ -438,7 +439,7 @@ function ErreursTelephones({ code }: { code: string }) {
                     <span className="mt-1 block text-[11px] text-mist-dim">
                       {e.ecran ?? "écran inconnu"} · {e.navigateur ?? "navigateur inconnu"} · {e.jours} jour
                       {e.jours > 1 ? "s" : ""} · dernière le{" "}
-                      {new Date(e.derniere).toLocaleString("fr-FR", { timeZone: "Pacific/Noumea" })}
+                      {new Date(e.derniere).toLocaleString("fr-FR", { timeZone: TERRITOIRE.fuseau })}
                     </span>
                   )}
                 </button>

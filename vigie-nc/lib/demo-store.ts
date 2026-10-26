@@ -6,8 +6,8 @@
 // l'appli sur un téléphone sans base de données. Tout est perdu au
 // rechargement de la page.
 
-import { ajouterJours, aujourdhuiNoumea } from "./chantier";
-import { distanceM, GRAND_NOUMEA, LatLng, offsetKm } from "./geo";
+import { ajouterJours, aujourdhuiLocal } from "./chantier";
+import { distanceM, CENTRE_PAR_DEFAUT, LatLng, offsetKm } from "./geo";
 import type { ReportRow } from "./reports-api";
 import {
   ALERT_TYPES,
@@ -52,7 +52,7 @@ let seeded = false;
 // Les signalements de démo sont d'abord posés autour de Nouméa, puis
 // déplacés autour de l'utilisateur dès que sa position est connue.
 let anchoredOnUser = false;
-let seedCenter: LatLng = GRAND_NOUMEA;
+let seedCenter: LatLng = CENTRE_PAR_DEFAUT;
 
 export class DemoError extends Error {
   constructor(public code: string) {
@@ -94,7 +94,7 @@ function seed(center: LatLng | null) {
   }
   seeded = true;
   if (center) anchoredOnUser = true;
-  seedCenter = center ?? GRAND_NOUMEA;
+  seedCenter = center ?? CENTRE_PAR_DEFAUT;
   const origin = seedCenter;
   const now = Date.now();
   const add = (
@@ -140,7 +140,7 @@ function seed(center: LatLng | null) {
   });
   add("travaux", -3.9, 0.6, 60, 0, { riskLevel: "faible" });
   // Chantier de longue durée : vérifié, avec une date de fin annoncée
-  const finChantier = ajouterJours(aujourdhuiNoumea(), 45);
+  const finChantier = ajouterJours(aujourdhuiLocal(), 45);
   add("travaux", 2.6, -1.4, 9 * 24 * 60, 2, {
     description: "Réfection de la chaussée, circulation alternée.",
     place: "Chantier (démo)",

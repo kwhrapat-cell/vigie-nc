@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { AppliIntegree } from "@/lib/navigateur-integre";
+import { NOM_APPLI } from "@/lib/territoire";
 
 /**
  * Explique comment sortir du navigateur intégré (Facebook, Messenger…)
@@ -26,7 +27,7 @@ export function OuvrirDansNavigateur({ appli, pour }: { appli: AppliIntegree; po
     <div className="rounded-lg border border-warn/40 bg-warn/10 px-3 py-2.5">
       <p className="text-[14.5px] font-semibold text-mist">Tu es dans {appli}</p>
       <p className="mt-1 text-[14px] leading-relaxed text-mist-dim">
-        Pour {pour}, ouvre Vigie NC dans <strong className="text-mist">{navigateur}</strong> : touche les trois points{" "}
+        Pour {pour}, ouvre {NOM_APPLI} dans <strong className="text-mist">{navigateur}</strong> : touche les trois points{" "}
         <strong className="text-mist">{iphone ? "•••" : "⋮"}</strong> en haut, puis{" "}
         <strong className="text-mist">« Ouvrir dans le navigateur »</strong>{" "}(ou « Ouvrir dans {navigateur} »).
       </p>

@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
+import { PHRASES } from "@/lib/territoire";
 
 const LINK = `${SITE_URL}/affiche`;
-const TEXT = "Découvre Vigie NC : l'état des routes en Nouvelle-Calédonie, en direct. Gratuit et sans compte.";
+const TEXT = `Découvre ${SITE_NAME} : l'état des routes ${PHRASES.enNom}, en direct. Gratuit et sans compte.`;
 
 /** Partager le lien de l'affiche (menu du téléphone, sinon WhatsApp). */
 export function ShareAffiche() {

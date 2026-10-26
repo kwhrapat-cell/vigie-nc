@@ -7,14 +7,14 @@ import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { SessionInit } from "@/components/SessionInit";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 import { demoBlocked } from "@/lib/supabase";
+import { PHRASES } from "@/lib/territoire";
 
 // L'image d'aperçu (app/opengraph-image.png) et les icônes (app/icon.png,
 // app/apple-icon.png) sont ajoutées automatiquement par Next.js.
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: SITE_NAME,
-  description:
-    "Voir, signaler, agir ensemble : l'état des routes en Nouvelle-Calédonie, en direct et anonyme.",
+  description: `Voir, signaler, agir ensemble : l'état des routes ${PHRASES.enNom}, en direct et anonyme.`,
   openGraph: {
     type: "website",
     locale: "fr_FR",

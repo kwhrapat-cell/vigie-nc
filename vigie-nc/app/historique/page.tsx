@@ -9,6 +9,7 @@ import { readRadiusKm } from "@/lib/preferences";
 import { errorMessage, fetchZoneStats, ZoneStats } from "@/lib/reports-api";
 import { REPORT_TYPE_LABELS, ReportType } from "@/lib/types";
 import { useGeolocation } from "@/lib/useGeolocation";
+import { majuscule, PHRASES } from "@/lib/territoire";
 
 type Tab = "resume" | "evenements";
 type Scope = "zone" | "tout";
@@ -104,7 +105,7 @@ export default function HistoriquePage() {
         {(
           [
             ["zone", `Autour de moi (${radiusKm} km)`],
-            ["tout", "Toute la Calédonie"],
+            ["tout", majuscule(PHRASES.toutLeTerritoire)],
           ] as [Scope, string][]
         ).map(([v, label]) => (
           <button
@@ -190,7 +191,7 @@ export default function HistoriquePage() {
 
           {topType && topType[1] > 0 && (
             <p className="mt-3 text-[14px] text-mist-dim">
-              Le plus fréquent {effectiveScope === "zone" ? "ici" : "en Calédonie"} :{" "}
+              Le plus fréquent {effectiveScope === "zone" ? "ici" : PHRASES.enCourt} :{" "}
               <span className="text-mist font-medium">{REPORT_TYPE_LABELS[topType[0]]}</span> ({topType[1]}).
               {peakIndexes.size > 0 && " Les mois en rouge sont les plus chargés."}
             </p>

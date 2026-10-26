@@ -10,6 +10,7 @@ import { formatAge, formatDistance, LatLng } from "@/lib/geo";
 import { readRadiusKm } from "@/lib/preferences";
 import { useLiveReports } from "@/lib/useLiveReports";
 import { useWatchPosition } from "@/lib/useWatchPosition";
+import { majuscule, PHRASES } from "@/lib/territoire";
 
 type Scope = "zone" | "tout";
 
@@ -50,7 +51,7 @@ export default function AlertesPage() {
         {(
           [
             ["zone", `Ma zone (${radiusKm} km)`],
-            ["tout", "Toute la Calédonie"],
+            ["tout", majuscule(PHRASES.toutLeTerritoire)],
           ] as [Scope, string][]
         ).map(([value, label]) => (
           <button
@@ -71,7 +72,7 @@ export default function AlertesPage() {
 
       {noPosition && (
         <p className="mx-4 mb-3 text-[13.5px] text-warn">
-          Position indisponible : affichage de toute la Calédonie.
+          Position indisponible : affichage de {PHRASES.toutLeTerritoire}.
         </p>
       )}
       {error && (

@@ -4,6 +4,7 @@
 
 import webpush from "web-push";
 import { LEGAL } from "./legal";
+import { NOM_APPLI } from "./territoire";
 import { ANNONCE_NIVEAU_LABELS, AnnonceNiveau, REPORT_TYPE_LABELS, ReportType } from "./types";
 
 const PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -133,7 +134,7 @@ export function securityPayload(evenement: SecurityEvent, nom: unknown): PushPay
       ? nom.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 85)
       : "nom inconnu";
   return {
-    title: "Vigie NC · Modération modifiée",
+    title: `${NOM_APPLI} · Modération modifiée`,
     body: `${SECURITY_TEXT[evenement](n)} Si ce n'est pas toi, vérifie ton compte Supabase.`,
     url: "/moderation",
     // un tag différent à chaque fois : plusieurs changements = plusieurs notifications
@@ -142,7 +143,7 @@ export function securityPayload(evenement: SecurityEvent, nom: unknown): PushPay
 }
 
 // ---------------------------------------------------------------------
-// Annonce générale (toute la Calédonie) : envoyée par /api/annonce à tous
+// Annonce générale (tout le territoire) : envoyée par /api/annonce à tous
 // les téléphones abonnés aux alertes, quel que soit leur lieu, quand le
 // modérateur l'a demandé (vigilance ou urgence seulement).
 // Texte factuel, sans emoji (voir alertPayload).
@@ -159,7 +160,7 @@ export interface AnnonceAlerte {
 /** Ex. « Urgence · Sécurité civile » / « Cyclone : restez chez vous jusqu'à la levée de l'alerte. » */
 export function annoncePayload(a: AnnonceAlerte): PushPayload {
   const nettoye = (t: string) => t.replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, " ").trim();
-  const source = a.source ? nettoye(a.source).slice(0, 60) : "Vigie NC";
+  const source = a.source ? nettoye(a.source).slice(0, 60) : NOM_APPLI;
   const texte = nettoye(a.texte).replace(/\s*\n\s*/g, " ");
   return {
     title: `${ANNONCE_NIVEAU_LABELS[a.niveau] ?? "Annonce"} · ${source}`,

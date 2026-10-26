@@ -4,6 +4,7 @@
 // au bandeau « Ton signalement a servi » de l'accueil et à la carte
 // « Mon impact » du Profil, avec ses badges.
 
+import { NOM_APPLI } from "./territoire";
 import type { ReportType } from "./types";
 
 const CLE = "vigie-nc:impact-v1";
@@ -230,7 +231,7 @@ export const BADGES: Badge[] = [
     id: "fidele-au-poste",
     emoji: "📅",
     nom: "Fidèle au poste",
-    comment: "Ouvre Vigie NC 7 jours différents.",
+    comment: `Ouvre ${NOM_APPLI} 7 jours différents.`,
     obtenu: (i) => i.nbJours >= 7,
   },
   // Badges du sommet (niveaux Gardien et Légende du cagou, lib/niveaux.ts) :
@@ -254,7 +255,7 @@ export const BADGES: Badge[] = [
     id: "memoire-du-pays",
     emoji: "🌿",
     nom: "Mémoire du pays",
-    comment: "Ouvre Vigie NC 30 jours différents.",
+    comment: `Ouvre ${NOM_APPLI} 30 jours différents.`,
     obtenu: (i) => i.nbJours >= 30,
   },
 ];

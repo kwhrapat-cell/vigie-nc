@@ -25,6 +25,7 @@ export interface DonneesDessin {
   autres: number; // événements non affichés
   cagou: CanvasImageSource | null;
   site: string; // « vigie-nc.com »
+  sigle: string; // « NC » : sigle du territoire, après VIGIE
 }
 
 const C = {
@@ -73,14 +74,14 @@ export function dessinerPointRoute(ctx: CanvasRenderingContext2D, d: DonneesDess
   ctx.fillStyle = bande;
   ctx.fillRect(0, 0, L, 12);
 
-  // En-tête : VIGIE NC + date
+  // En-tête : VIGIE + sigle du territoire (NC) + date
   let y = 112;
   ctx.font = `700 54px ${TITRE}`;
   ctx.fillStyle = C.mist;
   ctx.fillText("VIGIE", M, y);
   const lVigie = ctx.measureText("VIGIE ").width;
   ctx.fillStyle = C.lagon;
-  ctx.fillText("NC", M + lVigie, y);
+  ctx.fillText(d.sigle, M + lVigie, y);
   ctx.font = `500 30px ${TEXTE}`;
   ctx.fillStyle = C.mistDim;
   ctx.textAlign = "right";

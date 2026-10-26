@@ -11,6 +11,7 @@ import { ensureSession } from "./session";
 import { noterSignalement, noterVote } from "./impact";
 import { demoCreate, demoDetail, demoFlag, demoNearby, demoRelay, demoStats, demoVote } from "./demo-store";
 import { LatLng } from "./geo";
+import { PHRASES } from "./territoire";
 import {
   Annonce,
   AnnonceNiveau,
@@ -62,7 +63,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     "Active ta position : seules les personnes à moins de 5 km peuvent confirmer ou déclarer terminé.",
   trop_loin: "Tu es à plus de 5 km : seules les personnes sur place peuvent confirmer ou déclarer terminé.",
   position_hors_nc:
-    "Cette position semble hors de Nouvelle-Calédonie : le signalement n'a pas été envoyé.",
+    `Cette position semble ${PHRASES.horsDuNom} : le signalement n'a pas été envoyé.`,
   propre_signalement:
     "C'est ton propre signalement : tu peux seulement le déclarer terminé.",
   signalement_termine: "Ce signalement est déjà terminé ou a expiré.",

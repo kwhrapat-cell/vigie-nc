@@ -1,5 +1,9 @@
+import { TERRITOIRE } from "@/lib/territoire";
+
 /**
- * Vigilance météo officielle de Météo-France Nouvelle-Calédonie.
+ * Vigilance météo officielle du territoire (lib/territoire.ts) : en
+ * Calédonie, celle de Météo-France Nouvelle-Calédonie. Rien n'est affiché
+ * si le territoire n'a pas de vignette officielle (meteo: null).
  *
  * On affiche la vignette que meteo.nc met à disposition pour être intégrée
  * dans d'autres sites (meteo.nc/fr/widgets-vigilance) : pas de clé, pas de
@@ -9,10 +13,9 @@
  * La météo des téléphones n'est pas utilisable ici : un site web n'a pas
  * accès à l'appli Météo du téléphone, et ce n'est pas la vigilance officielle.
  */
-const WIDGET_URL = "https://meteo.nc/fr/widget-vigilance/vigilance";
-export const VIGILANCE_PAGE_URL = "https://meteo.nc/fr/vigilance";
-
 export function VigilanceMeteo({ className = "" }: { className?: string }) {
+  const meteo = TERRITOIRE.meteo;
+  if (!meteo) return null;
   return (
     <section
       className={`rounded-xl border border-line bg-panel px-3 pt-2.5 pb-1 ${className}`}
@@ -22,15 +25,15 @@ export function VigilanceMeteo({ className = "" }: { className?: string }) {
         <h2 id="vigilance-titre" className="font-display font-semibold text-[15.5px]">
           Vigilance météo
         </h2>
-        <span className="text-[12.5px] text-mist-dim">Source officielle · Météo-France</span>
+        <span className="text-[12.5px] text-mist-dim">Source officielle · {meteo.source}</span>
       </div>
 
       <div className="mt-2 flex justify-center">
         {/* Fond clair : la vignette est faite pour des pages blanches. */}
         <div className="w-[302px] max-w-full h-[122px] overflow-hidden rounded-lg bg-white">
           <iframe
-            src={WIDGET_URL}
-            title="Vigilance météo de Météo-France Nouvelle-Calédonie"
+            src={meteo.vignette}
+            title={`Vigilance météo de ${meteo.service}`}
             width={302}
             height={122}
             loading="lazy"
@@ -44,12 +47,12 @@ export function VigilanceMeteo({ className = "" }: { className?: string }) {
       </div>
 
       <a
-        href={VIGILANCE_PAGE_URL}
+        href={meteo.page}
         target="_blank"
         rel="noopener noreferrer"
         className="mt-1 flex min-h-[44px] items-center justify-between gap-2 text-[14px] font-medium text-lagoon"
       >
-        <span>Détail par phénomène et conseils sur meteo.nc</span>
+        <span>Détail par phénomène et conseils sur {meteo.site}</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 shrink-0" aria-hidden>
           <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>

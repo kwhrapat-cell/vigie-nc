@@ -1,3 +1,4 @@
+import { TERRITOIRE } from "./territoire";
 import type { MapStyle } from "./preferences";
 
 // Fonds de carte gratuits, sans clé, utilisables avec Leaflet.
@@ -98,9 +99,6 @@ export const MAP_STYLES: Record<MapStyle, { label: string; hint: string; layers:
   },
 };
 
-// Emprise de la Nouvelle-Calédonie : Grande Terre, Belep, îles Loyauté,
-// île des Pins.
-export const NC_BOUNDS: [[number, number], [number, number]] = [
-  [-22.8, 163.5],
-  [-19.5, 168.2],
-];
+// Emprise du territoire (vue « tout le territoire ») : lib/territoire.ts.
+// En Calédonie : Grande Terre, Belep, îles Loyauté, île des Pins.
+export const EMPRISE_TERRITOIRE: [[number, number], [number, number]] = TERRITOIRE.emprise;

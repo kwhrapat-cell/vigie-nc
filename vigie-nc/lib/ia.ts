@@ -7,6 +7,7 @@
 // photo, ni position. Anthropic ne s'en sert pas pour entraîner ses modèles
 // et l'efface sous 30 jours (conditions de son API). Voir /confidentialite.
 
+import { NOM_APPLI, PHRASES } from "./territoire";
 import { REPORT_TYPE_LABELS, type ReportType } from "./types";
 
 // Le plus petit et le moins cher des modèles Claude : largement suffisant
@@ -43,7 +44,7 @@ export type ResultatResume = { ok: true; resume: string | null } | { ok: false; 
 
 // Consigne donnée à l'IA. Les témoignages arrivent entre balises : ce sont
 // des données à résumer, jamais des ordres à suivre.
-export const CONSIGNE = `Tu écris le résumé d'un signalement routier pour Vigie NC, une carte citoyenne et anonyme de l'état des routes en Nouvelle-Calédonie.
+export const CONSIGNE = `Tu écris le résumé d'un signalement routier pour ${NOM_APPLI}, une carte citoyenne et anonyme de l'état des routes ${PHRASES.enNom}.
 
 Plusieurs personnes ont signalé le même événement. Tu reçois leurs témoignages bruts, du plus ancien au plus récent, avec leur âge.
 
@@ -258,7 +259,7 @@ export interface EvenementPointRoute {
   finAnnoncee: string | null;
 }
 
-export const CONSIGNE_POINT_ROUTE = `Tu es la voix du mode conduite de Vigie NC, une carte citoyenne et anonyme de l'état des routes en Nouvelle-Calédonie.
+export const CONSIGNE_POINT_ROUTE = `Tu es la voix du mode conduite de ${NOM_APPLI}, une carte citoyenne et anonyme de l'état des routes ${PHRASES.enNom}.
 
 Tu reçois la liste des événements signalés sur les 10 prochains kilomètres devant le conducteur (ou autour de lui s'il est à l'arrêt), du plus proche au plus loin. La distance est déjà écrite pour être lue.
 

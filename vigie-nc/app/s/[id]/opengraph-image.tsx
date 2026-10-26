@@ -1,9 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
-import { fetchPublicReport, quandNoumea, shareReliability } from "@/lib/report-public";
+import { fetchPublicReport, quandLocal, shareReliability } from "@/lib/report-public";
 import { getReliability, RELIABILITY_HEX } from "@/lib/reliability";
 import { couleurSur } from "@/lib/contraste";
+import { NOM_APPLI } from "@/lib/territoire";
 import { REPORT_TYPE_HEX, REPORT_TYPE_ICON } from "@/lib/types";
 
 // Image d'aperçu d'un signalement partagé (WhatsApp, Facebook, SMS…) :
@@ -11,7 +12,7 @@ import { REPORT_TYPE_HEX, REPORT_TYPE_ICON } from "@/lib/types";
 // saisi (ils peuvent être masqués par la modération ensuite, alors que
 // l'aperçu reste en cache chez WhatsApp).
 
-export const alt = "Signalement sur Vigie NC, la carte en direct de l'état des routes";
+export const alt = `Signalement sur ${NOM_APPLI}, la carte en direct de l'état des routes`;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 export const dynamic = "force-dynamic";
@@ -58,7 +59,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
       <div style={{ display: "flex", alignItems: "center" }}>
         <div style={{ width: 16, height: 16, borderRadius: 8, background: LAGON, marginRight: 14 }} />
-        <div style={{ fontSize: 32, fontWeight: 600 }}>Vigie NC</div>
+        <div style={{ fontSize: 32, fontWeight: 600 }}>{NOM_APPLI}</div>
       </div>
       <div style={{ fontSize: 26, color: TEXTE_DOUX }}>L&apos;état des routes en direct</div>
     </div>
@@ -175,7 +176,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
             {etat}
           </div>
           {/* Un seul texte par bloc : l'outil d'image refuse plusieurs morceaux sans « display: flex » */}
-          <div style={{ fontSize: 28, color: TEXTE_DOUX }}>{`Signalé ${quandNoumea(r.createdAt)}`}</div>
+          <div style={{ fontSize: 28, color: TEXTE_DOUX }}>{`Signalé ${quandLocal(r.createdAt)}`}</div>
         </div>
         {pied}
       </div>

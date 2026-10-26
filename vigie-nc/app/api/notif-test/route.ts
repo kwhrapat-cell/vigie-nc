@@ -4,6 +4,7 @@
 
 import { NextResponse } from "next/server";
 import { endpointValide, pushConfigured, sendPush } from "@/lib/push-server";
+import { NOM_APPLI } from "@/lib/territoire";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,13 +28,13 @@ export async function POST(req: Request) {
   const payload =
     body.kind === "securite"
       ? {
-          title: "Vigie NC : alarme de sécurité activée",
+          title: `${NOM_APPLI} : alarme de sécurité activée`,
           body: "Tu seras prévenu ici si la liste des modérateurs change : ajout, code changé, accès retiré.",
           url: "/moderation",
           tag: "test-securite",
         }
       : {
-          title: "Vigie NC : notifications activées",
+          title: `${NOM_APPLI} : notifications activées`,
           body: "Tu recevras ici les dangers confirmés près de ton lieu d'alerte : accident, route coupée, inondation, danger, météo.",
           url: "/alertes",
           tag: "test",

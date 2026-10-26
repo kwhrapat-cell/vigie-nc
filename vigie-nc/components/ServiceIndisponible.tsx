@@ -1,5 +1,6 @@
 import { Logo } from "./ui";
 import { Cagou } from "./Cagou";
+import { TERRITOIRE, URGENCES } from "@/lib/territoire";
 
 /**
  * Affiché à la place de l'appli quand la base n'est pas branchée sur le
@@ -16,18 +17,21 @@ export function ServiceIndisponible() {
         La carte ne peut pas être affichée pour le moment. Réessaie dans quelques minutes.
       </p>
       <p className="mt-6 text-[14.5px] leading-relaxed max-w-[320px]">
-        En cas d&apos;urgence, appelle le <a href="tel:15" className="underline font-semibold">15</a> (SAMU), le{" "}
-        <a href="tel:17" className="underline font-semibold">17</a> (gendarmerie, police) ou le{" "}
-        <a href="tel:18" className="underline font-semibold">18</a> (pompiers).
+        En cas d&apos;urgence, appelle le{" "}
+        <a href={`tel:${URGENCES.samu}`} className="underline font-semibold">{URGENCES.samu}</a> (SAMU), le{" "}
+        <a href={`tel:${URGENCES.police}`} className="underline font-semibold">{URGENCES.police}</a> (gendarmerie, police) ou le{" "}
+        <a href={`tel:${URGENCES.pompiers}`} className="underline font-semibold">{URGENCES.pompiers}</a> (pompiers).
       </p>
-      <a
-        href="https://meteo.nc/fr/vigilance"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-6 min-h-[44px] flex items-center text-[14.5px] text-lagoon underline"
-      >
-        Vigilance météo officielle sur meteo.nc
-      </a>
+      {TERRITOIRE.meteo && (
+        <a
+          href={TERRITOIRE.meteo.page}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-6 min-h-[44px] flex items-center text-[14.5px] text-lagoon underline"
+        >
+          Vigilance météo officielle sur {TERRITOIRE.meteo.site}
+        </a>
+      )}
     </main>
   );
 }

@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { Cagou } from "./Cagou";
+import { NOM_APPLI, URGENCES as NUMEROS } from "@/lib/territoire";
 
 // Écran affiché quand l'appli plante (app/error.tsx, app/global-error.tsx)
 // ou qu'une page n'existe pas (app/not-found.tsx). Les numéros d'urgence
 // restent toujours à portée de doigt : c'est une appli de sécurité.
 
 const URGENCES = [
-  { numero: "15", nom: "SAMU" },
-  { numero: "17", nom: "Police" },
-  { numero: "18", nom: "Pompiers" },
+  { numero: NUMEROS.samu, nom: "SAMU" },
+  { numero: NUMEROS.police, nom: "Police" },
+  { numero: NUMEROS.pompiers, nom: "Pompiers" },
 ];
 
 export function EcranErreur({
@@ -53,7 +54,7 @@ export function EcranErreur({
       </div>
 
       <section aria-label="Numéros d'urgence" className="mt-6 rounded-2xl border border-danger/40 bg-danger/10 px-4 py-3">
-        <p className="text-[14px] font-semibold">Une urgence ? Vigie NC ne prévient pas les secours :</p>
+        <p className="text-[14px] font-semibold">Une urgence ? {NOM_APPLI} ne prévient pas les secours :</p>
         <div className="mt-2 grid grid-cols-3 gap-2">
           {URGENCES.map((u) => (
             <a

@@ -22,6 +22,7 @@ import {
 } from "@/lib/preferences";
 import { RELIABILITY_HEX, RELIABILITY_LEVELS } from "@/lib/reliability";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { NOM_APPLI } from "@/lib/territoire";
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -139,7 +140,7 @@ export default function ProfilPage() {
 
       <Card title="Installer l'appli">
         <p className="text-[13.5px] text-mist-dim mb-2.5">
-          Une icône sur ton écran d&apos;accueil pour ouvrir Vigie NC en un geste, comme une appli. Rien à télécharger
+          Une icône sur ton écran d&apos;accueil pour ouvrir {NOM_APPLI} en un geste, comme une appli. Rien à télécharger
           sur le Play Store ou l&apos;App Store.
         </p>
         <InstallApp />
@@ -152,7 +153,7 @@ export default function ProfilPage() {
         <SecondaryButton onClick={() => setDemo(true)}>Revoir la démo</SecondaryButton>
       </Card>
 
-      <Card title="Fais connaître Vigie NC">
+      <Card title={`Fais connaître ${NOM_APPLI}`}>
         <p className="text-[13.5px] text-mist-dim mb-2.5">
           Plus on est nombreux à signaler, plus la carte est fiable. Envoie l&apos;appli à ta famille, tes collègues,
           ton quartier.

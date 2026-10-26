@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
 import { LatLng } from "@/lib/geo";
-import { MAP_STYLES, NC_BOUNDS } from "@/lib/map-styles";
+import { MAP_STYLES, EMPRISE_TERRITOIRE } from "@/lib/map-styles";
 import { readMapStyle } from "@/lib/preferences";
 
 const PIN_SVG = `<svg class="pick-pin" viewBox="0 0 34 44" aria-hidden="true">
@@ -49,7 +49,7 @@ export function PositionPicker({
       if (cancelled || !containerRef.current || mapRef.current) return;
 
       const map = L.map(containerRef.current, { zoomControl: false, minZoom: 6 });
-      map.fitBounds(NC_BOUNDS, { padding: [8, 8] });
+      map.fitBounds(EMPRISE_TERRITOIRE, { padding: [8, 8] });
       // Même fond que celui choisi sur la carte d'accueil
       const style = readMapStyle();
       containerRef.current.setAttribute("data-fond", style);
