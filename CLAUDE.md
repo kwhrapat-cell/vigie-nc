@@ -218,7 +218,9 @@ vigie-nc/
     tuto.ts          démo d'accueil : ordre des cartes, glissement du doigt,
                      astuce du « + » (« vigie-nc:astuce-signaler » : a-montrer / vue)
     relay-parser.ts  lecture d'un message collé → type + lieu (sur le téléphone)
-    legal.ts         éditeur (Tramea Solutions), contact, hébergeurs, date des textes légaux
+    legal.ts         éditeur (Tramea Solutions, entreprise individuelle, RIDET
+                     0 726 331.003, adresse et téléphone de l'avis RIDET du
+                     29/10/2026), contact, hébergeurs, date des textes légaux
     site.ts          adresse publique (SITE_URL), texte de partage de l'appli
     push.ts          notifications côté téléphone (service worker, abonnement)
     push-server.ts   envoi des notifications (web-push, clés VAPID), texte des alertes

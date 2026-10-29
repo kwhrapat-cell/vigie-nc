@@ -22,8 +22,18 @@ export default function ConfidentialitePage() {
     >
       <LegalSection title="Qui est responsable ?">
         <p>
-          {LEGAL.editeur} ({LEGAL.porteur}), {LEGAL.lieu}. Contact :{" "}
-          <a href={CONTACT_MAILTO}>{LEGAL.contact}</a>
+          <strong>{LEGAL.editeur}</strong>, entreprise individuelle de {LEGAL.porteur}
+          {LEGAL.ridet && <> (RIDET {LEGAL.ridet})</>}, {LEGAL.adresse}, {LEGAL.lieu}.
+        </p>
+        <p>
+          Contact : <a href={CONTACT_MAILTO}>{LEGAL.contact}</a>
+          {LEGAL.telephone && (
+            <>
+              {" "}· <a href={LEGAL.telephoneLien}>{LEGAL.telephone}</a>
+            </>
+          )}
+          <br />
+          Courrier : {LEGAL.adressePostale}
         </p>
       </LegalSection>
 

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { LegalList, LegalPage, LegalSection } from "@/components/LegalPage";
 import { CONTACT_MAILTO, LEGAL } from "@/lib/legal";
 
@@ -134,6 +135,11 @@ export default function ConditionsPage() {
       </LegalSection>
 
       <LegalSection title="8. Évolution et contact">
+        <p>
+          Vigie NC est éditée par <strong>{LEGAL.editeur}</strong>
+          {LEGAL.ridet && <> (RIDET {LEGAL.ridet})</>}. Identité complète dans les{" "}
+          <Link href="/mentions-legales">mentions légales</Link>.
+        </p>
         <p>
           Ces conditions peuvent évoluer ; la date de mise à jour est indiquée en haut de la page. Une question,
           un problème : <a href={CONTACT_MAILTO}>{LEGAL.contact}</a>

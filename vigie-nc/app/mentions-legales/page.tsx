@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { LegalList, LegalPage, LegalSection } from "@/components/LegalPage";
 import { CONTACT_MAILTO, LEGAL } from "@/lib/legal";
 
@@ -10,14 +11,26 @@ export default function MentionsLegalesPage() {
     <LegalPage title="Mentions légales" current="/mentions-legales">
       <LegalSection title="Éditeur">
         <p>
-          Vigie NC est éditée par <strong>{LEGAL.editeur}</strong>, projet porté par {LEGAL.porteur},{" "}
+          Vigie NC est éditée par <strong>{LEGAL.editeur}</strong>, entreprise individuelle de {LEGAL.porteur},{" "}
           {LEGAL.lieu}.
         </p>
-        {LEGAL.ridet && <p>RIDET : {LEGAL.ridet}</p>}
-        <p>Directeur de la publication : {LEGAL.porteur}</p>
-        <p>
-          Contact : <a href={CONTACT_MAILTO}>{LEGAL.contact}</a>
-        </p>
+        <dl className="flex flex-col gap-2">
+          <Ligne label="Nom">{LEGAL.designation}</Ligne>
+          <Ligne label="Forme juridique">{LEGAL.formeJuridique}</Ligne>
+          <Ligne label="Nom commercial et enseigne">{LEGAL.enseigne}</Ligne>
+          {LEGAL.ridet && <Ligne label="Numéro RIDET">{LEGAL.ridet}</Ligne>}
+          <Ligne label="Adresse">{LEGAL.adresse}</Ligne>
+          <Ligne label="Courrier">{LEGAL.adressePostale}</Ligne>
+          {LEGAL.telephone && (
+            <Ligne label="Téléphone">
+              <a href={LEGAL.telephoneLien}>{LEGAL.telephone}</a>
+            </Ligne>
+          )}
+          <Ligne label="E-mail">
+            <a href={CONTACT_MAILTO}>{LEGAL.contact}</a>
+          </Ligne>
+          <Ligne label="Directeur de la publication">{LEGAL.porteur}</Ligne>
+        </dl>
       </LegalSection>
 
       <LegalSection title="Hébergement">
@@ -72,5 +85,15 @@ export default function MentionsLegalesPage() {
         </LegalList>
       </LegalSection>
     </LegalPage>
+  );
+}
+
+// Une ligne d'identité : intitulé en petit, valeur dessous (lisible à 380 px).
+function Ligne({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <dt className="text-[13px]">{label}</dt>
+      <dd className="text-mist">{children}</dd>
+    </div>
   );
 }
