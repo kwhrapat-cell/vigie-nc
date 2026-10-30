@@ -193,7 +193,10 @@ export interface AvantDepart extends PushTarget {
   sens: "aller" | "retour";
   depart: string;
   jour: string;
+  /** 0 = « tout est calme » (option du trajet) */
   nb: number;
+  /** Signalements à surveiller sur le trajet (travaux, trafic, pas encore confirmés). */
+  surveiller?: number | null;
   problemes: ProblemeAvantDepart[];
 }
 
@@ -208,8 +211,22 @@ export function avantDepartTtl(t: AvantDepart, now = Date.now()): number {
   return Math.min(30 * 60, Math.max(5 * 60, Number.isFinite(restant) ? restant : 30 * 60));
 }
 
-/** Même étiquette que l'alerte du danger : la fin la remplace dans la liste des notifications. */
-export function finPayload(report: { id: string; type: ReportType; lieu: string | null }): PushPayload {
-  const { title, body } = texteFinAlerte(report.type, report.lieu);
-  return { title, body, url: "/?trajet=1", tag: report.id };
+/** Destinataire d'une fin d'alerte (notif_fin_destinataires). */
+export interface FinTarget extends PushTarget {
+  nom?: string | null;
+  sur_trajet?: boolean;
+}
+
+/**
+ * Même étiquette que l'alerte du danger : la fin la remplace dans la liste
+ * des notifications. Reçue par le trajet → ouvre le point sur le trajet ;
+ * par la zone d'alerte → ouvre la fiche (marquée terminée).
+ */
+export function finPayload(
+  report: { id: string; type: ReportType; lieu: string | null },
+  target: FinTarget = {} as FinTarget,
+): PushPayload {
+  const surTrajet = target.sur_trajet !== false;
+  const { title, body } = texteFinAlerte(report.type, report.lieu, { surTrajet, nom: target.nom ?? null });
+  return { title, body, url: surTrajet ? "/?trajet=1" : `/?signalement=${report.id}`, tag: report.id };
 }

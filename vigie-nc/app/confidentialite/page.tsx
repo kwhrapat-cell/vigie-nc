@@ -145,9 +145,9 @@ export default function ConfidentialitePage() {
             ou Mozilla (Firefox). Leur contenu est chiffré : ces services le transmettent sans pouvoir le lire.
           </li>
           <li>
-            Pour ne jamais envoyer deux fois la même alerte, la base note quelle alerte est partie vers quelle
-            adresse (et si c&apos;était pour ton trajet, pour t&apos;envoyer la fin d&apos;alerte). Cette trace est
-            effacée au bout de 7 jours.
+            Pour ne jamais envoyer deux fois la même alerte, et pour te prévenir quand le danger est déclaré terminé
+            (« fin d&apos;alerte », dans les 12 h), la base note quelle alerte est partie vers quelle adresse, et si
+            c&apos;était pour ton trajet. Cette trace est effacée au bout de 7 jours.
           </li>
           <li>
             Rarement, une <strong>annonce importante pour toute la Calédonie</strong>{" "}(cyclone, évacuation…) part
@@ -175,13 +175,15 @@ export default function ConfidentialitePage() {
           </li>
           <li>
             Pour le point sur ton trajet à l&apos;ouverture de l&apos;appli, cette ligne est envoyée à la base, qui
-            répond avec les signalements en cours dessus. Rien n&apos;est enregistré.
+            répond avec les signalements en cours dessus et les endroits signalés inondés ces 12 derniers mois.
+            Rien n&apos;est enregistré.
           </li>
           <li>
             Si les alertes sont activées, la même ligne (toujours sans ses extrémités), tes jours et tes heures sont
             enregistrés avec ton adresse d&apos;envoi des alertes, sans lien avec l&apos;identifiant anonyme de ton
             téléphone. Ils servent à te prévenir 30 min avant de partir et pendant le trajet s&apos;il y a un danger
-            confirmé dessus, puis quand il est déclaré terminé.
+            confirmé dessus (ou même quand tout est calme, si tu l&apos;as choisi), puis quand il est déclaré
+            terminé.
           </li>
           <li>
             Pour limiter les abus du service d&apos;itinéraires (20 calculs par jour), la base note l&apos;empreinte

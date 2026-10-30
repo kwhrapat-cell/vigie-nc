@@ -82,6 +82,7 @@ function WhatTriggers() {
     <ul className="mt-2 flex flex-col gap-1 text-[13.5px] text-mist-dim leading-relaxed">
       <li>• Accident, route coupée, inondation, feu, danger, météo.</li>
       <li>• Seulement quand une 2e personne confirme, ou qu&apos;une source officielle vérifie.</li>
+      <li>• Puis une « fin d&apos;alerte » quand ce danger est déclaré terminé (dans les 12 h).</li>
       <li>• 5 alertes par heure au maximum.</li>
       <li>• Et, rarement, les annonces importantes pour toute la Calédonie (cyclone, évacuation…).</li>
     </ul>

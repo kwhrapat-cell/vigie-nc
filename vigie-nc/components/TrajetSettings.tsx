@@ -182,6 +182,7 @@ export function TrajetSettings() {
   const [aller, setAller] = useState("06:30");
   const [retourOn, setRetourOn] = useState(true);
   const [retour, setRetour] = useState("16:30");
+  const [calme, setCalme] = useState(false);
   const { position: gps, status: geoStatus, error: geoError, locate } = useGeolocation();
 
   /**
@@ -206,6 +207,7 @@ export function TrajetSettings() {
         serveur.jours !== t.jours ||
         serveur.aller !== t.aller ||
         serveur.retour !== t.retour ||
+        serveur.calme !== t.calme ||
         Math.abs(serveur.longueurM - t.longueurM) > 100
       ) {
         await trajetEnregistrerServeur(k.endpoint, t);
@@ -249,6 +251,7 @@ export function TrajetSettings() {
     setArrivee(null);
     setDepart(null);
     setJours(trajet?.jours ?? JOURS_SEMAINE);
+    setCalme(trajet?.calme ?? false);
     setEtape("depart");
     setPhase("edition");
     locate()
@@ -269,6 +272,7 @@ export function TrajetSettings() {
     setAller(trajet.aller ?? "06:30");
     setRetourOn(Boolean(trajet.retour));
     setRetour(trajet.retour ?? "16:30");
+    setCalme(trajet.calme);
     setEtape("horaires");
     setPhase("edition");
   }
@@ -336,6 +340,7 @@ export function TrajetSettings() {
       jours,
       aller: a,
       retour: r,
+      calme,
       majAt: new Date().toISOString(),
     };
     setBusy(true);
@@ -347,7 +352,9 @@ export function TrajetSettings() {
       if (keys && alertesActives) {
         await trajetEnregistrerServeur(keys.endpoint, t);
         setNotice(
-          `Trajet enregistré. S'il y a un danger dessus, tu seras prévenu ${TRAJET_AVANCE_MIN} min avant de partir.`,
+          calme
+            ? `Trajet enregistré. Tu auras le point sur ta route ${TRAJET_AVANCE_MIN} min avant chaque départ.`
+            : `Trajet enregistré. S'il y a un danger dessus, tu seras prévenu ${TRAJET_AVANCE_MIN} min avant de partir.`,
         );
       } else {
         setNotice("Trajet enregistré : le point sur ton trajet s'affiche sur l'accueil.");
@@ -448,8 +455,9 @@ export function TrajetSettings() {
         {taille.length > 0 && <Note className="mt-0.5">{taille.join(" · ")} en voiture</Note>}
         {alertesActives ? (
           <Note>
-            Alerte {TRAJET_AVANCE_MIN} min avant chaque départ s&apos;il y a un danger confirmé sur ta route, pendant le
-            trajet, puis quand le danger est déclaré terminé.
+            {trajet.calme
+              ? `Point sur ta route ${TRAJET_AVANCE_MIN} min avant chaque départ, même quand tout est calme. Alerte aussi pendant le trajet, puis quand un danger est déclaré terminé.`
+              : `Alerte ${TRAJET_AVANCE_MIN} min avant chaque départ s'il y a un danger confirmé sur ta route, pendant le trajet, puis quand le danger est déclaré terminé.`}
           </Note>
         ) : (
           <Note>
@@ -607,9 +615,30 @@ export function TrajetSettings() {
           <Note>
             {jours === 0 ? "Choisis au moins un jour." : `Trajet ${joursTexte(jours)}.`}{" "}
             {alertesActives
-              ? `Alerte ${TRAJET_AVANCE_MIN} min avant chaque départ, seulement s'il y a un danger confirmé.`
+              ? `Alerte ${TRAJET_AVANCE_MIN} min avant chaque départ s'il y a un danger confirmé.`
               : "Active les alertes (ci-dessus) pour être prévenu avant de partir."}
           </Note>
+
+          <label
+            htmlFor="trajet-calme"
+            className={`mt-2 flex min-h-[44px] items-start gap-2.5 rounded-lg border border-line bg-panel-2 px-3 py-2.5 text-[14.5px] ${
+              alertesActives ? "" : "opacity-60"
+            }`}
+          >
+            <input
+              id="trajet-calme"
+              type="checkbox"
+              checked={calme}
+              onChange={(e) => setCalme(e.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-[#167F78]"
+            />
+            <span>
+              Me prévenir aussi quand tout est calme
+              <span className="block text-[13px] text-mist-dim">
+                « Trajet de 6 h 30 · Rien de signalé », {TRAJET_AVANCE_MIN} min avant chaque départ.
+              </span>
+            </span>
+          </label>
 
           <div className="mt-3 flex flex-col gap-2">
             <PrimaryButton onClick={enregistrer} disabled={busy || jours === 0}>

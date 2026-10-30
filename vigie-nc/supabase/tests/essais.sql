@@ -3,7 +3,8 @@
 -- type « feu », chiffres d'utilisation, annonces générales, chantiers,
 -- témoignages et résumé automatique (IA), point route (mode conduite),
 -- erreurs des téléphones, trajet favori (réglage, point sur le trajet,
--- alertes pendant le trajet, avant le départ et fin d'alerte, itinéraire).
+-- alertes pendant le trajet, avant le départ, « tout est calme », fin
+-- d'alerte du trajet et de la zone, itinéraire, mémoire des inondations).
 -- À lancer APRÈS schema.sql. Chaque essai qui échoue arrête tout avec un
 -- message « Ex échec : … ». Rien n'est envoyé : l'adresse d'envoi des
 -- alertes est retirée pendant l'essai.
@@ -53,6 +54,15 @@ declare
   ep_trajet2 constant text := 'https://fcm.googleapis.com/fcm/send/essai-trajet-2';
   ep_trajet3 constant text := 'https://fcm.googleapis.com/fcm/send/essai-trajet-3';
   code_trajet constant text := 'code-essai-trajet-00000000000';
+  ep_trajet4 constant text := 'https://fcm.googleapis.com/fcm/send/essai-trajet-4';
+  ep_zone constant text := 'https://fcm.googleapis.com/fcm/send/essai-zone-la-foa';
+  v_q uuid := gen_random_uuid();
+  v_s uuid := gen_random_uuid();
+  v_t2 uuid := gen_random_uuid();
+  v_t3 uuid := gen_random_uuid();
+  v_t4 uuid := gen_random_uuid();
+  v_accident uuid;
+  v_inond uuid;
   v_cas record;
   v_m uuid := gen_random_uuid();
   v_o uuid := gen_random_uuid();
@@ -799,7 +809,10 @@ begin
   insert into push_abonnements (endpoint, p256dh, auth, lat, lng, rayon_km) values
     (ep_trajet, 'cle', 'auth', -20.56, 164.28, 3),
     (ep_trajet2, 'cle', 'auth', -20.56, 164.28, 3),
-    (ep_trajet3, 'cle', 'auth', -20.56, 164.28, 3);
+    (ep_trajet3, 'cle', 'auth', -20.56, 164.28, 3),
+    (ep_trajet4, 'cle', 'auth', -20.56, 164.28, 3),
+    -- zone d'alerte à La Foa (fin d'alerte de zone, E40)
+    (ep_zone, 'cle', 'auth', -21.71, 165.83, 3);
   for v_cas in
     select * from (values
       ('"pas une liste"'::jsonb, 31, '06:30'::text, null::text, 'trajet_invalide'::text),
@@ -838,7 +851,8 @@ begin
   if has_table_privilege('anon', 'push_trajets', 'select')
      or has_table_privilege('authenticated', 'push_trajets', 'select')
      or not has_function_privilege('anon', 'trajet_signalements(jsonb)', 'execute')
-     or not has_function_privilege('anon', 'trajet_enregistrer(text, jsonb, int, text, text)', 'execute')
+     or not has_function_privilege('anon', 'trajet_enregistrer(text, jsonb, int, text, text, boolean)', 'execute')
+     or not has_function_privilege('anon', 'trajet_memoire_inondations(jsonb)', 'execute')
      or has_function_privilege('anon', 'trajet_itineraire_autoriser()', 'execute')
      or not has_function_privilege('authenticated', 'trajet_itineraire_autoriser()', 'execute')
      or has_function_privilege('anon', 'vigie_trajets_appeler()', 'execute')
@@ -921,6 +935,17 @@ begin
   if jsonb_array_length(trajet_avant_depart(v_secret)->'trajets') <> 0 then
     raise exception 'E39 échec : point avant départ envoyé deux fois';
   end if;
+  -- « tout est calme » demandé : le point part aussi sans danger, avec le
+  -- nombre de choses à surveiller (ici les travaux de E37, sur cette ligne)
+  perform trajet_enregistrer(ep_trajet4, '[[-21.57, 165.45], [-21.545, 165.485]]', 127, v_dans_10_min, null, true);
+  if not (trajet_mon(ep_trajet4)->>'calme')::boolean then
+    raise exception 'E39 échec : option « tout est calme » non enregistrée';
+  end if;
+  v_r := trajet_avant_depart(v_secret)->'trajets';
+  if jsonb_array_length(v_r) <> 1 or v_r->0->>'endpoint' <> ep_trajet4 or (v_r->0->>'nb')::int <> 0
+     or (v_r->0->>'surveiller')::int < 1 or jsonb_array_length(v_r->0->'problemes') <> 0 then
+    raise exception 'E39 échec : tout est calme %', v_r;
+  end if;
   -- sans adresse d'envoi (essai), l'appel programmé ne fait rien et ne plante pas
   perform vigie_trajets_appeler();
 
@@ -948,6 +973,26 @@ begin
   end if;
   if exists (select 1 from trajet_signalements(ligne_trajet) s where s.id = v_danger) then
     raise exception 'E40 échec : danger terminé encore sur le trajet';
+  end if;
+  -- fin d'alerte aussi pour une zone d'alerte (La Foa), pas seulement un trajet
+  perform set_config('request.jwt.claims', json_build_object('sub', v_q, 'role', 'authenticated')::text, true);
+  v_r := creer_signalement_v3('accident', -21.712, 165.832, null, null, null, 'Essai zone');
+  v_accident := (v_r->>'id')::uuid;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_s, 'role', 'authenticated')::text, true);
+  perform voter_signalement_v3(v_accident, 'present', -21.715, 165.832);
+  v_r := notif_destinataires(v_secret, v_accident);
+  if not ((v_r->'abonnements') @> jsonb_build_array(jsonb_build_object('endpoint', ep_zone, 'sur_trajet', false))) then
+    raise exception 'E40 échec : alerte de zone absente %', v_r;
+  end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_q, 'role', 'authenticated')::text, true);
+  v_r := voter_signalement_v3(v_accident, 'termine', -21.712, 165.832);
+  if v_r->>'resultat' is distinct from 'resolu' then raise exception 'E40 échec : clôture zone %', v_r; end if;
+  v_r := notif_fin_destinataires(v_secret, v_accident);
+  if not ((v_r->'abonnements') @> jsonb_build_array(jsonb_build_object('endpoint', ep_zone, 'sur_trajet', false))) then
+    raise exception 'E40 échec : fin d''alerte de zone absente %', v_r;
+  end if;
+  if jsonb_array_length(notif_fin_destinataires(v_secret, v_accident)->'abonnements') <> 0 then
+    raise exception 'E40 échec : fin d''alerte de zone envoyée deux fois';
   end if;
 
   -- E41 : calcul d'itinéraire — session obligatoire, 20 par jour, trace
@@ -983,11 +1028,35 @@ begin
   delete from moderateurs where nom = 'Essai trajet';
   perform trajet_supprimer(ep_trajet2);
   if trajet_mon(ep_trajet2) is not null then raise exception 'E41 échec : trajet non effacé'; end if;
-  delete from push_abonnements where endpoint in (ep_trajet, ep_trajet2, ep_trajet3);
+  delete from push_abonnements where endpoint in (ep_trajet, ep_trajet2, ep_trajet3, ep_trajet4, ep_zone);
   if exists (select 1 from push_trajets t where not exists (select 1 from push_abonnements a where a.id = t.abonnement_id)) then
     raise exception 'E41 échec : trajet gardé sans abonnement';
   end if;
 
-  raise notice 'ESSAIS OK (41)';
+  -- E42 : mémoire des inondations du trajet — même endroit inondé 3 jours
+  -- différents (dont aujourd'hui, en cours), « il pleut près de la route »
+  perform set_config('request.jwt.claims', json_build_object('sub', v_t2, 'role', 'authenticated')::text, true);
+  v_inond := (creer_signalement_v3('inondation', -21.585, 165.465, null, null, null, 'Radier essai')->>'id')::uuid;
+  update reports set created_at = now() - interval '40 days', expires_at = now() - interval '39 days' where id = v_inond;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_t3, 'role', 'authenticated')::text, true);
+  v_inond := (creer_signalement_v3('inondation', -21.5852, 165.4652, null, null, null, 'Radier essai')->>'id')::uuid;
+  update reports set created_at = now() - interval '10 days', expires_at = now() - interval '9 days' where id = v_inond;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_t4, 'role', 'authenticated')::text, true);
+  perform creer_signalement_v3('inondation', -21.5849, 165.4651, null, null, null, 'Radier essai');
+  perform set_config('request.jwt.claims', '', true);
+  v_r := trajet_memoire_inondations(ligne_trajet);
+  if jsonb_array_length(v_r->'zones') <> 1 or (v_r->'zones'->0->>'fois')::int <> 3
+     or not (v_r->'zones'->0->>'en_cours')::boolean
+     or (v_r->'zones'->0->>'position_m')::int not between 1500 and 3000
+     or v_r->'zones'->0->>'lieu' <> 'Radier essai'
+     or not (v_r->>'pluie_en_cours')::boolean then
+    raise exception 'E42 échec : %', v_r;
+  end if;
+  v_r := trajet_memoire_inondations('[[-21.10, 164.86], [-21.05, 164.90]]');
+  if jsonb_array_length(v_r->'zones') <> 0 or (v_r->>'pluie_en_cours')::boolean then
+    raise exception 'E42 échec : inondation trouvée sur un trajet sans inondation %', v_r;
+  end if;
+
+  raise notice 'ESSAIS OK (42)';
 end
 $essais$;
