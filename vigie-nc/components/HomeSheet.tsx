@@ -27,7 +27,7 @@ function timeLabel(d: Date | null) {
 
 /**
  * Panneau du bas de l'accueil : compteurs + liste « À proximité ».
- * Sur ordinateur (1024 px et plus), c'est le bas de la colonne de gauche
+ * Sur ordinateur (960 px et plus), c'est le bas de la colonne de gauche
  * (grille de CarteLive) : la liste est toujours dépliée et défile seule.
  */
 export function HomeSheet({

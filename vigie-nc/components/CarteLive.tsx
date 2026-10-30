@@ -248,7 +248,7 @@ export function CarteLive() {
   }, [position, retry, isNc, changeZone]);
 
   // Téléphone et tablette en portrait : en-tête et bandeaux, carte, puis
-  // liste en dessous. Ordinateur et tablette en paysage (1024 px et plus) :
+  // liste en dessous. Ordinateur et tablette en paysage (960 px et plus) :
   // grille à deux colonnes à droite du rail de navigation : en-tête et
   // bandeaux puis liste à gauche, carte à droite sur toute la hauteur. Même
   // ordre dans la page dans les deux cas (lecteurs d'écran, clavier). En

@@ -316,16 +316,19 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   `components/AppShell.tsx` + `.app-shell` de `globals.css`. Dès 768 px
   (`md:`) : colonne de 672 px pour les écrans de lecture et de saisie, la
   carte de l'accueil sur toute la largeur, feuilles du bas en fenêtres
-  centrées. Dès 1024 px (`lg:`) : BottomNav devient un rail à gauche
-  (`--rail` = 88 px), l'accueil passe en deux colonnes (CarteLive : en-tête,
-  bandeaux et HomeSheet à gauche, carte à droite ; ordre du téléphone par
-  `order-2` carte / `order-3` liste), fiche en panneau à droite de la carte.
+  centrées. Dès 960 px (`lg:`, réglé dans tailwind.config.ts : la « version
+  pour ordinateur » de Chrome sur téléphone fait 980 px) : BottomNav devient
+  un rail à gauche (`--rail` = 88 px), l'accueil passe en grille à deux
+  colonnes (CarteLive : en-tête et bandeaux puis HomeSheet à gauche, carte à
+  droite ; l'ordre dans la page reste celui du téléphone), fiche en panneau
+  à droite de la carte. Les @media de globals.css suivent ces valeurs.
   Boutons + / − sur les cartes seulement à la souris
   (`(hover: hover) and (pointer: fine)`).
 - **Captures d'écran** (npm souvent bloqué dans l'espace de travail de
   Claude) : pousser la branche de travail aussi sous `captures/<nom>` ;
   `.github/workflows/captures.yml` construit l'appli en mode démo et
-  photographie les écrans à 380, 768, 1024, 1280 et 1920 px
+  photographie les écrans à 380, 768, 980 (Chrome « version pour
+  ordinateur » sur téléphone), 1024, 1280 et 1920 px
   (`.github/captures/captures.mjs`), puis pousse images et journaux sur
   `resultats-captures/<numéro du run>` (à lire avec `git fetch` + `git
   archive`, à supprimer ensuite avec la branche `captures/`).

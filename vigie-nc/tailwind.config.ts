@@ -7,6 +7,13 @@ const config: Config = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./lib/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      // Ordinateur et tablette en paysage : 960 px au lieu de 1024, pour
+      // que la « version pour ordinateur » de Chrome sur téléphone (980 px)
+      // et les petites fenêtres montrent aussi la mise en page ordinateur.
+      // Même valeur dans les @media de globals.css.
+      screens: {
+        lg: "960px",
+      },
       colors: {
         void: "#081317", // fond de page
         panel: "#0E1C21", // cartes, feuilles

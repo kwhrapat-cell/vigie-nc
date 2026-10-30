@@ -28,7 +28,8 @@ body {
    Tablette et ordinateur (768 px et plus) : colonne de 672 px pour les
    écrans de lecture et de saisie ; la carte de l'accueil prend toute la
    largeur (components/AppShell.tsx).
-   Ordinateur et tablette en paysage (1024 px et plus) : la barre du bas
+   Ordinateur et tablette en paysage (960 px et plus, « lg » de
+   tailwind.config.ts) : la barre du bas
    devient un rail à gauche (components/BottomNav.tsx) et l'accueil passe
    en deux colonnes, liste à gauche et carte à droite (CarteLive). */
 :root {
@@ -46,7 +47,7 @@ body {
     max-width: none;
   }
 }
-@media (min-width: 1024px) {
+@media (min-width: 960px) {
   /* La barre du bas est devenue le rail de gauche : plus de place à garder en bas. */
   .pb-nav {
     padding-bottom: 2rem;
@@ -688,7 +689,7 @@ html .leaflet-container .leaflet-bar a.leaflet-disabled {
   }
 }
 /* Rail de gauche (ordinateur) : la bulle est à droite du « + » */
-@media (min-width: 1024px) {
+@media (min-width: 960px) {
   .astuce-signaler {
     transform: translate(0, -50%);
     animation-name: astuce-signaler-rail;
