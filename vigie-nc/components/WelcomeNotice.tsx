@@ -126,7 +126,7 @@ export function Tutoriel({ mode, onFermer }: { mode: "accueil" | "revoir"; onFer
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-void/75">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-void/75 md:items-center md:p-6">
       <div
         ref={dialogRef}
         role="dialog"
@@ -134,7 +134,7 @@ export function Tutoriel({ mode, onFermer }: { mode: "accueil" | "revoir"; onFer
         aria-label={mode === "accueil" ? "Bienvenue sur Vigie NC" : "Les gestes de base"}
         tabIndex={-1}
         onKeyDown={onKeyDown}
-        className="w-full max-w-md rounded-t-[22px] bg-panel border-t border-line px-5 pt-3 max-h-[92dvh] overflow-y-auto overflow-x-hidden outline-none"
+        className="w-full max-w-md rounded-t-[22px] bg-panel border-t border-line px-5 pt-3 max-h-[92dvh] overflow-y-auto overflow-x-hidden outline-none md:rounded-[22px] md:border md:max-h-[90dvh]"
         style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
       >
         <div className="flex items-center justify-between min-h-[44px]">

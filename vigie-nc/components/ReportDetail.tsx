@@ -74,7 +74,11 @@ function AiSummary({ text, count }: { text: string; count?: number | null }) {
   );
 }
 
-/** Fiche d'un signalement (maquette « Détail d'un signalement »). */
+/**
+ * Fiche d'un signalement (maquette « Détail d'un signalement »). Feuille du
+ * bas sur téléphone, fenêtre centrée sur tablette, panneau à droite de la
+ * carte sur ordinateur.
+ */
 export function ReportDetail({
   report,
   userPosition,
@@ -190,16 +194,19 @@ export function ReportDetail({
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${report.lat},${report.lng}`;
 
   return (
-    <div className="fixed inset-0 z-[40] flex items-end justify-center bg-void/60" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[40] flex items-end justify-center bg-void/60 md:items-center md:p-6 lg:items-stretch lg:justify-end lg:p-4 lg:bg-void/30"
+      onClick={onClose}
+    >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="report-detail-title"
-        className="w-full max-w-md rounded-t-[22px] bg-panel border-t border-line px-4 pt-3 pb-6 max-h-[88dvh] overflow-y-auto"
+        className="w-full max-w-md rounded-t-[22px] bg-panel border-t border-line px-4 pt-3 pb-6 max-h-[88dvh] overflow-y-auto md:rounded-[22px] md:border md:max-h-[90dvh] lg:max-w-[420px] lg:max-h-none lg:shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)]"
         style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-3" />
+        <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-3 md:hidden" />
 
         <div className="flex items-start gap-3">
           <TypeTile type={report.type} size={44} />

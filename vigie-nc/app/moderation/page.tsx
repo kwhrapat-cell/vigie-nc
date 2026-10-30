@@ -179,7 +179,7 @@ export default function ModerationPage() {
 
       <SecurityAlarm code={code} />
 
-      <div className="mx-4 grid grid-cols-3 gap-1" role="tablist">
+      <div className="mx-4 grid grid-cols-3 md:grid-cols-6 gap-1" role="tablist">
         {(
           [
             ["signales", "Signalés"],

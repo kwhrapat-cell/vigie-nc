@@ -49,6 +49,10 @@ export function PositionPicker({
       if (cancelled || !containerRef.current || mapRef.current) return;
 
       const map = L.map(containerRef.current, { zoomControl: false, minZoom: 6 });
+      // À la souris (ordinateur) : boutons + / − pour placer le point précisément
+      if (window.matchMedia?.("(hover: hover) and (pointer: fine)").matches) {
+        L.control.zoom({ position: "bottomright", zoomInTitle: "Zoomer", zoomOutTitle: "Dézoomer" }).addTo(map);
+      }
       map.fitBounds(NC_BOUNDS, { padding: [8, 8] });
       // Même fond que celui choisi sur la carte d'accueil
       const style = readMapStyle();

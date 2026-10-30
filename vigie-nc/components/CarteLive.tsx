@@ -247,8 +247,14 @@ export function CarteLive() {
     else setFollow(true);
   }, [position, retry, isNc, changeZone]);
 
+  // Téléphone et tablette en portrait : en-tête et bandeaux, carte, puis
+  // liste en dessous. Ordinateur et tablette en paysage (1024 px et plus) :
+  // rail de navigation à gauche, colonne avec en-tête, bandeaux et liste,
+  // carte à droite sur toute la hauteur. Même ordre dans la page : l'ordre
+  // d'affichage sur téléphone vient des classes order-* (carte order-2,
+  // liste order-3). En conduite, toujours la carte en plein écran.
   return (
-    <div className={`h-[100dvh] flex flex-col ${enConduite ? "" : "pb-nav"}`}>
+    <div className={`h-[100dvh] flex flex-col ${enConduite ? "" : "pb-nav lg:pb-0 lg:flex-row lg:pl-[var(--rail)]"}`}>
       {enConduite && (
         <BandeauConduite
           conduite={conduite}
@@ -257,8 +263,15 @@ export function CarteLive() {
         />
       )}
 
-      {/* Masqués (pas démontés) pendant la conduite, pour laisser la carte. */}
-      <div className={enConduite ? "hidden" : "contents"}>
+      {/* Masqués (pas démontés) pendant la conduite, pour laisser la carte.
+          Sur ordinateur, cette partie devient la colonne de gauche. */}
+      <div
+        className={
+          enConduite
+            ? "hidden"
+            : "contents lg:flex lg:flex-col lg:w-[400px] xl:w-[440px] lg:shrink-0 lg:h-[100dvh] lg:overflow-y-auto lg:bg-panel lg:border-r lg:border-line"
+        }
+      >
       <header className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
         <Logo />
         {/* Les alertes sont dans la barre du bas : pas de deuxième cloche ici. */}
@@ -316,9 +329,35 @@ export function CarteLive() {
           {banner}
         </div>
       )}
+
+      <HomeSheet
+        allReports={reports}
+        reports={visible}
+        status={status}
+        error={error}
+        updatedAt={updatedAt}
+        geoStatus={geoStatus}
+        radiusKm={radiusKm}
+        scope={isNc ? "nc" : "zone"}
+        hasCenter={!isNc && Boolean(queryCenter)}
+        filter={filter}
+        onFilter={setFilter}
+        onSelect={selectFromList}
+        onEnableLocation={retry}
+        trajet={
+          <TrajetResume
+            actualisation={updatedAt}
+            demandeOuverture={trajetDemande}
+            ligneAffichee={Boolean(trajetLigne)}
+            onLigne={montrerTrajet}
+            onReports={setTrajetReports}
+            onOpen={openFromBanner}
+          />
+        }
+      />
       </div>
 
-      <div className="relative flex-1 min-h-[180px]">
+      <div className="relative flex-1 min-h-[180px] order-2">
         <LiveMap
           reports={mapReports}
           position={position}
@@ -359,41 +398,17 @@ export function CarteLive() {
       </div>
 
       {enConduite && (
-        <BarreConduite
-          conduite={conduite}
-          reglagesOuverts={reglagesConduite}
-          onReglages={() => setReglagesConduite((o) => !o)}
-        />
+        <div className="contents [&>*]:order-4">
+          <BarreConduite
+            conduite={conduite}
+            reglagesOuverts={reglagesConduite}
+            onReglages={() => setReglagesConduite((o) => !o)}
+          />
+        </div>
       )}
 
       <div className={enConduite ? "hidden" : "contents"}>
-      <HomeSheet
-        allReports={reports}
-        reports={visible}
-        status={status}
-        error={error}
-        updatedAt={updatedAt}
-        geoStatus={geoStatus}
-        radiusKm={radiusKm}
-        scope={isNc ? "nc" : "zone"}
-        hasCenter={!isNc && Boolean(queryCenter)}
-        filter={filter}
-        onFilter={setFilter}
-        onSelect={selectFromList}
-        onEnableLocation={retry}
-        trajet={
-          <TrajetResume
-            actualisation={updatedAt}
-            demandeOuverture={trajetDemande}
-            ligneAffichee={Boolean(trajetLigne)}
-            onLigne={montrerTrajet}
-            onReports={setTrajetReports}
-            onOpen={openFromBanner}
-          />
-        }
-      />
-
-      <BottomNav />
+        <BottomNav />
       </div>
 
       {selectedReport && (
