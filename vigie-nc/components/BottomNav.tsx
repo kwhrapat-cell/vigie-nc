@@ -113,15 +113,19 @@ function AstuceSignaler() {
  * rail vertical à gauche de l'écran (largeur --rail de globals.css), avec
  * « Signaler » écrit sous le « + ».
  */
-export function BottomNav() {
+export function BottomNav({ rail = true }: { rail?: boolean }) {
   const pathname = usePathname();
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
   const astuce = useAstuceSignaler();
 
+  // rail = false (accueil) : sur ordinateur, le menu est dans le panneau de
+  // gauche (NavOrdi), pas de barre à part.
   return (
     <nav
       aria-label="Navigation principale"
-      className="nav-principale fixed bottom-0 inset-x-0 z-[25] border-t border-line bg-panel/95 backdrop-blur lg:top-0 lg:right-auto lg:w-[var(--rail)] lg:border-t-0 lg:border-r lg:bg-panel"
+      className={`nav-principale fixed bottom-0 inset-x-0 z-[25] border-t border-line bg-panel/95 backdrop-blur lg:top-0 lg:right-auto lg:w-[var(--rail)] lg:border-t-0 lg:border-r lg:bg-panel ${
+        rail ? "" : "lg:hidden"
+      }`}
       style={{ paddingBottom: "min(env(safe-area-inset-bottom, 0px), 34px)" }}
     >
       <div className="relative mx-auto max-w-md md:max-w-2xl flex items-stretch h-[62px] lg:max-w-none lg:h-full lg:flex-col lg:justify-center lg:gap-1">
@@ -151,6 +155,44 @@ export function BottomNav() {
           <NavTab key={t.href} tab={t} active={isActive(t.href)} />
         ))}
       </div>
+    </nav>
+  );
+}
+
+/**
+ * Menu de l'accueil sur ordinateur (960 px et plus), en haut du panneau de
+ * gauche : les 4 onglets en texte, « + Signaler » à droite. Caché sur
+ * téléphone et tablette, où la barre du bas sert de menu.
+ */
+export function NavOrdi() {
+  const pathname = usePathname();
+  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  return (
+    <nav aria-label="Navigation principale" className="hidden lg:flex items-center gap-0.5 mx-4 mb-2 border-b border-line">
+      {[...LEFT, ...RIGHT].map((t) => {
+        const actif = isActive(t.href);
+        return (
+          <Link
+            key={t.href}
+            href={t.href}
+            aria-current={actif ? "page" : undefined}
+            className={`-mb-px px-2.5 pt-2.5 pb-3 text-[14px] border-b-2 ${
+              actif ? "border-lagoon font-semibold text-mist" : "border-transparent text-mist-dim hover:text-mist"
+            }`}
+          >
+            {t.label}
+          </Link>
+        );
+      })}
+      <Link
+        href="/signaler"
+        className="ml-auto mb-1.5 flex items-center gap-1.5 h-9 px-3 rounded-full bg-primary hover:bg-primary-strong text-white text-[13.5px] font-semibold"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" className="w-3.5 h-3.5" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        Signaler
+      </Link>
     </nav>
   );
 }

@@ -70,6 +70,16 @@ for (const e of ECRANS) {
         await attendre(1200);
         await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-accueil-fiche.png` });
       }
+      // Ordinateur : panneau de gauche replié (la carte prend tout l'écran)
+      await page.goto(BASE + "/", { waitUntil: "networkidle", timeout: 30000 }).catch(() => {});
+      await attendre(2500);
+      const replier = page.getByRole("button", { name: "Replier le panneau pour agrandir la carte" });
+      if (await replier.isVisible().catch(() => false)) {
+        await replier.click();
+        await attendre(1800);
+        await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-accueil-replie.png` });
+        await page.getByRole("button", { name: "Liste et menu" }).click().catch(() => {});
+      }
     }
   }
   await context.close();

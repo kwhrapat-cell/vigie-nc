@@ -66,6 +66,7 @@ vigie-nc/
                     (cagou, Réessayer, Recharger, retour carte, 15/17/18 toujours
                     visibles) au lieu d'une page blanche ; l'erreur est signalée
   components/     AppShell (cadre de l'appli : largeur selon l'écran et la page),
+                  BandeauPanneauReplie (accueil sur ordinateur, panneau replié),
                   CarteLive (accueil), LiveMap, HomeSheet (liste « À proximité » ;
                   se replie aux compteurs — barre du haut ou glissement vers le
                   bas — pour agrandir la carte, choix gardé sur le téléphone :
@@ -318,10 +319,19 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   carte de l'accueil sur toute la largeur, feuilles du bas en fenêtres
   centrées. Dès 960 px (`lg:`, réglé dans tailwind.config.ts : la « version
   pour ordinateur » de Chrome sur téléphone fait 980 px) : BottomNav devient
-  un rail à gauche (`--rail` = 88 px), l'accueil passe en grille à deux
-  colonnes (CarteLive : en-tête et bandeaux puis HomeSheet à gauche, carte à
-  droite ; l'ordre dans la page reste celui du téléphone), fiche en panneau
-  à droite de la carte. Les @media de globals.css suivent ces valeurs.
+  un rail à gauche (`--rail` = 88 px) sauf à l'accueil (`rail={false}`), qui
+  suit la maquette « E · Vue d'ensemble » validée par Patrice le 31/10/2026
+  pour les mairies et la DITTT : grille à deux colonnes (CarteLive : en-tête
+  avec bouton « Replier », menu NavOrdi en onglets, bandeaux puis HomeSheet à
+  gauche, carte à droite ; l'ordre dans la page reste celui du téléphone).
+  Panneau replié (« vigie-nc:panneau-replie », readPanneauReplie) : la
+  carte prend tout l'écran, il reste BandeauPanneauReplie (logo, chiffres,
+  « Liste et menu »). Sur la carte : vigilance Météo-France (VigilanceMeteo)
+  sous le choix de la vue, bouton plein écran (PleinEcranButton), pas de
+  mode conduite. Vue « toute la Calédonie » par défaut sur un ordinateur à
+  souris tant qu'aucune zone n'est choisie (`readZoneChoice(parDefaut)`,
+  `estOrdiSouris`). Fiche en panneau à droite de la carte. Les @media de
+  globals.css suivent ces valeurs.
   Boutons + / − sur les cartes seulement à la souris
   (`(hover: hover) and (pointer: fine)`).
 - **Captures d'écran** (npm souvent bloqué dans l'espace de travail de
