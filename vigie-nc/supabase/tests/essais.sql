@@ -52,6 +52,7 @@ declare
   ep_trajet constant text := 'https://fcm.googleapis.com/fcm/send/essai-trajet-1';
   ep_trajet2 constant text := 'https://fcm.googleapis.com/fcm/send/essai-trajet-2';
   ep_trajet3 constant text := 'https://fcm.googleapis.com/fcm/send/essai-trajet-3';
+  code_trajet constant text := 'code-essai-trajet-00000000000';
   v_cas record;
   v_m uuid := gen_random_uuid();
   v_o uuid := gen_random_uuid();
@@ -974,9 +975,12 @@ begin
   if exists (select 1 from vigie_itineraire_appels where device_key = vigie_device_key('auth:' || v_p::text)) then
     raise exception 'E41 échec : trace des itinéraires gardée plus de 24 heures';
   end if;
-  if (moderation_statistiques(code_essai)->>'abonnes_trajet')::int < 3 then
-    raise exception 'E41 échec : chiffres %', moderation_statistiques(code_essai)->>'abonnes_trajet';
+  perform vigie_ajouter_moderateur('Essai trajet', code_trajet);
+  v_n := (moderation_statistiques(code_trajet)->>'abonnes_trajet')::int;
+  if v_n is null or v_n < 3 then
+    raise exception 'E41 échec : chiffres (% trajets)', v_n;
   end if;
+  delete from moderateurs where nom = 'Essai trajet';
   perform trajet_supprimer(ep_trajet2);
   if trajet_mon(ep_trajet2) is not null then raise exception 'E41 échec : trajet non effacé'; end if;
   delete from push_abonnements where endpoint in (ep_trajet, ep_trajet2, ep_trajet3);
