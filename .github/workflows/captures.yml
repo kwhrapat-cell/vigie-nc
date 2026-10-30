@@ -1,0 +1,37 @@
+# Captures d'écran (téléphone, tablette, ordinateur) en mode démo, pour
+# vérifier la mise en page. Seulement sur les branches captures/**.
+name: Captures
+
+on:
+  push:
+    branches: ["captures/**"]
+
+jobs:
+  captures:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Dépendances
+        working-directory: vigie-nc
+        run: npm ci
+      - name: Build (mode démo)
+        working-directory: vigie-nc
+        run: npm run build
+      - name: Playwright
+        run: |
+          mkdir -p /tmp/pw && cd /tmp/pw && npm init -y >/dev/null && npm install playwright@1.56 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+      - name: Captures
+        run: |
+          (cd vigie-nc && npx next start -p 3000 > /tmp/serveur.log 2>&1 &)
+          for i in $(seq 1 30); do curl -sf -o /dev/null http://localhost:3000 && break; sleep 2; done
+          cp .github/captures/captures.mjs /tmp/pw/
+          cd /tmp/pw && OUT_DIR=$GITHUB_WORKSPACE/captures node captures.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: captures
+          path: captures/
+          retention-days: 3
