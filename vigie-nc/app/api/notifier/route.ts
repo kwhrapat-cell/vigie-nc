@@ -2,8 +2,9 @@
 //   - déclencheur vigie_signal_notification, quand un danger est confirmé :
 //     récupère les destinataires (zone d'alerte ou trajet favori) et envoie
 //     les alertes ;
-//   - déclencheur vigie_signal_fin_trajet ({ fin: true }), quand un danger
-//     annoncé sur un trajet est déclaré terminé : « fin d'alerte ».
+//   - déclencheur vigie_signal_fin_alerte ({ fin: true }), quand un danger
+//     annoncé dans les 12 h (zone d'alerte ou trajet) est déclaré terminé :
+//     « fin d'alerte ».
 
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
@@ -12,6 +13,7 @@ import {
   AlertTarget,
   alertPayload,
   endpointValide,
+  FinTarget,
   finPayload,
   PushPayload,
   PushTarget,
@@ -30,7 +32,7 @@ interface Destinataires {
 
 interface DestinatairesFin {
   report: { id: string; type?: ReportType; lieu?: string | null };
-  abonnements: PushTarget[];
+  abonnements: FinTarget[];
 }
 
 export async function POST(req: Request) {
@@ -59,8 +61,8 @@ export async function POST(req: Request) {
     if (error) return NextResponse.json({ erreur: error.message }, { status: 500 });
     const { report, abonnements } = data as DestinatairesFin;
     if (!report.type) return NextResponse.json({ envoyes: 0, raison: "signalement en cours" });
-    const payload = finPayload({ id: report.id, type: report.type, lieu: report.lieu ?? null });
-    envois = (abonnements ?? []).map((cible) => ({ cible, payload }));
+    const fini = { id: report.id, type: report.type, lieu: report.lieu ?? null };
+    envois = (abonnements ?? []).map((cible) => ({ cible, payload: finPayload(fini, cible) }));
   } else {
     const { data, error } = await supabase.rpc("notif_destinataires", { p_secret: secret, p_report_id: reportId });
     if (error) return NextResponse.json({ erreur: error.message }, { status: 500 });

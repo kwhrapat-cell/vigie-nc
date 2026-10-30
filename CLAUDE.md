@@ -41,7 +41,7 @@ Le code est dans `vigie-nc/` (Root Directory Vercel).
 vigie-nc/
   app/            écrans (/, /signaler, /relayer, /sos, /alertes, /historique, /profil, /contacts)
                   + /api/notifier (appelé par la base : envoie les alertes ; avec fin = true,
-                    la « fin d'alerte » du trajet) et /api/notif-test
+                    la « fin d'alerte », zone ou trajet) et /api/notif-test
                   + /api/sante (moniteur : site + base ; RPC vigie_sante)
                   + /api/alerte-securite (appelé par la base : liste des modérateurs modifiée)
                   + /api/annonce (appelé par la base : annonce générale avec notification)
@@ -96,7 +96,9 @@ vigie-nc/
                   trajet à la base s'il manque ou diffère quand les alertes sont actives),
                   TrajetResume (accueil, dans HomeSheet sous les compteurs, visible liste
                   repliée : « Mon trajet · Rien de signalé / 1 à surveiller / 2 dangers »,
-                  déplié = liste dans l'ordre de la route + « Voir sur la carte » (ligne
+                  ligne orange « Pluie près de ta route : N endroits déjà inondés » s'il
+                  pleut à 10 km (textePluieTrajet), déplié = liste dans l'ordre de la
+                  route + « Déjà inondé ces 12 derniers mois » + « Voir sur la carte » (ligne
                   dans LiveMap, prop ligne/cadrerLigne ; ses signalements ajoutés à la
                   carte) ; lien ?trajet=1 = déplié + ligne cadrée ; sans trajet,
                   invitation fermable « vigie-nc:trajet-invite »),
@@ -191,7 +193,9 @@ vigie-nc/
                      court), simplifiée (400 points au plus), place le long de la ligne,
                      verdict (danger = ALERT_TYPES confirmé : 2e personne ou officiel ;
                      le reste « à surveiller »), jours (bit 0 = lundi), textes des
-                     notifications, trajet gardé sur le téléphone (« vigie-nc:trajet-v1 »,
+                     notifications (avant départ, « tout est calme », fin d'alerte zone
+                     ou trajet, pluie et zones inondables), trajet gardé sur le téléphone
+                     (« vigie-nc:trajet-v1 », option calme,
                      TRAJET_EVENT). TRAJET_COULOIR_M / _AVANCE_MIN / _APRES_MIN alignés
                      sur vigie_trajet_couloir_m() / _avance_min() / _apres_min() du SQL
     conduite.ts      mode conduite : dangers devant (angle 40°), portée de la
@@ -269,7 +273,7 @@ vigie-nc/
   supabase/schema.sql  schéma complet, ré-exécutable
   supabase/functions/purge-photos  fonction Supabase (Deno) : photos > 7 jours
   supabase/tests/  shim-supabase.sql (faux Supabase pour Postgres + PostGIS)
-                   et essais.sql (41 essais : identité, votes, SOS, photos, droits,
+                   et essais.sql (42 essais : identité, votes, SOS, photos, droits,
                    type « feu », chiffres d'utilisation, annonces générales, chantiers,
                    témoignages et résumé IA, point route, erreurs des téléphones,
                    trajet favori)
@@ -421,17 +425,25 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   `position_m`). Alertes : table privée `push_trajets` (un trajet par
   abonnement, effacé avec lui), RPC `trajet_enregistrer` / `trajet_mon` /
   `trajet_supprimer` (adresse d'abonnement, erreur `alertes_inactives` sans
-  abonnement). Couloir 300 m. `notif_destinataires` ajoute les trajets dont
+  abonnement ; `p_calme` = point avant départ même sans danger, envoyé
+  seulement s'il est coché). Mémoire : `trajet_memoire_inondations(p_points)`
+  (ouvert à tous, rien d'enregistré : inondations des 12 derniers mois dans
+  le couloir, regroupées au plus ancien signalement à 400 m, « fois » = jours
+  différents ; `pluie_en_cours` = inondation ou météo en cours à 10 km).
+  Couloir 300 m. `notif_destinataires` ajoute les trajets dont
   l'heure est en cours (30 min avant → 1 h après un départ,
   `vigie_trajet_departs`, heure de Nouméa) ; `push_envois.trajet_at` note
   l'annonce au titre du trajet. Avant départ : pg_cron
   `vigie-trajets-avant-depart` (5 min) → `vigie_trajets_appeler` (rien si
   aucun départ dans les 30 min) → `/api/trajet` → `trajet_avant_depart`
   (une fois par départ et par jour, `verifie_aller` / `verifie_retour` ;
-  seulement s'il y a un danger confirmé). Fin d'alerte : déclencheur
-  `trg_vigie_fin_trajet` (resolved_at rempli, danger annoncé sur le trajet
-  dans les 12 h) → `/api/notifier` `{fin: true}` → `notif_fin_destinataires`
-  (`fin_envoyee_at`) ; un danger qui expire seul ne déclenche rien.
+  s'il y a un danger confirmé, ou toujours avec `calme`, avec `surveiller` =
+  le reste). Fin d'alerte (zone ET trajet) : déclencheur
+  `trg_vigie_fin_alerte` (resolved_at rempli, danger envoyé à quelqu'un dans
+  les 12 h, `push_envois.sent_at` ou `trajet_at`) → `/api/notifier`
+  `{fin: true}` → `notif_fin_destinataires` (`fin_envoyee_at`, `sur_trajet`,
+  `nom` : texte « sur ton trajet » / « près de « Maison » ») ; un danger
+  qui expire seul ne déclenche rien.
   Itinéraire : `trajet_itineraire_autoriser()` (session, 20 par jour, 300
   par heure en tout, table privée `vigie_itineraire_appels` purgée après
   24 h). Chiffres : `abonnes_trajet` dans moderation_statistiques.

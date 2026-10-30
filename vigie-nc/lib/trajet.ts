@@ -321,17 +321,31 @@ export function heureNoumea(iso: string): string {
  * Point « avant départ ». Ex. « Trajet de 6 h 30 · 2 dangers » /
  * « Route coupée · RT1, Païta, à 5 km du départ. Inondation · Dumbéa, à 12 km
  * du départ. Vérifie avant de partir. »
+ * Sans danger (option « tout est calme ») : « Trajet de 6 h 30 · Rien de
+ * signalé », avec le nombre de choses à surveiller s'il y en a.
  */
 export function texteAvantDepart(input: {
   sens: "aller" | "retour";
   depart: string;
   nb: number;
+  surveiller?: number | null;
   problemes: ProblemeAvantDepart[];
 }): { title: string; body: string } {
   const heure = heureNoumea(input.depart);
   const quand = heure ? ` de ${heureTexte(heure)}` : "";
+  const qui = `${input.sens === "retour" ? "Retour" : "Trajet"}${quand}`;
   const nb = Math.max(input.nb, input.problemes.length);
-  const title = `${input.sens === "retour" ? "Retour" : "Trajet"}${quand} · ${nb} danger${nb > 1 ? "s" : ""}`;
+  if (nb === 0) {
+    const s = Math.max(0, input.surveiller ?? 0);
+    return {
+      title: `${qui} · Rien de signalé`,
+      body:
+        s > 0
+          ? `Aucun danger confirmé sur ta route. ${s} signalement${s > 1 ? "s" : ""} à surveiller (travaux, trafic…) dans l'appli.`
+          : "Aucun danger signalé sur ta route pour l'instant. Reste prudent.",
+    };
+  }
+  const title = `${qui} · ${nb} danger${nb > 1 ? "s" : ""}`;
   const lignes = input.problemes.slice(0, 3).map((p) => {
     const quoi = [REPORT_TYPE_LABELS[p.type] ?? "Danger", p.lieu].filter(Boolean).join(" · ");
     const ou = depuisDepartTexte(p.depuis_depart_m);
@@ -343,13 +357,78 @@ export function texteAvantDepart(input: {
   return { title, body: lignes.join(" ") };
 }
 
-/** « Fin d'alerte · Route coupée · RT1, Païta » / « Déclaré terminé… » */
-export function texteFinAlerte(type: ReportType, lieu: string | null): { title: string; body: string } {
+/**
+ * « Fin d'alerte · Route coupée · RT1, Païta » / « Déclaré terminé : ce
+ * danger n'est plus signalé sur ton trajet. » — ou « près de « Maison » »,
+ * ou « dans ta zone d'alerte », selon la façon dont l'alerte est arrivée.
+ */
+export function texteFinAlerte(
+  type: ReportType,
+  lieu: string | null,
+  cible: { surTrajet?: boolean; nom?: string | null } = { surTrajet: true },
+): { title: string; body: string } {
   const quoi = [REPORT_TYPE_LABELS[type] ?? "Danger", lieu].filter(Boolean).join(" · ");
+  const ou = cible.surTrajet
+    ? "sur ton trajet"
+    : cible.nom
+      ? `près de « ${cible.nom} »`
+      : "dans ta zone d'alerte";
   return {
     title: `Fin d'alerte · ${quoi}`,
-    body: "Déclaré terminé : ce danger n'est plus signalé sur ton trajet. Reste prudent.",
+    body: `Déclaré terminé : ce danger n'est plus signalé ${ou}. Reste prudent.`,
   };
+}
+
+// ---------------------------------------------------------------------
+// Mémoire des inondations le long du trajet (trajet_memoire_inondations)
+// ---------------------------------------------------------------------
+
+export interface ZoneInondable {
+  lieu: string | null;
+  lat: number;
+  lng: number;
+  /** Jours différents où l'endroit a été signalé inondé (12 derniers mois). */
+  fois: number;
+  derniere: string;
+  enCours: boolean;
+  /** Distance depuis le début de la ligne surveillée. */
+  positionM: number | null;
+}
+
+export interface MemoireInondations {
+  zones: ZoneInondable[];
+  /** Inondation ou météo signalée en ce moment à moins de 10 km de la route. */
+  pluieEnCours: boolean;
+}
+
+/** « 15 sept. » (date de Nouméa) */
+export function dateCourteNoumea(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("fr-FR", { timeZone: "Pacific/Noumea", day: "numeric", month: "short" });
+}
+
+/** « inondé en ce moment », « 3 jours d'inondation, le dernier le 20 oct. », « inondé le 12 sept. » */
+export function texteZoneInondable(z: Pick<ZoneInondable, "fois" | "derniere" | "enCours">): string {
+  if (z.enCours) {
+    return z.fois > 1 ? `inondé en ce moment (${z.fois} jours en 12 mois)` : "inondé en ce moment";
+  }
+  const date = dateCourteNoumea(z.derniere);
+  if (z.fois <= 1) return date ? `inondé le ${date}` : "inondé une fois";
+  return date ? `${z.fois} jours d'inondation, le dernier le ${date}` : `${z.fois} jours d'inondation`;
+}
+
+/**
+ * Alerte « pluie » de l'accueil : il pleut près de la route (inondation ou
+ * météo signalée) ET le trajet passe par des endroits déjà inondés.
+ * Ex. « Pluie près de ta route : 3 endroits déjà inondés cette année ».
+ */
+export function textePluieTrajet(m: MemoireInondations | null): string | null {
+  if (!m || !m.pluieEnCours || m.zones.length === 0) return null;
+  const n = m.zones.length;
+  return n > 1
+    ? `Pluie près de ta route : ${n} endroits du trajet déjà inondés ces 12 mois`
+    : "Pluie près de ta route : un endroit du trajet déjà inondé ces 12 mois";
 }
 
 // ---------------------------------------------------------------------
@@ -374,6 +453,8 @@ export interface TrajetLocal {
   jours: number;
   aller: string | null;
   retour: string | null;
+  /** Point avant départ même quand tout est calme. */
+  calme: boolean;
   majAt: string;
 }
 
@@ -407,6 +488,7 @@ export function lireTrajetTexte(texte: string | null): TrajetLocal | null {
       jours: t.jours,
       aller,
       retour,
+      calme: t.calme === true,
       majAt: typeof t.majAt === "string" ? t.majAt : new Date(0).toISOString(),
     };
   } catch {

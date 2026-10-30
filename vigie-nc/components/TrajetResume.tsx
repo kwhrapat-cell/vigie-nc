@@ -3,13 +3,16 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatAgeShort } from "@/lib/geo";
-import { fetchTrajetReports, TrajetSignalement } from "@/lib/reports-api";
+import { fetchTrajetMemoire, fetchTrajetReports, TrajetSignalement } from "@/lib/reports-api";
 import {
   depuisDepartTexte,
   lireTrajet,
+  MemoireInondations,
   NiveauTrajet,
   Point,
+  textePluieTrajet,
   texteVerdict,
+  texteZoneInondable,
   TRAJET_EVENT,
   TRAJET_INVITE_CLE,
   TrajetLocal,
@@ -67,6 +70,7 @@ export function TrajetResume({
   const [pret, setPret] = useState(false);
   const [invite, setInvite] = useState(false);
   const [liste, setListe] = useState<TrajetSignalement[] | null>(null);
+  const [memoire, setMemoire] = useState<MemoireInondations | null>(null);
   const [erreur, setErreur] = useState(false);
   const [deplie, setDeplie] = useState(false);
   const derniereLecture = useRef(0);
@@ -78,6 +82,7 @@ export function TrajetResume({
       const t = lireTrajet();
       setTrajet(t);
       setListe(null);
+      setMemoire(null);
       if (!t) onLigne(null, false);
     };
     relire();
@@ -97,13 +102,18 @@ export function TrajetResume({
       const maintenant = Date.now();
       if (!force && maintenant - derniereLecture.current < ECART_MIN_MS) return;
       derniereLecture.current = maintenant;
-      try {
-        const out = await fetchTrajetReports(trajet.points);
-        setListe(out);
+      const [signalements, inondations] = await Promise.allSettled([
+        fetchTrajetReports(trajet.points),
+        fetchTrajetMemoire(trajet.points),
+      ]);
+      if (signalements.status === "fulfilled") {
+        setListe(signalements.value);
         setErreur(false);
-      } catch {
+      } else {
         setErreur(true);
       }
+      // mémoire des inondations : en cas d'échec, on garde la dernière lue
+      if (inondations.status === "fulfilled") setMemoire(inondations.value);
     },
     [trajet],
   );
@@ -141,6 +151,7 @@ export function TrajetResume({
   }, [demandeOuverture, trajet, onLigne]);
 
   const verdict = useMemo(() => verdictTrajet(reports), [reports]);
+  const pluie = textePluieTrajet(memoire);
   const positions = useMemo(
     () => new Map<string, number>((liste ?? []).map((x) => [x.report.id, x.positionM] as [string, number])),
     [liste],
@@ -212,6 +223,20 @@ export function TrajetResume({
         </svg>
       </button>
 
+      {pluie && (
+        <button
+          type="button"
+          onClick={() => setDeplie(true)}
+          className="flex min-h-[44px] w-full items-center gap-2 border-t border-warn/30 bg-warn/10 px-3 text-left text-[13.5px] font-medium text-warn"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-[18px] w-[18px] shrink-0">
+            <path d="M7 15a4.5 4.5 0 1 1 1-8.9A5.5 5.5 0 0 1 18.5 8 3.5 3.5 0 0 1 18 15H7z" />
+            <path d="M9 18l-1 2.5M13 18l-1 2.5M17 18l-1 2.5" />
+          </svg>
+          <span className="flex-1">{pluie}</span>
+        </button>
+      )}
+
       {deplie && (
         <div id="trajet-detail" className="border-t border-line px-3 pb-2 pt-1">
           {ordonnes.length > 0 ? (
@@ -246,6 +271,23 @@ export function TrajetResume({
                 ? "Pas de réseau pour l'instant : le point sur ton trajet reviendra tout seul."
                 : "Rien de signalé sur ton trajet. L'absence de signalement ne garantit pas que la route est dégagée."}
             </p>
+          )}
+          {memoire && memoire.zones.length > 0 && (
+            <div className="mt-1.5 border-t border-line pt-1.5">
+              <p className="text-[13px] font-semibold text-mist-dim">Déjà inondé ces 12 derniers mois</p>
+              <ul className="mt-0.5 flex flex-col">
+                {memoire.zones.map((z, i) => (
+                  <li key={`${z.lat},${z.lng},${i}`} className="py-1.5">
+                    <span className={`block text-[14px] ${z.enCours ? "font-semibold text-warn" : ""}`}>
+                      {z.lieu ?? "Endroit sans nom"}
+                    </span>
+                    <span className="block text-[13px] text-mist-dim">
+                      {[texteZoneInondable(z), depuisDepartTexte(z.positionM)].filter(Boolean).join(" · ")}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
           <div className="mt-1 grid grid-cols-2 gap-2">
             <button

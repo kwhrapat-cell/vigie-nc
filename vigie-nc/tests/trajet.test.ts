@@ -26,7 +26,9 @@ import {
   texteAvantDepart,
   texteFinAlerte,
   texteSurTrajet,
+  textePluieTrajet,
   texteVerdict,
+  texteZoneInondable,
   TRAJET_COUPE_M,
   TRAJET_POINTS_MAX,
   verdictTrajet,
@@ -159,8 +161,19 @@ test("trajet : textes des alertes", () => {
   assert.equal(retour.title, "Retour de 16 h 30 · 1 danger");
   const fin = texteFinAlerte("inondation", "RT1, Païta");
   assert.equal(fin.title, "Fin d'alerte · Inondation · RT1, Païta");
+  assert.match(fin.body, /sur ton trajet/);
+  // fin d'alerte d'une zone d'alerte : son nom, sinon « ta zone d'alerte »
+  assert.match(texteFinAlerte("accident", null, { surTrajet: false, nom: "Maison" }).body, /près de « Maison »/);
+  assert.match(texteFinAlerte("accident", null, { surTrajet: false, nom: null }).body, /dans ta zone d'alerte/);
+  // « tout est calme »
+  const calme = texteAvantDepart({ sens: "aller", depart: "2026-10-30T19:30:00Z", nb: 0, surveiller: 2, problemes: [] });
+  assert.equal(calme.title, "Trajet de 6 h 30 · Rien de signalé");
+  assert.match(calme.body, /^Aucun danger confirmé sur ta route\. 2 signalements à surveiller/);
+  const toutCalme = texteAvantDepart({ sens: "retour", depart: "2026-10-30T05:30:00Z", nb: 0, problemes: [] });
+  assert.equal(toutCalme.title, "Retour de 16 h 30 · Rien de signalé");
+  assert.match(toutCalme.body, /^Aucun danger signalé/);
   // factuel, sans emoji ni « touche ici » (Chrome les classe en spam)
-  for (const texte of [t.title, t.body, fin.title, fin.body]) {
+  for (const texte of [t.title, t.body, fin.title, fin.body, calme.title, calme.body]) {
     assert.doesNotMatch(texte, /\p{Extended_Pictographic}|touche/iu);
   }
 });
@@ -175,6 +188,7 @@ test("trajet : mémoire du téléphone", () => {
     jours: JOURS_SEMAINE,
     aller: "06:30",
     retour: null,
+    calme: false,
     majAt: "2026-10-30T00:00:00Z",
   };
   assert.deepEqual(lireTrajetTexte(JSON.stringify(bon)), bon);
@@ -184,10 +198,29 @@ test("trajet : mémoire du téléphone", () => {
   assert.equal(lireTrajetTexte(JSON.stringify({ ...bon, jours: 0 })), null);
   assert.equal(lireTrajetTexte(JSON.stringify({ ...bon, aller: "25:00" })), null);
   assert.equal(lireTrajetTexte(JSON.stringify({ ...bon, points: [A, ["x", 1]] })), null);
+  // trajet gardé avant l'option « tout est calme » : relu sans
+  const { calme: _sans, ...ancien } = bon;
+  assert.equal(lireTrajetTexte(JSON.stringify(ancien))?.calme, false);
+  assert.equal(lireTrajetTexte(JSON.stringify({ ...bon, calme: true }))?.calme, true);
 });
 
 test("trajet : positions envoyées et emprise de la Calédonie", () => {
   assert.deepEqual(arrondirPosition({ lat: -22.27654, lng: 166.45321 }), { lat: -22.277, lng: 166.453 });
   assert.ok(dansNc({ lat: -22.27, lng: 166.45 }));
   assert.ok(!dansNc({ lat: 48.85, lng: 2.35 }));
+});
+
+test("trajet : mémoire des inondations", () => {
+  // 20 oct. 2026 à Nouméa
+  const z = { fois: 3, derniere: "2026-10-20T06:00:00Z", enCours: false };
+  assert.equal(texteZoneInondable(z), "3 jours d'inondation, le dernier le 20 oct.");
+  assert.equal(texteZoneInondable({ ...z, fois: 1 }), "inondé le 20 oct.");
+  assert.equal(texteZoneInondable({ ...z, enCours: true }), "inondé en ce moment (3 jours en 12 mois)");
+  const zone = { lieu: "RT1, Païta", lat: -22.1, lng: 166.3, positionM: 2000, ...z };
+  // bandeau seulement s'il pleut près de la route ET qu'il y a des endroits déjà inondés
+  assert.equal(textePluieTrajet(null), null);
+  assert.equal(textePluieTrajet({ zones: [zone], pluieEnCours: false }), null);
+  assert.equal(textePluieTrajet({ zones: [], pluieEnCours: true }), null);
+  assert.match(textePluieTrajet({ zones: [zone], pluieEnCours: true }) ?? "", /un endroit du trajet déjà inondé/);
+  assert.match(textePluieTrajet({ zones: [zone, zone], pluieEnCours: true }) ?? "", /2 endroits/);
 });

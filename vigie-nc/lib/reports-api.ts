@@ -11,7 +11,14 @@ import { ensureSession } from "./session";
 import { noterSignalement, noterVote } from "./impact";
 import { demoCreate, demoDetail, demoFlag, demoNearby, demoRelay, demoStats, demoVote } from "./demo-store";
 import { LatLng } from "./geo";
-import { arrondirPosition, Point, positionSurLigne, TRAJET_COULOIR_M, TrajetLocal } from "./trajet";
+import {
+  arrondirPosition,
+  MemoireInondations,
+  Point,
+  positionSurLigne,
+  TRAJET_COULOIR_M,
+  TrajetLocal,
+} from "./trajet";
 import {
   Annonce,
   AnnonceNiveau,
@@ -882,21 +889,65 @@ export async function fetchTrajetReports(points: Point[]): Promise<TrajetSignale
   }));
 }
 
+/**
+ * Mémoire des inondations le long du trajet (12 derniers mois) et pluie
+ * signalée près de la route. Rien n'est enregistré. Mode démo : vide.
+ */
+export async function fetchTrajetMemoire(points: Point[]): Promise<MemoireInondations> {
+  if (!supabase) return { zones: [], pluieEnCours: false };
+  const { data, error } = await supabase.rpc("trajet_memoire_inondations", { p_points: points });
+  if (error) throw new ReportsApiError(codeFromMessage(error.message));
+  const out = (data ?? {}) as {
+    zones?: {
+      lieu: string | null;
+      lat: number;
+      lng: number;
+      fois: number;
+      derniere: string;
+      en_cours: boolean;
+      position_m: number | null;
+    }[];
+    pluie_en_cours?: boolean;
+  };
+  return {
+    zones: (out.zones ?? []).map((z) => ({
+      lieu: z.lieu,
+      lat: z.lat,
+      lng: z.lng,
+      fois: z.fois,
+      derniere: z.derniere,
+      enCours: Boolean(z.en_cours),
+      positionM: z.position_m,
+    })),
+    pluieEnCours: Boolean(out.pluie_en_cours),
+  };
+}
+
 export interface TrajetServeur {
   jours: number;
   aller: string | null;
   retour: string | null;
   longueurM: number;
+  calme: boolean;
 }
 
 /** Trajet enregistré avec l'abonnement aux alertes de ce téléphone (null si aucun). */
 export async function trajetLireServeur(endpoint: string): Promise<TrajetServeur | null> {
-  const out = await liveRpc<{ jours: number; aller: string | null; retour: string | null; longueur_m: number } | null>(
-    "trajet_mon",
-    { p_endpoint: endpoint },
-  );
+  const out = await liveRpc<{
+    jours: number;
+    aller: string | null;
+    retour: string | null;
+    longueur_m: number;
+    calme?: boolean;
+  } | null>("trajet_mon", { p_endpoint: endpoint });
   if (!out) return null;
-  return { jours: out.jours, aller: out.aller, retour: out.retour, longueurM: out.longueur_m };
+  return {
+    jours: out.jours,
+    aller: out.aller,
+    retour: out.retour,
+    longueurM: out.longueur_m,
+    calme: out.calme === true,
+  };
 }
 
 /** Rattache le trajet à l'abonnement aux alertes (alertes avant départ et pendant le trajet). */
@@ -907,6 +958,8 @@ export async function trajetEnregistrerServeur(endpoint: string, t: TrajetLocal)
     p_jours: t.jours,
     p_aller: t.aller,
     p_retour: t.retour,
+    // envoyé seulement s'il est coché : marche aussi avec une base pas encore à jour
+    ...(t.calme ? { p_calme: true } : {}),
   });
 }
 
