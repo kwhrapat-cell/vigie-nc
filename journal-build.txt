@@ -1,0 +1,90 @@
+
+added 136 packages, and audited 137 packages in 8s
+
+29 packages are looking for funding
+  run `npm fund` for details
+
+1 moderate severity vulnerability
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.
+
+> vigie-nc@0.1.0 prebuild
+> node scripts/preparer-floutage.mjs
+
+Floutage : runtime 0.10.35 copié dans public/mediapipe/.
+Floutage : modèle blaze_face_short_range.tflite téléchargé (224 Ko).
+Floutage : modèle blaze_face_full_range.tflite téléchargé (1058 Ko).
+
+> vigie-nc@0.1.0 build
+> next build
+
+▲ Next.js 16.4.2 (Turbopack)
+✓ Running next.config.mjs took 15ms
+⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 6.7s
+  Running TypeScript ...
+
+  We detected TypeScript in your project and reconfigured your tsconfig.json file for you.
+  The following suggested values were added to your tsconfig.json. These values can be changed to fit your project's needs:
+
+  	- include was updated to add '.next/dev/types/**/*.ts'
+
+  The following mandatory changes were made to your tsconfig.json:
+
+  	- jsx was set to react-jsx (next.js uses the React automatic runtime)
+
+  Finished TypeScript in 5.9s ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/19) ...
+  Generating static pages using 3 workers (4/19) 
+  Generating static pages using 3 workers (9/19) 
+  Generating static pages using 3 workers (14/19) 
+✓ Generating static pages using 3 workers (19/19) in 534ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /affiche
+├ ○ /alertes
+├ ƒ /api/alerte-securite
+├ ƒ /api/annonce
+├ ƒ /api/itineraire
+├ ƒ /api/notif-test
+├ ƒ /api/notifier
+├ ƒ /api/point-route
+├ ƒ /api/resumer
+├ ƒ /api/resumer/essai
+├ ƒ /api/sante
+├ ƒ /api/trajet
+├ ○ /apple-icon.png
+├ ○ /conditions
+├ ○ /confidentialite
+├ ○ /contacts
+├ ○ /historique
+├ ○ /icon.png
+├ ○ /manifest.webmanifest
+├ ○ /mentions-legales
+├ ○ /moderation
+├ ○ /opengraph-image.png
+├ ○ /profil
+├ ○ /relayer
+├ ƒ /s/[id]
+├ ƒ /s/[id]/opengraph-image
+├ ○ /signaler
+└ ○ /sos
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
