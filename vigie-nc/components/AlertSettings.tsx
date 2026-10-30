@@ -206,6 +206,21 @@ export function AlertSettings() {
     else setError("Le test n'a pas pu être envoyé. Réessaie dans un moment.");
   }
 
+  /** Une alerte de danger au format réel, marquée « Essai » (lib/alerte-exemple.ts). */
+  async function exemple() {
+    if (!keys) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    const ok = await sendTestPush(keys, "exemple", zone?.nom ?? null);
+    setBusy(false);
+    if (ok)
+      setNotice(
+        "Exemple envoyé : il arrive dans quelques secondes, ici et sur ta montre si elle est reliée. Une vraie alerte a le même texte, sans « Essai ».",
+      );
+    else setError("L'exemple n'a pas pu être envoyé. Réessaie dans un moment.");
+  }
+
   async function disable() {
     setBusy(true);
     setError(null);
@@ -365,6 +380,19 @@ export function AlertSettings() {
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={exemple}
+          className="mt-2 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-line bg-panel-2 px-3 text-[14.5px] font-medium text-mist disabled:opacity-40"
+        >
+          <BellIcon className="w-4 h-4 text-lagoon shrink-0" />
+          Recevoir un exemple d&apos;alerte
+        </button>
+        <Note>
+          Pour voir comment s&apos;affiche une vraie alerte, sur ce téléphone ou ta montre connectée. Rien n&apos;est
+          publié sur la carte.
+        </Note>
         {messages}
         <Note>
           Chrome parle de « spam » ? Choisis d&apos;afficher la notification, puis{" "}

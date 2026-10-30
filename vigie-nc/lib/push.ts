@@ -94,13 +94,21 @@ export async function unsubscribePush(): Promise<void> {
   await sub?.unsubscribe();
 }
 
-/** Envoie une notification de test à ce téléphone seulement. */
-export async function sendTestPush(keys: SubscriptionKeys, kind?: "securite"): Promise<boolean> {
+/**
+ * Envoie une notification de test à ce téléphone seulement.
+ * « exemple » : une alerte de danger au format réel, marquée « Essai »
+ * (`nom` = nom du lieu d'alerte, repris dans le message, jamais enregistré).
+ */
+export async function sendTestPush(
+  keys: SubscriptionKeys,
+  kind?: "securite" | "exemple",
+  nom?: string | null,
+): Promise<boolean> {
   try {
     const res = await fetch("/api/notif-test", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(kind ? { ...keys, kind } : keys),
+      body: JSON.stringify(kind ? { ...keys, kind, ...(nom ? { nom } : {}) } : keys),
     });
     return res.ok;
   } catch {

@@ -41,7 +41,10 @@ Le code est dans `vigie-nc/` (Root Directory Vercel).
 vigie-nc/
   app/            écrans (/, /signaler, /relayer, /sos, /alertes, /historique, /profil, /contacts)
                   + /api/notifier (appelé par la base : envoie les alertes ; avec fin = true,
-                    la « fin d'alerte », zone ou trajet) et /api/notif-test
+                    la « fin d'alerte », zone ou trajet) et /api/notif-test (essai
+                    vers ce téléphone seulement ; kind « exemple » = alerte de danger
+                    au format réel marquée « Essai », lib/alerte-exemple.ts, bouton
+                    « Recevoir un exemple d'alerte » de l'écran Alertes : montre connectée)
                   + /api/sante (moniteur : site + base ; RPC vigie_sante)
                   + /api/alerte-securite (appelé par la base : liste des modérateurs modifiée)
                   + /api/annonce (appelé par la base : annonce générale avec notification)
