@@ -39,7 +39,10 @@ export function navigateurCourt(ua: string): string {
 export function texteErreur(err: unknown): string | null {
   const e = err instanceof Error ? err : new Error(typeof err === "string" ? err : String(err ?? "inconnue"));
   const message = `${e.name}: ${e.message}`.replace(/\s+/g, " ").trim();
-  if (!e.message || IGNOREES.some((r) => r.test(message))) return null;
+  // Testé avec et sans le nom : « Script error. » arrive en simple texte et
+  // devient « Error: Script error. », que le filtre (ancré au début) ratait.
+  const brut = e.message.replace(/\s+/g, " ").trim();
+  if (!brut || IGNOREES.some((r) => r.test(message) || r.test(brut))) return null;
   // La pile n'a de sens que pour une vraie erreur (pas un texte rejeté).
   const pile = (err instanceof Error ? (e.stack ?? "") : "")
     .split("\n")
