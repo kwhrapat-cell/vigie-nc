@@ -17,6 +17,10 @@ test("navigateur : nom + version + système, jamais le texte complet", () => {
 test("erreurs sans intérêt ignorées, adresse du site retirée de la pile", () => {
   assert.equal(texteErreur(new TypeError("Failed to fetch")), null);
   assert.equal(texteErreur(new Error("ResizeObserver loop limit exceeded")), null);
+  // Erreur d'un script d'un autre site (robot, extension) : aucun détail, rien à corriger.
+  assert.equal(texteErreur("Script error."), null);
+  assert.equal(texteErreur(new Error("Script error")), null);
+  assert.equal(texteErreur("   "), null);
   const e = new TypeError("x est vide");
   e.stack = "TypeError: x est vide\n    at f (https://vigie-nc.com/_next/static/chunks/app.js:1:234)\n    at g (x.js:2:3)";
   assert.equal(texteErreur(e), "TypeError: x est vide @ at f (/_next/static/chunks/app.js:1:234) | at g (x.js:2:3)");
