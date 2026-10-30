@@ -480,6 +480,12 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   `do $verif$ begin execute $schema_verif$ … $schema_verif$; execute
   $essais_verif$ … $essais_verif$; raise exception 'FIN'; end $verif$;`
   via `execute_sql` — l'exception finale annule tout, rien n'est gardé.
+- **Depuis son téléphone, un copier-coller s'arrête vers 20 Ko** (constaté
+  le 30/10/2026 : seule la 1re moitié d'un script de 35 Ko est passée, sans
+  message clair). Pour un changement de base, lui donner des scripts de
+  moins de 20 Ko chacun (découpés en 1/2, 2/2…, chacun ré-exécutable), lien
+  raw.githubusercontent.com, et vérifier ensuite dans la base que tout est
+  là (tables, fonctions, droits, tâches pg_cron).
 
 ## Façon de travailler
 
