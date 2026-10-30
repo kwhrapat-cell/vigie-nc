@@ -168,3 +168,31 @@ export function MapStyleSwitcher({
     </div>
   );
 }
+
+/**
+ * Plein écran (ordinateur) : la carte sur tout l'écran, par exemple pour un
+ * écran de salle de crise. Absent si le navigateur ne le permet pas.
+ */
+export function PleinEcranButton() {
+  const [possible, setPossible] = useState(false);
+  const [actif, setActif] = useState(false);
+  useEffect(() => {
+    setPossible(Boolean(document.fullscreenEnabled));
+    const maj = () => setActif(Boolean(document.fullscreenElement));
+    maj();
+    document.addEventListener("fullscreenchange", maj);
+    return () => document.removeEventListener("fullscreenchange", maj);
+  }, []);
+  if (!possible) return null;
+  const basculer = () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else document.documentElement.requestFullscreen().catch(() => {});
+  };
+  return (
+    <RoundButton active={actif} label={actif ? "Quitter le plein écran" : "Plein écran"} onClick={basculer}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden="true">
+        {actif ? <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" /> : <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />}
+      </svg>
+    </RoundButton>
+  );
+}

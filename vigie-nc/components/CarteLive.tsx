@@ -5,7 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LiveMap } from "./LiveMap";
 import { HomeSheet } from "./HomeSheet";
 import { ReportDetail } from "./ReportDetail";
-import { BottomNav } from "./BottomNav";
+import { BottomNav, NavOrdi } from "./BottomNav";
+import { BandeauPanneauReplie } from "./BandeauPanneauReplie";
+import { VigilanceMeteo } from "./VigilanceMeteo";
 import { WelcomeNotice } from "./WelcomeNotice";
 import { AnnonceBanner } from "./AnnonceBanner";
 import { TravauxBanner } from "./TravauxBanner";
@@ -17,11 +19,21 @@ import { useNiveau } from "@/lib/useNiveau";
 import { DemandeConfirmation } from "./DemandeConfirmation";
 import { BandeauConduite, BarreConduite, BoutonConduite, useModeConduite } from "./ModeConduite";
 import { Logo } from "./ui";
-import { RecenterButton, ZoneSelector } from "./MapControls";
+import { PleinEcranButton, RecenterButton, ZoneSelector } from "./MapControls";
 import { CONDUITE_RECENTRAGE_MS } from "@/lib/conduite";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { distanceM, LatLng } from "@/lib/geo";
-import { MapStyle, readMapStyle, readRadiusKm, readZoneChoice, saveZoneChoice, ZoneChoice } from "@/lib/preferences";
+import {
+  estOrdiSouris,
+  MapStyle,
+  readMapStyle,
+  readPanneauReplie,
+  readRadiusKm,
+  readZoneChoice,
+  savePanneauReplie,
+  saveZoneChoice,
+  ZoneChoice,
+} from "@/lib/preferences";
 import { fetchReport } from "@/lib/reports-api";
 import { useWatchPosition } from "@/lib/useWatchPosition";
 import { useLiveReports } from "@/lib/useLiveReports";
@@ -30,6 +42,8 @@ import { Category, Report, REPORT_TYPE_CATEGORY } from "@/lib/types";
 
 // On ne relance la recherche que si l'on s'est déplacé d'au moins 250 m.
 const REQUERY_DISTANCE_M = 250;
+
+const CATEGORIES: Category[] = ["danger", "perturbation", "meteo"];
 
 export function CarteLive() {
   const { status: geoStatus, position, retry } = useWatchPosition();
@@ -84,9 +98,30 @@ export function CarteLive() {
   const enConduite = conduite.actif;
   const [reglagesConduite, setReglagesConduite] = useState(false);
 
+  // Ordinateur (960 px et plus) : panneau de gauche ouvert ou replié (la
+  // carte prend alors tout l'écran). Choix gardé sur l'appareil. Après un
+  // clic, le focus passe au bouton qui fait l'inverse (clavier).
+  const [panneauReplie, setPanneauReplie] = useState(false);
+  const boutonOuvrirRef = useRef<HTMLButtonElement>(null);
+  const boutonReplierRef = useRef<HTMLButtonElement>(null);
+  const [focusApres, setFocusApres] = useState(false);
+  const changerPanneau = useCallback((replie: boolean) => {
+    setPanneauReplie(replie);
+    savePanneauReplie(replie);
+    setFocusApres(true);
+  }, []);
   useEffect(() => {
-    setZone(readZoneChoice());
+    if (!focusApres) return;
+    setFocusApres(false);
+    (panneauReplie ? boutonOuvrirRef : boutonReplierRef).current?.focus();
+  }, [focusApres, panneauReplie]);
+
+  useEffect(() => {
+    // Sur un ordinateur, la position est approximative : toute la Calédonie
+    // tant que la personne n'a pas choisi de zone.
+    setZone(readZoneChoice(estOrdiSouris() ? "nc" : undefined));
     setMapStyle(readMapStyle());
+    setPanneauReplie(readPanneauReplie());
   }, []);
   const changeZone = useCallback((z: ZoneChoice) => {
     setZone(z);
@@ -149,6 +184,16 @@ export function CarteLive() {
     );
     return isNc ? [...withDistance].sort((a, b) => (a.distanceM ?? 0) - (b.distanceM ?? 0)) : withDistance;
   }, [rawReports, position, isNc]);
+
+  // Chiffres du bandeau du panneau replié (comme les compteurs de la liste)
+  const counts = useMemo(
+    () =>
+      CATEGORIES.reduce(
+        (acc, c) => ({ ...acc, [c]: reports.filter((r) => REPORT_TYPE_CATEGORY[r.type] === c).length }),
+        {} as Record<Category, number>,
+      ),
+    [reports],
+  );
 
   const visible = useMemo(
     () => (filter ? reports.filter((r) => REPORT_TYPE_CATEGORY[r.type] === filter) : reports),
@@ -249,16 +294,18 @@ export function CarteLive() {
 
   // Téléphone et tablette en portrait : en-tête et bandeaux, carte, puis
   // liste en dessous. Ordinateur et tablette en paysage (960 px et plus) :
-  // grille à deux colonnes à droite du rail de navigation : en-tête et
-  // bandeaux puis liste à gauche, carte à droite sur toute la hauteur. Même
-  // ordre dans la page dans les deux cas (lecteurs d'écran, clavier). En
+  // grille à deux colonnes, panneau à gauche (en-tête, menu, bandeaux puis
+  // liste), carte à droite sur toute la hauteur ; panneau replié : la carte
+  // prend tout l'écran avec un petit bandeau (BandeauPanneauReplie). Même
+  // ordre dans la page dans tous les cas (lecteurs d'écran, clavier). En
   // conduite, toujours la carte en plein écran.
+  const grille = panneauReplie
+    ? "lg:grid-cols-1"
+    : "lg:grid-cols-[400px_minmax(0,1fr)] xl:grid-cols-[440px_minmax(0,1fr)]";
   return (
     <div
       className={`h-[100dvh] flex flex-col ${
-        enConduite
-          ? ""
-          : "pb-nav lg:!pb-0 lg:pl-[var(--rail)] lg:grid lg:grid-cols-[400px_minmax(0,1fr)] xl:grid-cols-[440px_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)]"
+        enConduite ? "" : `pb-nav lg:!pb-0 lg:grid ${grille} lg:grid-rows-[auto_minmax(0,1fr)]`
       }`}
     >
       {enConduite && (
@@ -272,8 +319,13 @@ export function CarteLive() {
       {/* Masqués (pas démontés) pendant la conduite, pour laisser la carte.
           Sur ordinateur : haut de la colonne de gauche. */}
       <div
+        id="panneau-accueil"
         className={
-          enConduite ? "hidden" : "contents lg:block lg:col-start-1 lg:row-start-1 lg:bg-panel lg:border-r lg:border-line"
+          enConduite
+            ? "hidden"
+            : `contents lg:block lg:col-start-1 lg:row-start-1 lg:bg-panel lg:border-r lg:border-line ${
+                panneauReplie ? "lg:!hidden" : ""
+              }`
         }
       >
       <header className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
@@ -293,8 +345,26 @@ export function CarteLive() {
               MODE DÉMO
             </span>
           )}
+          {/* Ordinateur : replier le panneau, la carte prend tout l'écran */}
+          <button
+            ref={boutonReplierRef}
+            type="button"
+            onClick={() => changerPanneau(true)}
+            aria-expanded={true}
+            aria-controls="panneau-accueil"
+            aria-label="Replier le panneau pour agrandir la carte"
+            className="hidden lg:flex items-center gap-1.5 min-h-[40px] rounded-xl border border-line bg-panel-2 hover:border-lagoon/50 px-3 text-[13.5px] font-medium text-mist"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden="true">
+              <path d="M15 6l-6 6 6 6" />
+            </svg>
+            Replier
+          </button>
         </div>
       </header>
+
+      {/* Ordinateur : le menu est ici, pas de barre à part */}
+      <NavOrdi />
 
       {/* Un seul bandeau à la fois (lib/bandeaux.ts) : annonce urgente,
           « Tu passes par là ? », annonce info, travaux, merci. Les autres
@@ -335,7 +405,11 @@ export function CarteLive() {
       )}
       </div>
 
-      <div className="relative flex-1 min-h-[180px] lg:col-start-2 lg:row-start-1 lg:row-span-2">
+      <div
+        className={`relative flex-1 min-h-[180px] lg:row-start-1 lg:row-span-2 ${
+          panneauReplie ? "lg:col-start-1" : "lg:col-start-2"
+        }`}
+      >
         <LiveMap
           reports={mapReports}
           position={position}
@@ -352,8 +426,19 @@ export function CarteLive() {
           cadrerLigne={cadrageTrajet}
         />
         <div className="absolute top-2.5 left-3 right-3 z-10 flex items-start justify-between gap-2 pointer-events-none">
-          <div className="pointer-events-auto">
+          <div className="pointer-events-auto flex flex-col items-start gap-2.5">
+            {/* Ordinateur, panneau replié : logo, chiffres, bouton pour rouvrir */}
+            {!enConduite && panneauReplie && (
+              <BandeauPanneauReplie counts={counts} onOuvrir={() => changerPanneau(false)} boutonRef={boutonOuvrirRef} />
+            )}
             {!enConduite && <ZoneSelector value={zone} onChange={changeZone} hasPosition={Boolean(position)} />}
+            {/* Ordinateur : vigilance Météo-France sous le choix de la vue
+                (la vignette ne se charge pas sur téléphone : masquée) */}
+            {!enConduite && (
+              <div className="hidden lg:block">
+                <VigilanceMeteo className="w-[326px] shadow-[0_12px_28px_-14px_rgba(0,0,0,0.85)]" />
+              </div>
+            )}
           </div>
           <div className="pointer-events-auto flex flex-col gap-2">
             <RecenterButton
@@ -361,8 +446,19 @@ export function CarteLive() {
               onClick={recenter}
               label={position ? "Revenir sur ma position" : "Activer ma position"}
             />
-            {/* En conduite, les commandes sont dans la barre du bas (gros boutons) */}
-            {!enConduite && !conduite.dansAppli && <BoutonConduite onClick={conduite.demarrer} />}
+            {/* En conduite, les commandes sont dans la barre du bas (gros
+                boutons). Sur ordinateur, pas de mode conduite. */}
+            {!enConduite && !conduite.dansAppli && (
+              <div className="lg:hidden">
+                <BoutonConduite onClick={conduite.demarrer} />
+              </div>
+            )}
+            {/* Ordinateur : plein écran (écran de salle de crise) */}
+            {!enConduite && (
+              <div className="hidden lg:block">
+                <PleinEcranButton />
+              </div>
+            )}
           </div>
         </div>
         <Link
@@ -398,6 +494,7 @@ export function CarteLive() {
         onFilter={setFilter}
         onSelect={selectFromList}
         onEnableLocation={retry}
+        replieOrdi={panneauReplie}
         trajet={
           <TrajetResume
             actualisation={updatedAt}
@@ -410,7 +507,7 @@ export function CarteLive() {
         }
       />
 
-      <BottomNav />
+      <BottomNav rail={false} />
       </div>
 
       {selectedReport && (
