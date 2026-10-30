@@ -4,6 +4,7 @@
 
 import webpush from "web-push";
 import { LEGAL } from "./legal";
+import { ProblemeAvantDepart, texteAvantDepart, texteFinAlerte, texteSurTrajet } from "./trajet";
 import { ANNONCE_NIVEAU_LABELS, AnnonceNiveau, REPORT_TYPE_LABELS, ReportType } from "./types";
 
 const PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -74,6 +75,9 @@ export interface AlertReport {
 export interface AlertTarget extends PushTarget {
   nom: string | null;
   distance_m: number | null;
+  /** Danger sur le trajet favori, pendant l'heure du trajet (notif_destinataires). */
+  sur_trajet?: boolean;
+  depuis_depart_m?: number | null;
 }
 
 /**
@@ -94,8 +98,13 @@ export function alertPayload(report: AlertReport, target: AlertTarget): PushPayl
     : report.relais_source
       ? `Info relayée, vue sur place par ${surPlace} personne${surPlace > 1 ? "s" : ""}`
       : `Signalé par ${surPlace + 1} personnes`;
-  const d = distanceText(target.distance_m);
-  const ou = d ? `, ${d} ${target.nom ? `de « ${target.nom} »` : "de ton lieu d'alerte"}` : "";
+  // Sur le trajet favori : la place sur le trajet compte plus que la distance au lieu d'alerte.
+  const d = target.sur_trajet ? null : distanceText(target.distance_m);
+  const ou = target.sur_trajet
+    ? `, ${texteSurTrajet(target.depuis_depart_m)}`
+    : d
+      ? `, ${d} ${target.nom ? `de « ${target.nom} »` : "de ton lieu d'alerte"}`
+      : "";
   return {
     title,
     body: `${qui}${ou}.`,
@@ -173,4 +182,34 @@ export function annoncePayload(a: AnnonceAlerte): PushPayload {
 export function annonceTtl(a: AnnonceAlerte, now = Date.now()): number {
   const restant = Math.floor((new Date(a.expires_at).getTime() - now) / 1000);
   return Math.min(24 * 3600, Math.max(3600, Number.isFinite(restant) ? restant : 3600));
+}
+
+// ---------------------------------------------------------------------
+// Trajet favori : point « avant départ » (/api/trajet) et fin d'alerte
+// (/api/notifier avec fin = true). Textes dans lib/trajet.ts (testés).
+// ---------------------------------------------------------------------
+
+export interface AvantDepart extends PushTarget {
+  sens: "aller" | "retour";
+  depart: string;
+  jour: string;
+  nb: number;
+  problemes: ProblemeAvantDepart[];
+}
+
+export function avantDepartPayload(t: AvantDepart): PushPayload {
+  const { title, body } = texteAvantDepart(t);
+  return { title, body, url: "/?trajet=1", tag: `trajet-${t.sens}-${t.jour}` };
+}
+
+/** Gardée par le service d'envoi jusqu'au départ seulement (5 à 30 min) : après, elle ne sert plus. */
+export function avantDepartTtl(t: AvantDepart, now = Date.now()): number {
+  const restant = Math.floor((new Date(t.depart).getTime() - now) / 1000);
+  return Math.min(30 * 60, Math.max(5 * 60, Number.isFinite(restant) ? restant : 30 * 60));
+}
+
+/** Même étiquette que l'alerte du danger : la fin la remplace dans la liste des notifications. */
+export function finPayload(report: { id: string; type: ReportType; lieu: string | null }): PushPayload {
+  const { title, body } = texteFinAlerte(report.type, report.lieu);
+  return { title, body, url: "/?trajet=1", tag: report.id };
 }

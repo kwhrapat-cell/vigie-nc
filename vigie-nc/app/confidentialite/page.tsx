@@ -146,7 +146,8 @@ export default function ConfidentialitePage() {
           </li>
           <li>
             Pour ne jamais envoyer deux fois la même alerte, la base note quelle alerte est partie vers quelle
-            adresse. Cette trace est effacée au bout de 7 jours.
+            adresse (et si c&apos;était pour ton trajet, pour t&apos;envoyer la fin d&apos;alerte). Cette trace est
+            effacée au bout de 7 jours.
           </li>
           <li>
             Rarement, une <strong>annonce importante pour toute la Calédonie</strong>{" "}(cyclone, évacuation…) part
@@ -155,6 +156,40 @@ export default function ConfidentialitePage() {
           <li>
             Tout est effacé dès que tu touches « Désactiver », ou quand ton téléphone n&apos;accepte plus les
             notifications.
+          </li>
+        </LegalList>
+      </LegalSection>
+
+      <LegalSection title="Ton trajet (si tu l'ajoutes)">
+        <LegalList>
+          <li>
+            Ton point de départ et ton arrivée <strong>restent sur ton téléphone</strong>. Pour calculer
+            l&apos;itinéraire une fois, ils sont envoyés <strong>arrondis à environ 100 m</strong> au serveur de Vigie
+            NC, qui interroge un service d&apos;itinéraires gratuit (OSRM, sur les données OpenStreetMap :
+            OpenStreetMap France / FOSSGIS, ou le projet OSRM en secours). Ce service ne voit ni ton adresse IP ni qui
+            tu es. Rien n&apos;est gardé.
+          </li>
+          <li>
+            Sur ton téléphone sont gardés : la ligne de ton trajet <strong>sans ses 500 premiers et derniers
+            mètres</strong>, tes jours et tes heures de départ.
+          </li>
+          <li>
+            Pour le point sur ton trajet à l&apos;ouverture de l&apos;appli, cette ligne est envoyée à la base, qui
+            répond avec les signalements en cours dessus. Rien n&apos;est enregistré.
+          </li>
+          <li>
+            Si les alertes sont activées, la même ligne (toujours sans ses extrémités), tes jours et tes heures sont
+            enregistrés avec ton adresse d&apos;envoi des alertes, sans lien avec l&apos;identifiant anonyme de ton
+            téléphone. Ils servent à te prévenir 30 min avant de partir et pendant le trajet s&apos;il y a un danger
+            confirmé dessus, puis quand il est déclaré terminé.
+          </li>
+          <li>
+            Pour limiter les abus du service d&apos;itinéraires (20 calculs par jour), la base note l&apos;empreinte
+            de ta session anonyme et l&apos;heure de chaque calcul, effacées après 24 heures.
+          </li>
+          <li>
+            Tout est effacé quand tu touches « Effacer » dans « Mon trajet ». Le trajet enregistré pour les alertes
+            est aussi effacé quand tu désactives les alertes.
           </li>
         </LegalList>
       </LegalSection>
@@ -198,6 +233,9 @@ export default function ConfidentialitePage() {
       <LegalSection title="Ce qui reste sur ton téléphone">
         <LegalList>
           <li>Tes contacts d&apos;urgence (SOS) : jamais envoyés à Vigie NC.</li>
+          <li>
+            Ton trajet : départ et arrivée exacts jamais envoyés (voir « Ton trajet » plus haut).
+          </li>
           <li>Tes réglages (rayon, fond de carte) et le texte collé pour relayer une info.</li>
           <li>
             « Mon impact » : la liste de tes 30 derniers signalements (identifiant, type, lieu, heure), le nombre de
@@ -243,6 +281,10 @@ export default function ConfidentialitePage() {
             sécurité des connexions est gardé 30 jours.
           </li>
           <li>Ton lieu d&apos;alerte : jusqu&apos;à ce que tu désactives les alertes.</li>
+          <li>
+            Ton trajet enregistré pour les alertes : jusqu&apos;à ce que tu l&apos;effaces ou que tu désactives les
+            alertes. La trace des calculs d&apos;itinéraire : 24 heures.
+          </li>
           <li>
             Les jours où ton téléphone a ouvert l&apos;appli : 35 jours, puis il ne reste que les totaux par jour. Le
             premier et le dernier jour de visite (pour reconnaître un nouveau visiteur) : effacés après 90 jours sans
@@ -296,6 +338,10 @@ export default function ConfidentialitePage() {
           </li>
           <li>WhatsApp : seulement si tu touches « WhatsApp » pour partager l&apos;appli.</li>
           <li>Google, Apple ou Mozilla : acheminent les alertes jusqu&apos;à ton téléphone, si tu les actives.</li>
+          <li>
+            OSRM (OpenStreetMap France / FOSSGIS, ou le projet OSRM en secours) : calcule l&apos;itinéraire de ton
+            trajet, si tu en ajoutes un, à partir de positions arrondies à 100 m, sans savoir qui tu es.
+          </li>
           <li>Cloudflare (Turnstile) : vérifie qu&apos;une vraie personne ouvre la session anonyme, si cette protection est active.</li>
           <li>
             Anthropic (intelligence artificielle Claude) : écrit le résumé automatique à partir des textes des témoins,

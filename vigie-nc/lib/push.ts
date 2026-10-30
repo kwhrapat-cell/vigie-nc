@@ -129,3 +129,17 @@ export function hasSecurityAlarmFlag(): boolean {
     return false;
   }
 }
+
+/**
+ * Envoyé sur `window` quand les alertes de ce téléphone sont activées,
+ * modifiées ou coupées (écran Alertes) : le trajet favori s'y rattache.
+ */
+export const ALERTES_EVENT = "vigie-nc:alertes";
+
+export function prevenirAlertesChangees(): void {
+  try {
+    window.dispatchEvent(new Event(ALERTES_EVENT));
+  } catch {
+    // rien à prévenir
+  }
+}

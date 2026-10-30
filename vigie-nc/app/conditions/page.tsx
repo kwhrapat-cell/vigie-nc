@@ -33,6 +33,11 @@ export default function ConditionsPage() {
           batterie, pas de réseau). Ne compte pas uniquement sur elles.
         </p>
         <p>
+          Le point sur ton trajet (« Rien de signalé », « 2 dangers »…) ne dit que ce qui est signalé : l&apos;absence
+          de signalement ne garantit pas que la route est dégagée. L&apos;itinéraire calculé peut différer de celui
+          que tu prends vraiment.
+        </p>
+        <p>
           Les annonces pour toute la Calédonie (bandeau en haut de la carte) sont publiées par l&apos;équipe de
           Vigie NC. Quand elles citent une source, suis d&apos;abord les consignes de cette source.
         </p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type TouchEvent } from "react";
+import { useEffect, useRef, useState, type ReactNode, type TouchEvent } from "react";
 import { estChantier, libelleFinChantier } from "@/lib/chantier";
 import { formatAgeShort, formatDistance } from "@/lib/geo";
 import { readListeRepliee, saveListeRepliee, sensGlisseListe, suiviGlisseListe } from "@/lib/preferences";
@@ -40,6 +40,7 @@ export function HomeSheet({
   onFilter,
   onSelect,
   onEnableLocation,
+  trajet,
 }: {
   allReports: Report[];
   reports: Report[]; // après filtre de catégorie
@@ -54,6 +55,8 @@ export function HomeSheet({
   onFilter: (c: Category | null) => void;
   onSelect: (id: string) => void;
   onEnableLocation: () => void;
+  /** Point sur le trajet favori (components/TrajetResume), visible même liste repliée. */
+  trajet?: ReactNode;
 }) {
   const counts = CATEGORIES.reduce(
     (acc, c) => ({ ...acc, [c]: allReports.filter((r) => REPORT_TYPE_CATEGORY[r.type] === c).length }),
@@ -168,6 +171,8 @@ export function HomeSheet({
         })}
       </div>
       </div>
+
+      {trajet}
 
       {!hasCenter && scope === "zone" && (geoStatus === "denied" || geoStatus === "unsupported" || geoStatus === "unavailable") && (
         <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-warn/30 bg-warn/10 px-3 py-2 text-[13.5px] text-mist">

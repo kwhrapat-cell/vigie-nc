@@ -2,7 +2,8 @@
 -- Essais de schema.sql : identité anonyme, votes, SOS, photos, droits,
 -- type « feu », chiffres d'utilisation, annonces générales, chantiers,
 -- témoignages et résumé automatique (IA), point route (mode conduite),
--- erreurs des téléphones.
+-- erreurs des téléphones, trajet favori (réglage, point sur le trajet,
+-- alertes pendant le trajet, avant le départ et fin d'alerte, itinéraire).
 -- À lancer APRÈS schema.sql. Chaque essai qui échoue arrête tout avec un
 -- message « Ex échec : … ». Rien n'est envoyé : l'adresse d'envoi des
 -- alertes est retirée pendant l'essai.
@@ -46,6 +47,19 @@ declare
   v_l uuid := gen_random_uuid();
   sig_point_route constant text := 'ia_point_route_preparer(uuid[])';
   code_erreurs constant text := 'code-essai-erreurs-0000000000';
+  -- Trajet favori : ligne près de Bourail (≈ 9 km), sans autre essai autour
+  ligne_trajet constant jsonb := '[[-21.60, 165.45], [-21.54, 165.51]]';
+  ep_trajet constant text := 'https://fcm.googleapis.com/fcm/send/essai-trajet-1';
+  ep_trajet2 constant text := 'https://fcm.googleapis.com/fcm/send/essai-trajet-2';
+  ep_trajet3 constant text := 'https://fcm.googleapis.com/fcm/send/essai-trajet-3';
+  v_cas record;
+  v_m uuid := gen_random_uuid();
+  v_o uuid := gen_random_uuid();
+  v_p uuid := gen_random_uuid();
+  v_danger uuid;
+  v_travaux uuid;
+  v_dans_10_min text := left((timezone('Pacific/Noumea', now()) + interval '10 minutes')::time::text, 5);
+  v_dans_5_h text := left((timezone('Pacific/Noumea', now()) + interval '5 hours')::time::text, 5);
 begin
   delete from vigie_config where cle in ('notif_url', 'securite_url', 'ia_url');
   insert into vigie_config (cle, valeur) values ('photo_host', 'essai.supabase.co')
@@ -771,6 +785,205 @@ begin
     raise exception 'E35 échec : erreurs gardées plus de 14 jours';
   end if;
 
-  raise notice 'ESSAIS OK (35)';
+  -- E36 : trajet favori — réglage : abonnement aux alertes obligatoire,
+  -- contrôles (ligne, Calédonie, longueur, jours, heures), lecture, droits
+  perform set_config('request.jwt.claims', '', true);
+  begin
+    perform trajet_enregistrer('https://fcm.googleapis.com/fcm/send/essai-trajet-inconnu', ligne_trajet, 31, '06:30', null);
+    raise exception 'E36 échec : trajet sans abonnement accepté';
+  exception when others then
+    if sqlerrm not like '%alertes_inactives%' then raise exception 'E36 échec : %', sqlerrm; end if;
+  end;
+  -- zones d'alerte à Koumac : loin du trajet, seules les règles du trajet jouent
+  insert into push_abonnements (endpoint, p256dh, auth, lat, lng, rayon_km) values
+    (ep_trajet, 'cle', 'auth', -20.56, 164.28, 3),
+    (ep_trajet2, 'cle', 'auth', -20.56, 164.28, 3),
+    (ep_trajet3, 'cle', 'auth', -20.56, 164.28, 3);
+  for v_cas in
+    select * from (values
+      ('"pas une liste"'::jsonb, 31, '06:30'::text, null::text, 'trajet_invalide'::text),
+      ('[[-21.60, 165.45]]', 31, '06:30', null, 'trajet_invalide'),
+      ('[[-21.60, "x"], [-21.54, 165.51]]', 31, '06:30', null, 'trajet_invalide'),
+      ('[1, 2]', 31, '06:30', null, 'trajet_invalide'),
+      ('[[48.85, 2.35], [48.86, 2.36]]', 31, '06:30', null, 'trajet_hors_nc'),
+      ('[[-21.60, 165.45], [-21.6001, 165.4501]]', 31, '06:30', null, 'trajet_longueur'),
+      (ligne_trajet, 0, '06:30', null, 'trajet_jours'),
+      (ligne_trajet, 128, '06:30', null, 'trajet_jours'),
+      (ligne_trajet, 31, '25:00', null, 'trajet_heure'),
+      (ligne_trajet, 31, '6h30', null, 'trajet_heure'),
+      (ligne_trajet, 31, null, null, 'trajet_heure')
+    ) as c(points, jours, aller, retour, attendu)
+  loop
+    begin
+      perform trajet_enregistrer(ep_trajet, v_cas.points, v_cas.jours, v_cas.aller, v_cas.retour);
+      raise exception 'E36 échec : trajet % accepté', v_cas.points;
+    exception when others then
+      if sqlerrm not like '%' || v_cas.attendu || '%' then
+        raise exception 'E36 échec (%) : %', v_cas.attendu, sqlerrm;
+      end if;
+    end;
+  end loop;
+  v_r := trajet_enregistrer(ep_trajet, ligne_trajet, 127, v_dans_5_h, '16:30');
+  if not coalesce((v_r->>'ok')::boolean, false) or (v_r->>'longueur_m')::int not between 8000 and 10000 then
+    raise exception 'E36 échec : %', v_r;
+  end if;
+  v_r := trajet_mon(ep_trajet);
+  if (v_r->>'jours')::int <> 127 or v_r->>'aller' <> v_dans_5_h or v_r->>'retour' <> '16:30' then
+    raise exception 'E36 échec : lecture %', v_r;
+  end if;
+  if trajet_mon('https://fcm.googleapis.com/fcm/send/essai-trajet-inconnu') is not null then
+    raise exception 'E36 échec : trajet lu pour un téléphone sans trajet';
+  end if;
+  if has_table_privilege('anon', 'push_trajets', 'select')
+     or has_table_privilege('authenticated', 'push_trajets', 'select')
+     or not has_function_privilege('anon', 'trajet_signalements(jsonb)', 'execute')
+     or not has_function_privilege('anon', 'trajet_enregistrer(text, jsonb, int, text, text)', 'execute')
+     or has_function_privilege('anon', 'trajet_itineraire_autoriser()', 'execute')
+     or not has_function_privilege('authenticated', 'trajet_itineraire_autoriser()', 'execute')
+     or has_function_privilege('anon', 'vigie_trajets_appeler()', 'execute')
+     or has_function_privilege('anon', 'vigie_trajets_dus(timestamptz)', 'execute') then
+    raise exception 'E36 échec : droits du trajet';
+  end if;
+
+  -- E37 : point sur le trajet — le danger sur la ligne est trouvé (avec sa
+  -- place depuis le début), les travaux à 2 km ne le sont pas
+  perform set_config('request.jwt.claims', json_build_object('sub', v_m, 'role', 'authenticated')::text, true);
+  v_r := creer_signalement_v3('route_coupee', -21.5700, 165.4800, null, null, null, 'Essai trajet');
+  v_danger := (v_r->>'id')::uuid;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_o, 'role', 'authenticated')::text, true);
+  v_r := creer_signalement_v3('travaux', -21.5573, 165.4673, null, null, null, 'Essai trajet loin');
+  v_travaux := (v_r->>'id')::uuid;
+  perform set_config('request.jwt.claims', '', true);
+  select count(*) filter (where s.id = v_danger and s.position_m between 4000 and 5200),
+         count(*) filter (where s.id = v_travaux)
+    into v_n, v_id_n
+  from trajet_signalements(ligne_trajet) s;
+  if v_n <> 1 or v_id_n <> 0 then
+    raise exception 'E37 échec : danger trouvé % fois, travaux à 2 km % fois', v_n, v_id_n;
+  end if;
+  begin
+    perform * from trajet_signalements('[]');
+    raise exception 'E37 échec : trajet vide accepté';
+  exception when others then
+    if sqlerrm not like '%trajet_invalide%' then raise exception 'E37 échec : %', sqlerrm; end if;
+  end;
+
+  -- E38 : alerte pendant l'heure du trajet, même loin de la zone d'alerte ;
+  -- rien hors de l'heure du trajet ; jamais deux fois
+  v_r := trajet_enregistrer(ep_trajet, ligne_trajet, 127, v_dans_10_min, null);
+  perform trajet_enregistrer(ep_trajet2, ligne_trajet, 127, v_dans_5_h, null);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_o, 'role', 'authenticated')::text, true);
+  v_r := voter_signalement_v3(v_danger, 'present', -21.5650, 165.4800);
+  if v_r->>'resultat' is distinct from 'confirme' then raise exception 'E38 échec : vote %', v_r; end if;
+  v_r := notif_destinataires(v_secret, v_danger);
+  if not ((v_r->'abonnements') @> jsonb_build_array(jsonb_build_object('endpoint', ep_trajet, 'sur_trajet', true, 'sens', 'aller'))) then
+    raise exception 'E38 échec : alerte du trajet absente : %', v_r;
+  end if;
+  if (select (a->>'depuis_depart_m')::int from jsonb_array_elements(v_r->'abonnements') a
+       where a->>'endpoint' = ep_trajet) not between 4000 and 5200 then
+    raise exception 'E38 échec : place sur le trajet %', v_r;
+  end if;
+  if (v_r->'abonnements') @> jsonb_build_array(jsonb_build_object('endpoint', ep_trajet2)) then
+    raise exception 'E38 échec : alerte envoyée hors de l''heure du trajet';
+  end if;
+  if (notif_destinataires(v_secret, v_danger)->'abonnements') @> jsonb_build_array(jsonb_build_object('endpoint', ep_trajet)) then
+    raise exception 'E38 échec : alerte du trajet envoyée deux fois';
+  end if;
+  if not exists (select 1 from push_envois e join push_abonnements a on a.id = e.abonnement_id
+                 where e.report_id = v_danger and a.endpoint = ep_trajet and e.trajet_at is not null) then
+    raise exception 'E38 échec : envoi au titre du trajet non noté';
+  end if;
+
+  -- E39 : point « avant départ » — envoyé 30 min avant s'il y a un danger
+  -- confirmé, une seule fois ; rien si le trajet est calme (mais noté fait)
+  perform trajet_enregistrer(ep_trajet3, '[[-21.10, 164.86], [-21.05, 164.90]]', 127, v_dans_10_min, null);
+  if not exists (select 1 from vigie_trajets_dus(now()) d join push_abonnements a on a.id = d.abonnement_id
+                 where a.endpoint = ep_trajet) then
+    raise exception 'E39 échec : départ dans 10 min non repéré';
+  end if;
+  begin
+    perform trajet_avant_depart('mauvais-secret');
+    raise exception 'E39 échec : points avant départ remis sans secret';
+  exception when others then
+    if sqlerrm not like '%secret_invalide%' then raise exception 'E39 échec : %', sqlerrm; end if;
+  end;
+  v_r := trajet_avant_depart(v_secret)->'trajets';
+  if jsonb_array_length(v_r) <> 1 or v_r->0->>'endpoint' <> ep_trajet or v_r->0->>'sens' <> 'aller'
+     or (v_r->0->>'nb')::int <> 1 or v_r->0->'problemes'->0->>'id' <> v_danger::text
+     or v_r->0->'problemes'->0->>'type' <> 'route_coupee' then
+    raise exception 'E39 échec : %', v_r;
+  end if;
+  if exists (select 1 from push_trajets t join push_abonnements a on a.id = t.abonnement_id
+             where a.endpoint in (ep_trajet, ep_trajet3) and t.verifie_aller is null) then
+    raise exception 'E39 échec : départ non noté comme fait';
+  end if;
+  if jsonb_array_length(trajet_avant_depart(v_secret)->'trajets') <> 0 then
+    raise exception 'E39 échec : point avant départ envoyé deux fois';
+  end if;
+  -- sans adresse d'envoi (essai), l'appel programmé ne fait rien et ne plante pas
+  perform vigie_trajets_appeler();
+
+  -- E40 : fin d'alerte — le danger déclaré terminé prévient le téléphone
+  -- qui l'a reçu sur son trajet, une seule fois ; rien tant qu'il est en cours
+  begin
+    perform notif_fin_destinataires('mauvais-secret', v_danger);
+    raise exception 'E40 échec : fin remise sans secret';
+  exception when others then
+    if sqlerrm not like '%secret_invalide%' then raise exception 'E40 échec : %', sqlerrm; end if;
+  end;
+  if jsonb_array_length(notif_fin_destinataires(v_secret, v_danger)->'abonnements') <> 0 then
+    raise exception 'E40 échec : fin annoncée pour un danger en cours';
+  end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_m, 'role', 'authenticated')::text, true);
+  v_r := voter_signalement_v3(v_danger, 'termine', -21.5700, 165.4800);
+  if v_r->>'resultat' is distinct from 'resolu' then raise exception 'E40 échec : clôture %', v_r; end if;
+  v_r := notif_fin_destinataires(v_secret, v_danger);
+  if not ((v_r->'abonnements') @> jsonb_build_array(jsonb_build_object('endpoint', ep_trajet)))
+     or v_r->'report'->>'type' <> 'route_coupee' then
+    raise exception 'E40 échec : %', v_r;
+  end if;
+  if jsonb_array_length(notif_fin_destinataires(v_secret, v_danger)->'abonnements') <> 0 then
+    raise exception 'E40 échec : fin envoyée deux fois';
+  end if;
+  if exists (select 1 from trajet_signalements(ligne_trajet) s where s.id = v_danger) then
+    raise exception 'E40 échec : danger terminé encore sur le trajet';
+  end if;
+
+  -- E41 : calcul d'itinéraire — session obligatoire, 20 par jour, trace
+  -- effacée après 24 h ; chiffres ; trajet effacé avec l'abonnement
+  perform set_config('request.jwt.claims', '', true);
+  begin
+    perform trajet_itineraire_autoriser();
+    raise exception 'E41 échec : itinéraire sans session';
+  exception when others then
+    if sqlerrm not like '%connexion_requise%' then raise exception 'E41 échec : %', sqlerrm; end if;
+  end;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+  for v_n in 1..20 loop
+    perform trajet_itineraire_autoriser();
+  end loop;
+  begin
+    perform trajet_itineraire_autoriser();
+    raise exception 'E41 échec : 21e itinéraire du jour accepté';
+  exception when others then
+    if sqlerrm not like '%itineraire_trop%' then raise exception 'E41 échec : %', sqlerrm; end if;
+  end;
+  update vigie_itineraire_appels set created_at = now() - interval '25 hours'
+   where device_key = vigie_device_key('auth:' || v_p::text);
+  perform vigie_purger_donnees_appareil();
+  if exists (select 1 from vigie_itineraire_appels where device_key = vigie_device_key('auth:' || v_p::text)) then
+    raise exception 'E41 échec : trace des itinéraires gardée plus de 24 heures';
+  end if;
+  if (moderation_statistiques(code_essai)->>'abonnes_trajet')::int < 3 then
+    raise exception 'E41 échec : chiffres %', moderation_statistiques(code_essai)->>'abonnes_trajet';
+  end if;
+  perform trajet_supprimer(ep_trajet2);
+  if trajet_mon(ep_trajet2) is not null then raise exception 'E41 échec : trajet non effacé'; end if;
+  delete from push_abonnements where endpoint in (ep_trajet, ep_trajet2, ep_trajet3);
+  if exists (select 1 from push_trajets t where not exists (select 1 from push_abonnements a where a.id = t.abonnement_id)) then
+    raise exception 'E41 échec : trajet gardé sans abonnement';
+  end if;
+
+  raise notice 'ESSAIS OK (41)';
 end
 $essais$;

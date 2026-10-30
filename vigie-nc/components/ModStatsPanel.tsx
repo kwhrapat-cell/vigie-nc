@@ -66,7 +66,7 @@ function resume(s: ModStats): string {
     s.signalements.delaiConfirmationMin != null
       ? `• Confirmation en ${delaiTexte(s.signalements.delaiConfirmationMin)} (médiane)`
       : null,
-    `• ${n(s.abonnesAlertes)} téléphones abonnés aux alertes`,
+    `• ${n(s.abonnesAlertes)} téléphones abonnés aux alertes, dont ${n(s.abonnesTrajet)} avec un trajet surveillé`,
     "Comptage anonyme : 1 utilisateur = 1 téléphone ou navigateur.",
   ];
   return lignes.filter(Boolean).join("\n");
@@ -171,7 +171,11 @@ export function ModStatsPanel({ code }: { code: string }) {
               : "Pas encore assez de recul (2 semaines)"
           }
         />
-        <Tile label="Abonnés aux alertes" value={n(s.abonnesAlertes)} note="téléphones" />
+        <Tile
+          label="Abonnés aux alertes"
+          value={n(s.abonnesAlertes)}
+          note={`téléphones, dont ${n(s.abonnesTrajet)} avec un trajet`}
+        />
       </div>
 
       <ColumnChart
