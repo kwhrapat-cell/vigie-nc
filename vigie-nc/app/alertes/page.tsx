@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AlertSettings } from "@/components/AlertSettings";
+import { TrajetSettings } from "@/components/TrajetSettings";
 import { BottomNav } from "@/components/BottomNav";
 import { ReliabilityBadge, ScreenHeader, TypeTile } from "@/components/ui";
 import { VigilanceMeteo } from "@/components/VigilanceMeteo";
@@ -45,6 +46,8 @@ export default function AlertesPage() {
       <VigilanceMeteo className="mx-4 mb-3" />
 
       <AlertSettings />
+
+      <TrajetSettings />
 
       <div className="mx-4 mb-3 grid grid-cols-2 gap-1 rounded-xl border border-line bg-panel p-1" role="tablist">
         {(

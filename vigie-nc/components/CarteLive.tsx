@@ -10,6 +10,7 @@ import { WelcomeNotice } from "./WelcomeNotice";
 import { AnnonceBanner } from "./AnnonceBanner";
 import { TravauxBanner } from "./TravauxBanner";
 import { ImpactBanner } from "./ImpactBanner";
+import { TrajetResume } from "./TrajetResume";
 import { AUCUN_BANDEAU, Bandeau, masquePar, Presences } from "@/lib/bandeaux";
 import { avatarSvg } from "@/lib/avatar";
 import { useNiveau } from "@/lib/useNiveau";
@@ -24,6 +25,7 @@ import { MapStyle, readMapStyle, readRadiusKm, readZoneChoice, saveZoneChoice, Z
 import { fetchReport } from "@/lib/reports-api";
 import { useWatchPosition } from "@/lib/useWatchPosition";
 import { useLiveReports } from "@/lib/useLiveReports";
+import type { Point } from "@/lib/trajet";
 import { Category, Report, REPORT_TYPE_CATEGORY } from "@/lib/types";
 
 // On ne relance la recherche que si l'on s'est déplacé d'au moins 250 m.
@@ -40,6 +42,17 @@ export function CarteLive() {
   const [linkedReport, setLinkedReport] = useState<Report | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const selectedSnapshot = useRef<Report | null>(null);
+
+  // Trajet favori : ligne sur la carte (à la demande) et ses signalements,
+  // ajoutés à la carte quand la ligne est affichée (même hors zone).
+  const [trajetLigne, setTrajetLigne] = useState<Point[] | null>(null);
+  const [cadrageTrajet, setCadrageTrajet] = useState(0);
+  const [trajetReports, setTrajetReports] = useState<Report[]>([]);
+  const [trajetDemande, setTrajetDemande] = useState(false);
+  const montrerTrajet = useCallback((points: Point[] | null, cadrer: boolean) => {
+    setTrajetLigne(points);
+    if (points && cadrer) setCadrageTrajet((n) => n + 1);
+  }, []);
 
   // Ton cagou à ta position, selon ton niveau (lib/niveaux.ts) ; point bleu
   // simple si tu l'as choisi dans le Profil.
@@ -89,6 +102,11 @@ export function CarteLive() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const id = params.get("signalement");
+    // Lien du trajet favori (notification avant départ, écran Alertes)
+    if (params.get("trajet") === "1") {
+      setTrajetDemande(true);
+      if (!id) window.history.replaceState(null, "", window.location.pathname);
+    }
     if (params.get("ajoute") === "1") {
       setBanner("Ton signalement est sur la carte. Merci !");
       setTimeout(() => setBanner(null), 5000);
@@ -159,11 +177,16 @@ export function CarteLive() {
       const enPlus = conduite.reports.filter((r) => r.type !== "sos" && !ids.has(r.id));
       if (enPlus.length > 0) liste = [...liste, ...enPlus];
     }
+    if (trajetLigne && trajetReports.length > 0) {
+      const ids = new Set(liste.map((r) => r.id));
+      const enPlus = trajetReports.filter((r) => !ids.has(r.id));
+      if (enPlus.length > 0) liste = [...liste, ...enPlus];
+    }
     if (selectedReport && selectedReport.active !== false && !liste.some((r) => r.id === selectedReport.id)) {
       return [...liste, selectedReport];
     }
     return liste;
-  }, [visible, selectedReport, enConduite, conduite.reports]);
+  }, [visible, selectedReport, enConduite, conduite.reports, trajetLigne, trajetReports]);
 
   const selectFromList = useCallback((id: string) => {
     setSelectedId(id);
@@ -308,6 +331,8 @@ export function CarteLive() {
           onFollowChange={setFollow}
           highlightIds={enConduite ? conduite.idsDevant : undefined}
           avatar={avatar}
+          ligne={trajetLigne}
+          cadrerLigne={cadrageTrajet}
         />
         <div className="absolute top-2.5 left-3 right-3 z-10 flex items-start justify-between gap-2 pointer-events-none">
           <div className="pointer-events-auto">
@@ -356,6 +381,16 @@ export function CarteLive() {
         onFilter={setFilter}
         onSelect={selectFromList}
         onEnableLocation={retry}
+        trajet={
+          <TrajetResume
+            actualisation={updatedAt}
+            demandeOuverture={trajetDemande}
+            ligneAffichee={Boolean(trajetLigne)}
+            onLigne={montrerTrajet}
+            onReports={setTrajetReports}
+            onOpen={openFromBanner}
+          />
+        }
       />
 
       <BottomNav />

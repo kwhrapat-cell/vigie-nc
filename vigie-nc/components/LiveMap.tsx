@@ -40,6 +40,10 @@ interface Props {
   highlightIds?: Set<string>;
   /** Ton cagou à ta position (SVG de lib/avatar.ts), ou null pour le point bleu simple. */
   avatar?: string | null;
+  /** Trajet favori affiché sur la carte ([lat, lng]), ou null. */
+  ligne?: [number, number][] | null;
+  /** Change de valeur pour cadrer la carte sur le trajet. */
+  cadrerLigne?: number;
 }
 
 // Taille du cagou sur la carte (dessin de lib/avatar.ts, 72 × 92 à l'échelle)
@@ -83,6 +87,8 @@ export function LiveMap({
   onFollowChange,
   highlightIds,
   avatar = null,
+  ligne = null,
+  cadrerLigne = 0,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const leafletRef = useRef<typeof Leaflet | null>(null);
@@ -93,6 +99,7 @@ export function LiveMap({
   const avatarRef = useRef(avatar);
   avatarRef.current = avatar;
   const circleRef = useRef<Leaflet.Circle | null>(null);
+  const ligneRef = useRef<Leaflet.LayerGroup | null>(null);
   const lastFitRef = useRef<{ lat: number; lng: number; radiusM: number } | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -175,6 +182,7 @@ export function LiveMap({
       markersRef.current = null;
       userMarkerRef.current = null;
       circleRef.current = null;
+      ligneRef.current = null;
       tilesRef.current = [];
       lastFitRef.current = null;
       setReady(false);
@@ -394,7 +402,32 @@ export function LiveMap({
     lastFitRef.current = { lat: position.lat, lng: position.lng, radiusM };
   }, [ready, follow, position, radiusM, scope]);
 
-  // 6. Centrer sur un signalement choisi dans la liste
+  // 6. Trajet favori : ligne sombre en dessous (lisible sur tous les fonds),
+  // ligne lagon par-dessus. Sous les signalements, jamais cliquable.
+  useEffect(() => {
+    const L = leafletRef.current;
+    const map = mapRef.current;
+    if (!ready || !L || !map) return;
+    ligneRef.current?.remove();
+    ligneRef.current = null;
+    if (!ligne || ligne.length < 2) return;
+    const groupe = L.layerGroup([
+      L.polyline(ligne, { color: "#081317", weight: 9, opacity: 0.55, interactive: false, lineCap: "round" }),
+      L.polyline(ligne, { color: "#22B8B0", weight: 5, opacity: 0.95, interactive: false, lineCap: "round" }),
+    ]).addTo(map);
+    ligneRef.current = groupe;
+  }, [ready, ligne]);
+
+  useEffect(() => {
+    const L = leafletRef.current;
+    const map = mapRef.current;
+    if (!ready || !L || !map || !cadrerLigne || !ligne || ligne.length < 2) return;
+    onFollowChangeRef.current(false);
+    map.flyToBounds(L.latLngBounds(ligne), { padding: [28, 28], duration: 0.8 });
+    // Cadrage seulement à la demande (cadrerLigne), pas à chaque nouvelle ligne.
+  }, [ready, cadrerLigne]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 7. Centrer sur un signalement choisi dans la liste
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map || !selectedId) return;

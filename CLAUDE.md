@@ -40,12 +40,16 @@ Le code est dans `vigie-nc/` (Root Directory Vercel).
 ```
 vigie-nc/
   app/            écrans (/, /signaler, /relayer, /sos, /alertes, /historique, /profil, /contacts)
-                  + /api/notifier (appelé par la base : envoie les alertes) et /api/notif-test
+                  + /api/notifier (appelé par la base : envoie les alertes ; avec fin = true,
+                    la « fin d'alerte » du trajet) et /api/notif-test
                   + /api/sante (moniteur : site + base ; RPC vigie_sante)
                   + /api/alerte-securite (appelé par la base : liste des modérateurs modifiée)
                   + /api/annonce (appelé par la base : annonce générale avec notification)
                   + /api/resumer (appelé par la base : résumé IA des témoignages) et
                     /api/resumer/essai (onglet « IA » de /moderation, code du modérateur)
+                  + /api/itineraire (trajet favori : itinéraire OSRM depuis des positions
+                    arrondies à ~100 m, session anonyme + trajet_itineraire_autoriser)
+                  + /api/trajet (appelé par la base, pg_cron 5 min : point « avant départ »)
                   + /api/point-route (mode conduite : point route des 10 km écrit par l'IA ;
                     reçoit id + distance des signalements, jamais la position, et le jeton
                     de la session anonyme)
@@ -84,7 +88,18 @@ vigie-nc/
                   lib/navigateur-integre.ts ; affiché par InstallApp et
                   AlertSettings, car ni installation ni alertes n'y marchent),
                   ShareAffiche (partager le lien de l'affiche),
-                  AlertSettings (écran Alertes : activer les notifications),
+                  AlertSettings (écran Alertes : activer les notifications ; prévient
+                  ALERTES_EVENT de lib/push.ts quand elles changent),
+                  TrajetSettings (écran Alertes, carte « Mon trajet », ancre #trajet :
+                  départ → arrivée → horaires et jours ; TrajetApercu = petite carte du
+                  tracé, pointillés = extrémités gardées sur le téléphone ; renvoie le
+                  trajet à la base s'il manque ou diffère quand les alertes sont actives),
+                  TrajetResume (accueil, dans HomeSheet sous les compteurs, visible liste
+                  repliée : « Mon trajet · Rien de signalé / 1 à surveiller / 2 dangers »,
+                  déplié = liste dans l'ordre de la route + « Voir sur la carte » (ligne
+                  dans LiveMap, prop ligne/cadrerLigne ; ses signalements ajoutés à la
+                  carte) ; lien ?trajet=1 = déplié + ligne cadrée ; sans trajet,
+                  invitation fermable « vigie-nc:trajet-invite »),
                   ServiceWorkerRegister (enregistre public/sw.js),
                   SessionInit (ouvre la session anonyme au démarrage),
                   ServiceIndisponible (affiché en prod si la base n'est pas
@@ -171,6 +186,14 @@ vigie-nc/
     chantier.ts      chantiers de longue durée (date de fin annoncée), dates
                      de Nouméa, CHANTIER_JOURS_MAX aligné sur
                      vigie_chantier_jours_max() du SQL
+    trajet.ts        trajet favori, logique pure (tests/trajet.test.ts) : ligne sans les
+                     500 premiers/derniers mètres (TRAJET_COUPE_M, 20 % au plus si
+                     court), simplifiée (400 points au plus), place le long de la ligne,
+                     verdict (danger = ALERT_TYPES confirmé : 2e personne ou officiel ;
+                     le reste « à surveiller »), jours (bit 0 = lundi), textes des
+                     notifications, trajet gardé sur le téléphone (« vigie-nc:trajet-v1 »,
+                     TRAJET_EVENT). TRAJET_COULOIR_M / _AVANCE_MIN / _APRES_MIN alignés
+                     sur vigie_trajet_couloir_m() / _avance_min() / _apres_min() du SQL
     conduite.ts      mode conduite : dangers devant (angle 40°), portée de la
                      voix au choix 3 / 5 / 10 km, annonce à la portée puis à
                      500 m (+ 3 km pour 10 km), phrases parlées ; un danger
@@ -246,9 +269,10 @@ vigie-nc/
   supabase/schema.sql  schéma complet, ré-exécutable
   supabase/functions/purge-photos  fonction Supabase (Deno) : photos > 7 jours
   supabase/tests/  shim-supabase.sql (faux Supabase pour Postgres + PostGIS)
-                   et essais.sql (35 essais : identité, votes, SOS, photos, droits,
+                   et essais.sql (41 essais : identité, votes, SOS, photos, droits,
                    type « feu », chiffres d'utilisation, annonces générales, chantiers,
-                   témoignages et résumé IA, point route, erreurs des téléphones)
+                   témoignages et résumé IA, point route, erreurs des téléphones,
+                   trajet favori)
 .github/workflows/verification.yml  à chaque PR : tests de la logique (Node 22),
                    build + types, schema.sql deux fois puis essais.sql sur
                    Postgres + PostGIS
@@ -390,6 +414,27 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   dépôt). `notif_destinataires` note les envois (`push_envois`, 7 jours,
   5 alertes/heure max). Clés VAPID : variables Vercel
   `NEXT_PUBLIC_VAPID_PUBLIC_KEY` et `VAPID_PRIVATE_KEY`.
+- Trajet favori (section « Trajet favori » du SQL) : départ et arrivée
+  exacts JAMAIS envoyés ; la base ne reçoit que la ligne sans ses
+  extrémités. Point à l'ouverture : `trajet_signalements(p_points)` (ouvert
+  à tous, rien d'enregistré, mêmes colonnes que signalements_proches_v3 +
+  `position_m`). Alertes : table privée `push_trajets` (un trajet par
+  abonnement, effacé avec lui), RPC `trajet_enregistrer` / `trajet_mon` /
+  `trajet_supprimer` (adresse d'abonnement, erreur `alertes_inactives` sans
+  abonnement). Couloir 300 m. `notif_destinataires` ajoute les trajets dont
+  l'heure est en cours (30 min avant → 1 h après un départ,
+  `vigie_trajet_departs`, heure de Nouméa) ; `push_envois.trajet_at` note
+  l'annonce au titre du trajet. Avant départ : pg_cron
+  `vigie-trajets-avant-depart` (5 min) → `vigie_trajets_appeler` (rien si
+  aucun départ dans les 30 min) → `/api/trajet` → `trajet_avant_depart`
+  (une fois par départ et par jour, `verifie_aller` / `verifie_retour` ;
+  seulement s'il y a un danger confirmé). Fin d'alerte : déclencheur
+  `trg_vigie_fin_trajet` (resolved_at rempli, danger annoncé sur le trajet
+  dans les 12 h) → `/api/notifier` `{fin: true}` → `notif_fin_destinataires`
+  (`fin_envoyee_at`) ; un danger qui expire seul ne déclenche rien.
+  Itinéraire : `trajet_itineraire_autoriser()` (session, 20 par jour, 300
+  par heure en tout, table privée `vigie_itineraire_appels` purgée après
+  24 h). Chiffres : `abonnes_trajet` dans moderation_statistiques.
 - Chantiers de longue durée (travaux seulement) : `moderation_chantier(code,
   id, source, fin)` met la source officielle (« Vérifié »), `fin_annoncee`
   (6 mois au plus, `vigie_chantier_jours_max()`) et `expires_at` à minuit
@@ -435,6 +480,12 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   `do $verif$ begin execute $schema_verif$ … $schema_verif$; execute
   $essais_verif$ … $essais_verif$; raise exception 'FIN'; end $verif$;`
   via `execute_sql` — l'exception finale annule tout, rien n'est gardé.
+- **Depuis son téléphone, un copier-coller s'arrête vers 20 Ko** (constaté
+  le 30/10/2026 : seule la 1re moitié d'un script de 35 Ko est passée, sans
+  message clair). Pour un changement de base, lui donner des scripts de
+  moins de 20 Ko chacun (découpés en 1/2, 2/2…, chacun ré-exécutable), lien
+  raw.githubusercontent.com, et vérifier ensuite dans la base que tout est
+  là (tables, fonctions, droits, tâches pg_cron).
 
 ## Façon de travailler
 

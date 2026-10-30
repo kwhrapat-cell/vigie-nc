@@ -11,6 +11,7 @@ import { ensureSession } from "./session";
 import { noterSignalement, noterVote } from "./impact";
 import { demoCreate, demoDetail, demoFlag, demoNearby, demoRelay, demoStats, demoVote } from "./demo-store";
 import { LatLng } from "./geo";
+import { arrondirPosition, Point, positionSurLigne, TRAJET_COULOIR_M, TrajetLocal } from "./trajet";
 import {
   Annonce,
   AnnonceNiveau,
@@ -102,6 +103,17 @@ const ERROR_MESSAGES: Record<string, string> = {
   ia_coupee: "L'IA est coupée (réglage ia_resume = non dans vigie_config).",
   temoignages_invalides: "Écris de 2 à 8 témoignages, de 200 caractères au plus chacun.",
   base_non_configuree: "Cette fonction n'est disponible qu'avec la base en direct.",
+  alertes_inactives:
+    "Active d'abord les alertes sur ce téléphone (en haut de cet écran) pour être prévenu avant de partir.",
+  trajet_invalide: "Ce trajet n'a pas pu être lu : recalcule l'itinéraire.",
+  trajet_hors_nc: "Le départ et l'arrivée doivent être en Nouvelle-Calédonie.",
+  trajet_longueur: "Départ et arrivée trop proches (500 m au moins) ou trajet trop long.",
+  trajet_jours: "Choisis au moins un jour.",
+  trajet_heure: "Indique au moins une heure de départ (aller ou retour).",
+  itineraire_trop: "Beaucoup d'itinéraires calculés depuis ce téléphone aujourd'hui : réessaie demain.",
+  itineraire_introuvable:
+    "Aucune route trouvée entre ces deux points : place les repères sur une route ou tout près.",
+  itineraire_indisponible: "Le calcul d'itinéraire ne répond pas pour l'instant. Réessaie dans un moment.",
 };
 
 export class ReportsApiError extends Error {
@@ -647,6 +659,7 @@ export interface ModStats {
     votesMois: number;
   };
   abonnesAlertes: number;
+  abonnesTrajet: number;
   sources: { source: string; nouveaux: number }[];
   courbe: { jour: string; actifs: number; signalements: number; maxSimultanes: number }[];
 }
@@ -670,6 +683,7 @@ interface ModStatsRow {
     votes_mois: number;
   };
   abonnes_alertes: number;
+  abonnes_trajet?: number;
   sources: { source: string; nouveaux: number }[] | null;
   courbe: { jour: string; actifs: number; signalements: number; max_simultanes: number }[] | null;
 }
@@ -695,6 +709,7 @@ export async function modStats(code: string): Promise<ModStats> {
       votesMois: r.signalements.votes_mois,
     },
     abonnesAlertes: r.abonnes_alertes,
+    abonnesTrajet: r.abonnes_trajet ?? 0,
     sources: r.sources ?? [],
     courbe: (r.courbe ?? []).map((c) => ({
       jour: c.jour,
@@ -793,6 +808,111 @@ export async function notifRemove(endpoint: string): Promise<void> {
 
 /** Les alertes ont besoin de la base en direct (pas de mode démo). */
 export const notifAvailable = Boolean(supabase);
+
+// ---------------------------------------------------------------------
+// Trajet favori (écran Alertes → « Mon trajet », point sur l'accueil).
+// Le départ et l'arrivée exacts restent sur le téléphone : le calcul
+// d'itinéraire reçoit des positions arrondies à ~100 m, la base reçoit la
+// ligne sans ses 500 premiers et derniers mètres (lib/trajet.ts).
+// ---------------------------------------------------------------------
+
+export interface Itineraire {
+  /** Tracé complet [lat, lng], gardé sur le téléphone. */
+  points: Point[];
+  distanceM: number;
+  dureeS: number | null;
+}
+
+/** Itinéraire en voiture entre deux points (/api/itineraire, service OSRM). */
+export async function calculerItineraire(depart: LatLng, arrivee: LatLng): Promise<Itineraire> {
+  const a = arrondirPosition(depart);
+  const b = arrondirPosition(arrivee);
+  if (!supabase) {
+    // mode démo : ligne droite, pas d'appel extérieur
+    return { points: [[a.lat, a.lng], [b.lat, b.lng]], distanceM: 0, dureeS: null };
+  }
+  await requireSession();
+  const { data } = await supabase.auth.getSession();
+  const jeton = data.session?.access_token;
+  if (!jeton) throw new ReportsApiError("connexion_requise");
+  let res: Response;
+  try {
+    res = await fetch("/api/itineraire", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${jeton}` },
+      body: JSON.stringify({ depart: a, arrivee: b }),
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch {
+    throw new ReportsApiError("itineraire_indisponible");
+  }
+  const out = (await res.json().catch(() => ({}))) as {
+    points?: Point[];
+    distanceM?: number;
+    dureeS?: number | null;
+    erreur?: string;
+  };
+  if (!res.ok || !Array.isArray(out.points) || out.points.length < 2) {
+    throw new ReportsApiError(codeFromMessage(out.erreur) === "inconnu" ? "itineraire_indisponible" : codeFromMessage(out.erreur));
+  }
+  return { points: out.points, distanceM: out.distanceM ?? 0, dureeS: out.dureeS ?? null };
+}
+
+export interface TrajetSignalement {
+  report: Report;
+  /** Distance depuis le début de la ligne surveillée, en mètres. */
+  positionM: number;
+}
+
+/** Signalements en cours le long du trajet (rien n'est enregistré). */
+export async function fetchTrajetReports(points: Point[]): Promise<TrajetSignalement[]> {
+  if (!supabase) {
+    return demoNearby(null, 0, getDeviceId())
+      .map(mapRow)
+      .map((report) => ({ report, ...positionSurLigne(report, points) }))
+      .filter((x) => x.distanceM <= TRAJET_COULOIR_M)
+      .map(({ report, positionM }) => ({ report: { ...report, distanceM: null }, positionM }))
+      .sort((x, y) => x.positionM - y.positionM);
+  }
+  const { data, error } = await supabase.rpc("trajet_signalements", { p_points: points });
+  if (error) throw new ReportsApiError(codeFromMessage(error.message));
+  return ((data ?? []) as (ReportRow & { position_m: number | null })[]).map((row) => ({
+    report: mapRow(row),
+    positionM: row.position_m ?? 0,
+  }));
+}
+
+export interface TrajetServeur {
+  jours: number;
+  aller: string | null;
+  retour: string | null;
+  longueurM: number;
+}
+
+/** Trajet enregistré avec l'abonnement aux alertes de ce téléphone (null si aucun). */
+export async function trajetLireServeur(endpoint: string): Promise<TrajetServeur | null> {
+  const out = await liveRpc<{ jours: number; aller: string | null; retour: string | null; longueur_m: number } | null>(
+    "trajet_mon",
+    { p_endpoint: endpoint },
+  );
+  if (!out) return null;
+  return { jours: out.jours, aller: out.aller, retour: out.retour, longueurM: out.longueur_m };
+}
+
+/** Rattache le trajet à l'abonnement aux alertes (alertes avant départ et pendant le trajet). */
+export async function trajetEnregistrerServeur(endpoint: string, t: TrajetLocal): Promise<void> {
+  await liveRpc("trajet_enregistrer", {
+    p_endpoint: endpoint,
+    p_points: t.points,
+    p_jours: t.jours,
+    p_aller: t.aller,
+    p_retour: t.retour,
+  });
+}
+
+export async function trajetSupprimerServeur(endpoint: string): Promise<void> {
+  await liveRpc("trajet_supprimer", { p_endpoint: endpoint });
+}
 
 // ---------------------------------------------------------------------
 // Annonces générales : vues par tout le monde, dans toute la Calédonie.

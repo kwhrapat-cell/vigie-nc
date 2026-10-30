@@ -10,6 +10,7 @@ import { LatLng } from "@/lib/geo";
 import {
   currentSubscription,
   hasSecurityAlarmFlag,
+  prevenirAlertesChangees,
   pushSupport,
   PushSupport,
   sendTestPush,
@@ -28,6 +29,7 @@ import {
   notifSaveZone,
   ReportsApiError,
 } from "@/lib/reports-api";
+import { lireTrajet } from "@/lib/trajet";
 import { useGeolocation } from "@/lib/useGeolocation";
 
 type Phase = "chargement" | "inactif" | "edition" | "actif";
@@ -78,7 +80,7 @@ function Note({ children, className = "" }: { children: React.ReactNode; classNa
 function WhatTriggers() {
   return (
     <ul className="mt-2 flex flex-col gap-1 text-[13.5px] text-mist-dim leading-relaxed">
-      <li>• Accident, route coupée, inondation, danger, météo.</li>
+      <li>• Accident, route coupée, inondation, feu, danger, météo.</li>
       <li>• Seulement quand une 2e personne confirme, ou qu&apos;une source officielle vérifie.</li>
       <li>• 5 alertes par heure au maximum.</li>
       <li>• Et, rarement, les annonces importantes pour toute la Calédonie (cyclone, évacuation…).</li>
@@ -178,6 +180,7 @@ export function AlertSettings() {
       setZone({ ...z, lat: Math.round(pin.lat * 100) / 100, lng: Math.round(pin.lng * 100) / 100 });
       setNotice(zone ? "Zone d'alerte mise à jour." : "Alertes activées. Touche « Tester » pour vérifier.");
       setPhase("actif");
+      prevenirAlertesChangees();
     } catch (e) {
       if (typeof Notification !== "undefined" && Notification.permission === "denied") setSupport("bloque");
       const code = e instanceof ReportsApiError ? e.code : "";
@@ -222,7 +225,12 @@ export function AlertSettings() {
     setZone(null);
     setBusy(false);
     setPhase("inactif");
-    setNotice("Alertes désactivées : ton lieu d'alerte a été effacé.");
+    setNotice(
+      lireTrajet()
+        ? "Alertes désactivées : ton lieu d'alerte a été effacé et ton trajet ne déclenche plus d'alerte."
+        : "Alertes désactivées : ton lieu d'alerte a été effacé.",
+    );
+    prevenirAlertesChangees();
   }
 
   const messages = (
