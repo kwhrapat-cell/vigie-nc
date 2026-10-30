@@ -10,6 +10,7 @@ mkdirSync(OUT, { recursive: true });
 const ECRANS = [
   { nom: "telephone", width: 380, height: 800, mobile: true },
   { nom: "tablette-portrait", width: 768, height: 1024, mobile: true },
+  { nom: "chrome-version-ordi", width: 980, height: 1900, mobile: true },
   { nom: "tablette-paysage", width: 1024, height: 768, mobile: true },
   { nom: "portable", width: 1280, height: 800, mobile: false },
   { nom: "grand", width: 1920, height: 1080, mobile: false },

@@ -109,7 +109,7 @@ function AstuceSignaler() {
 
 /**
  * Barre du bas des maquettes : 4 onglets + bouton « + » central.
- * Sur ordinateur et tablette en paysage (1024 px et plus), elle devient un
+ * Sur ordinateur et tablette en paysage (960 px et plus), elle devient un
  * rail vertical à gauche de l'écran (largeur --rail de globals.css), avec
  * « Signaler » écrit sous le « + ».
  */
