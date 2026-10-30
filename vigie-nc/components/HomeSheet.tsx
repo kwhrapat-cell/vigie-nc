@@ -27,8 +27,8 @@ function timeLabel(d: Date | null) {
 
 /**
  * Panneau du bas de l'accueil : compteurs + liste « À proximité ».
- * Sur ordinateur (1024 px et plus), c'est le bas de la colonne de gauche :
- * la liste est toujours dépliée et défile avec la colonne.
+ * Sur ordinateur (1024 px et plus), c'est le bas de la colonne de gauche
+ * (grille de CarteLive) : la liste est toujours dépliée et défile seule.
  */
 export function HomeSheet({
   allReports,
@@ -114,7 +114,7 @@ export function HomeSheet({
   // carte au fur et à mesure ; vers le haut, la liste remonte par-dessus.
   return (
     <section
-      className="order-3 relative z-[12] -mt-4 rounded-t-[22px] bg-panel border-t border-line px-4 pb-7 lg:mt-1 lg:rounded-none lg:border-t-0 lg:pb-6"
+      className="relative z-[12] -mt-4 rounded-t-[22px] bg-panel border-t border-line px-4 pb-7 lg:col-start-1 lg:row-start-2 lg:mt-0 lg:min-h-0 lg:overflow-y-auto lg:rounded-none lg:border-t-0 lg:border-r lg:pt-1 lg:pb-6"
       style={suivi > 0 ? { marginBottom: -suivi } : suivi < 0 ? { transform: `translateY(${suivi}px)` } : undefined}
     >
       {/* touch-none : le téléphone ne prend pas ce geste pour lui (défilement,

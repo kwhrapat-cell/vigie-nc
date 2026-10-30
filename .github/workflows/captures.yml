@@ -1,7 +1,8 @@
 # Captures d'écran (téléphone, tablette, ordinateur) en mode démo, pour
 # vérifier la mise en page. Seulement sur les branches captures/**.
 # Résultat poussé sur une branche « resultats-captures/<numéro du run> »
-# (images + journaux), à supprimer une fois regardée.
+# (images + journaux), à supprimer une fois regardée. Mode d'emploi dans
+# CLAUDE.md (« Captures d'écran »).
 name: Captures
 
 on:

@@ -249,12 +249,18 @@ export function CarteLive() {
 
   // Téléphone et tablette en portrait : en-tête et bandeaux, carte, puis
   // liste en dessous. Ordinateur et tablette en paysage (1024 px et plus) :
-  // rail de navigation à gauche, colonne avec en-tête, bandeaux et liste,
-  // carte à droite sur toute la hauteur. Même ordre dans la page : l'ordre
-  // d'affichage sur téléphone vient des classes order-* (carte order-2,
-  // liste order-3). En conduite, toujours la carte en plein écran.
+  // grille à deux colonnes à droite du rail de navigation : en-tête et
+  // bandeaux puis liste à gauche, carte à droite sur toute la hauteur. Même
+  // ordre dans la page dans les deux cas (lecteurs d'écran, clavier). En
+  // conduite, toujours la carte en plein écran.
   return (
-    <div className={`h-[100dvh] flex flex-col ${enConduite ? "" : "pb-nav lg:pb-0 lg:flex-row lg:pl-[var(--rail)]"}`}>
+    <div
+      className={`h-[100dvh] flex flex-col ${
+        enConduite
+          ? ""
+          : "pb-nav lg:!pb-0 lg:pl-[var(--rail)] lg:grid lg:grid-cols-[400px_minmax(0,1fr)] xl:grid-cols-[440px_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)]"
+      }`}
+    >
       {enConduite && (
         <BandeauConduite
           conduite={conduite}
@@ -264,12 +270,10 @@ export function CarteLive() {
       )}
 
       {/* Masqués (pas démontés) pendant la conduite, pour laisser la carte.
-          Sur ordinateur, cette partie devient la colonne de gauche. */}
+          Sur ordinateur : haut de la colonne de gauche. */}
       <div
         className={
-          enConduite
-            ? "hidden"
-            : "contents lg:flex lg:flex-col lg:w-[400px] xl:w-[440px] lg:shrink-0 lg:h-[100dvh] lg:overflow-y-auto lg:bg-panel lg:border-r lg:border-line"
+          enConduite ? "hidden" : "contents lg:block lg:col-start-1 lg:row-start-1 lg:bg-panel lg:border-r lg:border-line"
         }
       >
       <header className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
@@ -329,35 +333,9 @@ export function CarteLive() {
           {banner}
         </div>
       )}
-
-      <HomeSheet
-        allReports={reports}
-        reports={visible}
-        status={status}
-        error={error}
-        updatedAt={updatedAt}
-        geoStatus={geoStatus}
-        radiusKm={radiusKm}
-        scope={isNc ? "nc" : "zone"}
-        hasCenter={!isNc && Boolean(queryCenter)}
-        filter={filter}
-        onFilter={setFilter}
-        onSelect={selectFromList}
-        onEnableLocation={retry}
-        trajet={
-          <TrajetResume
-            actualisation={updatedAt}
-            demandeOuverture={trajetDemande}
-            ligneAffichee={Boolean(trajetLigne)}
-            onLigne={montrerTrajet}
-            onReports={setTrajetReports}
-            onOpen={openFromBanner}
-          />
-        }
-      />
       </div>
 
-      <div className="relative flex-1 min-h-[180px] order-2">
+      <div className="relative flex-1 min-h-[180px] lg:col-start-2 lg:row-start-1 lg:row-span-2">
         <LiveMap
           reports={mapReports}
           position={position}
@@ -398,17 +376,41 @@ export function CarteLive() {
       </div>
 
       {enConduite && (
-        <div className="contents [&>*]:order-4">
-          <BarreConduite
-            conduite={conduite}
-            reglagesOuverts={reglagesConduite}
-            onReglages={() => setReglagesConduite((o) => !o)}
-          />
-        </div>
+        <BarreConduite
+          conduite={conduite}
+          reglagesOuverts={reglagesConduite}
+          onReglages={() => setReglagesConduite((o) => !o)}
+        />
       )}
 
       <div className={enConduite ? "hidden" : "contents"}>
-        <BottomNav />
+      <HomeSheet
+        allReports={reports}
+        reports={visible}
+        status={status}
+        error={error}
+        updatedAt={updatedAt}
+        geoStatus={geoStatus}
+        radiusKm={radiusKm}
+        scope={isNc ? "nc" : "zone"}
+        hasCenter={!isNc && Boolean(queryCenter)}
+        filter={filter}
+        onFilter={setFilter}
+        onSelect={selectFromList}
+        onEnableLocation={retry}
+        trajet={
+          <TrajetResume
+            actualisation={updatedAt}
+            demandeOuverture={trajetDemande}
+            ligneAffichee={Boolean(trajetLigne)}
+            onLigne={montrerTrajet}
+            onReports={setTrajetReports}
+            onOpen={openFromBanner}
+          />
+        }
+      />
+
+      <BottomNav />
       </div>
 
       {selectedReport && (
