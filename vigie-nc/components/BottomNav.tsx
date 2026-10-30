@@ -38,8 +38,8 @@ function NavTab({ tab, active }: { tab: Tab; active: boolean }) {
     <Link
       href={tab.href}
       aria-current={active ? "page" : undefined}
-      className={`flex-1 flex flex-col items-center justify-center gap-1 h-full text-[12.5px] ${
-        active ? "text-lagoon" : "text-mist-dim"
+      className={`flex-1 flex flex-col items-center justify-center gap-1 h-full text-[12.5px] lg:flex-none lg:h-[72px] lg:mx-2 lg:rounded-xl lg:hover:bg-panel-2 ${
+        active ? "text-lagoon lg:bg-panel-2" : "text-mist-dim lg:hover:text-mist"
       }`}
     >
       <svg
@@ -79,7 +79,7 @@ function AstuceSignaler() {
   return (
     <div
       role="note"
-      className="astuce-signaler absolute left-1/2 bottom-[calc(100%_+_34px)] flex items-stretch rounded-xl bg-mist text-void shadow-[0_10px_24px_-8px_rgba(0,0,0,0.8)]"
+      className="astuce-signaler absolute left-1/2 bottom-[calc(100%_+_34px)] lg:left-[calc(100%_+_10px)] lg:bottom-auto lg:top-1/2 flex items-stretch rounded-xl bg-mist text-void shadow-[0_10px_24px_-8px_rgba(0,0,0,0.8)]"
     >
       <Link
         href="/signaler"
@@ -98,32 +98,41 @@ function AstuceSignaler() {
           <path d="M6 6l12 12M18 6L6 18" />
         </svg>
       </button>
-      {/* pointe vers le « + » */}
+      {/* pointe vers le « + » (en dessous ; à gauche sur le rail) */}
       <span
-        className="absolute left-1/2 -bottom-[6px] -ml-[6px] w-3 h-3 rotate-45 bg-mist"
+        className="absolute left-1/2 -bottom-[6px] -ml-[6px] lg:-left-[6px] lg:ml-0 lg:bottom-auto lg:top-1/2 lg:-mt-[6px] w-3 h-3 rotate-45 bg-mist"
         aria-hidden="true"
       />
     </div>
   );
 }
 
-/** Barre du bas des maquettes : 4 onglets + bouton « + » central. */
-export function BottomNav() {
+/**
+ * Barre du bas des maquettes : 4 onglets + bouton « + » central.
+ * Sur ordinateur et tablette en paysage (960 px et plus), elle devient un
+ * rail vertical à gauche de l'écran (largeur --rail de globals.css), avec
+ * « Signaler » écrit sous le « + ».
+ */
+export function BottomNav({ rail = true }: { rail?: boolean }) {
   const pathname = usePathname();
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
   const astuce = useAstuceSignaler();
 
+  // rail = false (accueil) : sur ordinateur, le menu est dans le panneau de
+  // gauche (NavOrdi), pas de barre à part.
   return (
     <nav
       aria-label="Navigation principale"
-      className="fixed bottom-0 inset-x-0 z-[25] mx-auto max-w-md border-t border-line bg-panel/95 backdrop-blur"
+      className={`nav-principale fixed bottom-0 inset-x-0 z-[25] border-t border-line bg-panel/95 backdrop-blur lg:top-0 lg:right-auto lg:w-[var(--rail)] lg:border-t-0 lg:border-r lg:bg-panel ${
+        rail ? "" : "lg:hidden"
+      }`}
       style={{ paddingBottom: "min(env(safe-area-inset-bottom, 0px), 34px)" }}
     >
-      <div className="relative flex items-stretch h-[62px]">
+      <div className="relative mx-auto max-w-md md:max-w-2xl flex items-stretch h-[62px] lg:max-w-none lg:h-full lg:flex-col lg:justify-center lg:gap-1">
         {LEFT.map((t) => (
           <NavTab key={t.href} tab={t} active={isActive(t.href)} />
         ))}
-        <div className="relative flex-1 flex justify-center">
+        <div className="relative flex-1 flex justify-center lg:flex-none lg:flex-col lg:items-center lg:py-3">
           {astuce && <AstuceSignaler />}
           <Link
             href="/signaler"
@@ -131,17 +140,59 @@ export function BottomNav() {
             onClick={() => {
               if (astuce) ecrireAstuceSignaler("vue");
             }}
-            className="-mt-6 w-[58px] h-[58px] rounded-full bg-primary flex items-center justify-center shadow-[0_10px_24px_-6px_rgba(22,127,120,0.7)] border-4 border-void animate-fab-in"
+            className="-mt-6 lg:mt-0 w-[58px] h-[58px] rounded-full bg-primary flex items-center justify-center shadow-[0_10px_24px_-6px_rgba(22,127,120,0.7)] border-4 border-void lg:border-panel lg:hover:bg-primary-strong animate-fab-in"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.6} strokeLinecap="round" className="w-6 h-6">
               <path d="M12 5v14M5 12h14" />
             </svg>
           </Link>
+          {/* Sur le rail, le bouton se lit sans deviner : « Signaler » dessous */}
+          <span className="hidden lg:block mt-1 text-[12.5px] font-medium text-mist pointer-events-none" aria-hidden="true">
+            Signaler
+          </span>
         </div>
         {RIGHT.map((t) => (
           <NavTab key={t.href} tab={t} active={isActive(t.href)} />
         ))}
       </div>
+    </nav>
+  );
+}
+
+/**
+ * Menu de l'accueil sur ordinateur (960 px et plus), en haut du panneau de
+ * gauche : les 4 onglets en texte, « + Signaler » à droite. Caché sur
+ * téléphone et tablette, où la barre du bas sert de menu.
+ */
+export function NavOrdi() {
+  const pathname = usePathname();
+  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  return (
+    <nav aria-label="Navigation principale" className="hidden lg:flex items-center gap-0.5 mx-4 mb-2 border-b border-line">
+      {[...LEFT, ...RIGHT].map((t) => {
+        const actif = isActive(t.href);
+        return (
+          <Link
+            key={t.href}
+            href={t.href}
+            aria-current={actif ? "page" : undefined}
+            className={`-mb-px px-2.5 pt-2.5 pb-3 text-[14px] border-b-2 ${
+              actif ? "border-lagoon font-semibold text-mist" : "border-transparent text-mist-dim hover:text-mist"
+            }`}
+          >
+            {t.label}
+          </Link>
+        );
+      })}
+      <Link
+        href="/signaler"
+        className="ml-auto mb-1.5 flex items-center gap-1.5 h-9 px-3 rounded-full bg-primary hover:bg-primary-strong text-white text-[13.5px] font-semibold"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" className="w-3.5 h-3.5" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        Signaler
+      </Link>
     </nav>
   );
 }

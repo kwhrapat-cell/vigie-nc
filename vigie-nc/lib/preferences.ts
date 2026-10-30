@@ -42,8 +42,16 @@ export function saveRadiusKm(km: RadiusKm): void {
   write(RADIUS_KEY, String(km));
 }
 
-export function readZoneChoice(): ZoneChoice {
-  return read(ZONE_KEY) === "nc" ? "nc" : readRadiusKm();
+/**
+ * Zone choisie la dernière fois. Sans choix enregistré : `parDefaut` s'il
+ * est donné (toute la Calédonie sur un ordinateur, dont la position est
+ * approximative), sinon le dernier rayon.
+ */
+export function readZoneChoice(parDefaut?: ZoneChoice): ZoneChoice {
+  const v = read(ZONE_KEY);
+  if (v === "nc") return "nc";
+  if (v == null && parDefaut != null) return parDefaut;
+  return readRadiusKm();
 }
 
 export function saveZoneChoice(zone: ZoneChoice): void {
@@ -70,6 +78,30 @@ export function readListeRepliee(): boolean {
 
 export function saveListeRepliee(repliee: boolean): void {
   write(LISTE_KEY, repliee ? "1" : "0");
+}
+
+// Ordinateur (960 px et plus) : panneau de gauche de l'accueil replié (la
+// carte prend tout l'écran, il reste un petit bandeau) ou ouvert. Ouvert par
+// défaut ; le choix est gardé sur l'appareil.
+const PANNEAU_KEY = "vigie-nc:panneau-replie";
+
+export function readPanneauReplie(): boolean {
+  return read(PANNEAU_KEY) === "1";
+}
+
+export function savePanneauReplie(replie: boolean): void {
+  write(PANNEAU_KEY, replie ? "1" : "0");
+}
+
+/** Un vrai ordinateur : écran large et souris (pas une tablette ni un téléphone). */
+export const ECRAN_ORDI_SOURIS = "(min-width: 960px) and (hover: hover) and (pointer: fine)";
+
+export function estOrdiSouris(): boolean {
+  try {
+    return window.matchMedia(ECRAN_ORDI_SOURIS).matches;
+  } catch {
+    return false;
+  }
 }
 
 // Un glissement vertical du doigt sur le haut de la liste la replie (vers

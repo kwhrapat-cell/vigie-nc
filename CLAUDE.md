@@ -65,7 +65,9 @@ vigie-nc/
                   + error.tsx / global-error.tsx / not-found.tsx : écran EcranErreur
                     (cagou, Réessayer, Recharger, retour carte, 15/17/18 toujours
                     visibles) au lieu d'une page blanche ; l'erreur est signalée
-  components/     CarteLive (accueil), LiveMap, HomeSheet (liste « À proximité » ;
+  components/     AppShell (cadre de l'appli : largeur selon l'écran et la page),
+                  BandeauPanneauReplie (accueil sur ordinateur, panneau replié),
+                  CarteLive (accueil), LiveMap, HomeSheet (liste « À proximité » ;
                   se replie aux compteurs — barre du haut ou glissement vers le
                   bas — pour agrandir la carte, choix gardé sur le téléphone :
                   readListeRepliee de lib/preferences.ts), ReportDetail,
@@ -311,6 +313,35 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
 
 - Textes de l'interface et commentaires **en français**, tutoiement.
 - Mobile d'abord (largeur 380 px), cibles tactiles ≥ 44 px.
+- **Tablette et ordinateur** (le téléphone ne doit pas changer) :
+  `components/AppShell.tsx` + `.app-shell` de `globals.css`. Dès 768 px
+  (`md:`) : colonne de 672 px pour les écrans de lecture et de saisie, la
+  carte de l'accueil sur toute la largeur, feuilles du bas en fenêtres
+  centrées. Dès 960 px (`lg:`, réglé dans tailwind.config.ts : la « version
+  pour ordinateur » de Chrome sur téléphone fait 980 px) : BottomNav devient
+  un rail à gauche (`--rail` = 88 px) sauf à l'accueil (`rail={false}`), qui
+  suit la maquette « E · Vue d'ensemble » validée par Patrice le 31/10/2026
+  pour les mairies et la DITTT : grille à deux colonnes (CarteLive : en-tête
+  avec bouton « Replier », menu NavOrdi en onglets, bandeaux puis HomeSheet à
+  gauche, carte à droite ; l'ordre dans la page reste celui du téléphone).
+  Panneau replié (« vigie-nc:panneau-replie », readPanneauReplie) : la
+  carte prend tout l'écran, il reste BandeauPanneauReplie (logo, chiffres,
+  « Liste et menu »). Sur la carte : vigilance Météo-France (VigilanceMeteo)
+  sous le choix de la vue, bouton plein écran (PleinEcranButton), pas de
+  mode conduite. Vue « toute la Calédonie » par défaut sur un ordinateur à
+  souris tant qu'aucune zone n'est choisie (`readZoneChoice(parDefaut)`,
+  `estOrdiSouris`). Fiche en panneau à droite de la carte. Les @media de
+  globals.css suivent ces valeurs.
+  Boutons + / − sur les cartes seulement à la souris
+  (`(hover: hover) and (pointer: fine)`).
+- **Captures d'écran** (npm souvent bloqué dans l'espace de travail de
+  Claude) : pousser la branche de travail aussi sous `captures/<nom>` ;
+  `.github/workflows/captures.yml` construit l'appli en mode démo et
+  photographie les écrans à 380, 768, 980 (Chrome « version pour
+  ordinateur » sur téléphone), 1024, 1280 et 1920 px
+  (`.github/captures/captures.mjs`), puis pousse images et journaux sur
+  `resultats-captures/<numéro du run>` (à lire avec `git fetch` + `git
+  archive`, à supprimer ensuite avec la branche `captures/`).
 - Textes lisibles au soleil et par les anciens : au moins 14 px pour le texte
   courant, 12 px pour les petites mentions (sauf outils de modération et
   affiche). Signaler = 2 étapes : le type, puis « Publier » (position

@@ -1,0 +1,47 @@
+# Captures d'écran (téléphone, tablette, ordinateur) en mode démo, pour
+# vérifier la mise en page. Seulement sur les branches captures/**.
+# Résultat poussé sur une branche « resultats-captures/<numéro du run> »
+# (images + journaux), à supprimer une fois regardée. Mode d'emploi dans
+# CLAUDE.md (« Captures d'écran »).
+name: Captures
+
+on:
+  push:
+    branches: ["captures/**"]
+
+permissions:
+  contents: write
+
+jobs:
+  captures:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Dépendances et build (mode démo)
+        working-directory: vigie-nc
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/captures
+          (npm ci && npm run build) > $GITHUB_WORKSPACE/captures/journal-build.txt 2>&1
+      - name: Playwright
+        run: |
+          mkdir -p /tmp/pw && cd /tmp/pw && npm init -y >/dev/null
+          (npm install playwright && npx playwright install --with-deps chromium) > $GITHUB_WORKSPACE/captures/journal-playwright.txt 2>&1
+      - name: Captures
+        run: |
+          (cd vigie-nc && npx next start -p 3000 > $GITHUB_WORKSPACE/captures/journal-serveur.txt 2>&1 &)
+          for i in $(seq 1 30); do curl -sf -o /dev/null http://localhost:3000 && break; sleep 2; done
+          cp .github/captures/captures.mjs /tmp/pw/
+          cd /tmp/pw && OUT_DIR=$GITHUB_WORKSPACE/captures node captures.mjs > $GITHUB_WORKSPACE/captures/journal-captures.txt 2>&1
+      - name: Publier les captures
+        if: always()
+        run: |
+          cd captures
+          git init -q -b resultats
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "${GITHUB_SHA}" > commit.txt
+          git add -A && git commit -q -m "Captures de ${GITHUB_REF_NAME} (${GITHUB_SHA})"
+          git push -q "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/resultats-captures/${GITHUB_RUN_ID}"

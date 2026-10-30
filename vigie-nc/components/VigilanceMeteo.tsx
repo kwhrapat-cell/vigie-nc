@@ -18,7 +18,9 @@ export function VigilanceMeteo({ className = "" }: { className?: string }) {
       className={`rounded-xl border border-line bg-panel px-3 pt-2.5 pb-1 ${className}`}
       aria-labelledby="vigilance-titre"
     >
-      <div className="flex items-baseline justify-between gap-2">
+      {/* Sur la carte (ordinateur), la vignette est plus étroite : la source
+          passe proprement à la ligne au lieu de couper le titre. */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
         <h2 id="vigilance-titre" className="font-display font-semibold text-[15.5px]">
           Vigilance météo
         </h2>

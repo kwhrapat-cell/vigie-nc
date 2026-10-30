@@ -135,6 +135,11 @@ export function LiveMap({
         minZoom: 6,
       });
       map.fitBounds(NC_BOUNDS, { padding: [8, 8] });
+      // À la souris (ordinateur) : boutons + / − en bas à droite. Sur
+      // téléphone et tablette, on zoome avec les doigts.
+      if (window.matchMedia?.("(hover: hover) and (pointer: fine)").matches) {
+        L.control.zoom({ position: "bottomright", zoomInTitle: "Zoomer", zoomOutTitle: "Dézoomer" }).addTo(map);
+      }
 
       // Dès que l'utilisateur déplace la carte à la main, on arrête de la
       // recentrer automatiquement sur lui.

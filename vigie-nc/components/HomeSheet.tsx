@@ -25,7 +25,11 @@ function timeLabel(d: Date | null) {
   return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
 
-/** Panneau du bas de l'accueil : compteurs + liste « À proximité ». */
+/**
+ * Panneau du bas de l'accueil : compteurs + liste « À proximité ».
+ * Sur ordinateur (960 px et plus), c'est le bas de la colonne de gauche
+ * (grille de CarteLive) : la liste est toujours dépliée et défile seule.
+ */
 export function HomeSheet({
   allReports,
   reports,
@@ -40,6 +44,7 @@ export function HomeSheet({
   onFilter,
   onSelect,
   onEnableLocation,
+  replieOrdi = false,
   trajet,
 }: {
   allReports: Report[];
@@ -55,6 +60,8 @@ export function HomeSheet({
   onFilter: (c: Category | null) => void;
   onSelect: (id: string) => void;
   onEnableLocation: () => void;
+  /** Ordinateur : panneau de gauche replié (CarteLive), la liste est cachée. */
+  replieOrdi?: boolean;
   /** Point sur le trajet favori (components/TrajetResume), visible même liste repliée. */
   trajet?: ReactNode;
 }) {
@@ -110,7 +117,7 @@ export function HomeSheet({
   // carte au fur et à mesure ; vers le haut, la liste remonte par-dessus.
   return (
     <section
-      className="relative z-[12] -mt-4 rounded-t-[22px] bg-panel border-t border-line px-4 pb-7"
+      className={`relative z-[12] -mt-4 rounded-t-[22px] bg-panel border-t border-line px-4 pb-7 lg:col-start-1 lg:row-start-2 lg:mt-0 lg:min-h-0 lg:overflow-y-auto lg:rounded-none lg:border-t-0 lg:border-r lg:pt-1 lg:pb-6 ${replieOrdi ? "lg:hidden" : ""}`}
       style={suivi > 0 ? { marginBottom: -suivi } : suivi < 0 ? { transform: `translateY(${suivi}px)` } : undefined}
     >
       {/* touch-none : le téléphone ne prend pas ce geste pour lui (défilement,
@@ -129,7 +136,7 @@ export function HomeSheet({
         aria-expanded={!repliee}
         aria-controls="liste-proximite"
         aria-label={repliee ? "Déplier la liste" : "Replier la liste pour agrandir la carte"}
-        className="-mx-4 w-[calc(100%_+_2rem)] h-11 flex items-center justify-center"
+        className="-mx-4 w-[calc(100%_+_2rem)] h-11 flex items-center justify-center lg:hidden"
       >
         <span className="w-10 h-1.5 rounded-full bg-white/25" />
       </button>
@@ -201,7 +208,7 @@ export function HomeSheet({
         </p>
       )}
 
-      <div id="liste-proximite" ref={listeRef} hidden={repliee}>
+      <div id="liste-proximite" ref={listeRef} hidden={repliee} className="lg:!block">
       <div className="mt-3 mb-1 flex items-center justify-between gap-2">
         <h3 className="text-[14px] font-medium text-mist-dim">
           {scope === "nc"
@@ -232,7 +239,7 @@ export function HomeSheet({
         </div>
       )}
 
-      <ul className="flex flex-col gap-1.5 max-h-[26vh] overflow-y-auto -mx-1 px-1 pb-1">
+      <ul className="flex flex-col gap-1.5 max-h-[26vh] overflow-y-auto -mx-1 px-1 pb-1 lg:max-h-none lg:overflow-visible">
         {reports.map((r) => {
           const rel = getReliability(r);
           const dist = formatDistance(r.distanceM);
@@ -242,7 +249,7 @@ export function HomeSheet({
               <button
                 type="button"
                 onClick={() => onSelect(r.id)}
-                className="w-full flex items-center gap-3 rounded-xl bg-panel-2/70 border border-line px-2.5 py-2 text-left"
+                className="w-full flex items-center gap-3 rounded-xl bg-panel-2/70 border border-line px-2.5 py-2 text-left lg:hover:border-lagoon/50 lg:hover:bg-panel-2"
               >
                 <TypeTile type={r.type} size={38} />
                 <span className="flex-1 min-w-0">

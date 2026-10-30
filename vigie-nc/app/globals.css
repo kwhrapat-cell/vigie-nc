@@ -23,6 +23,42 @@ body {
   padding-bottom: calc(62px + min(env(safe-area-inset-bottom, 0px), 34px));
 }
 
+/* ---------- Téléphone, tablette, ordinateur ----------
+   Téléphone : une colonne de 448 px au plus (les maquettes).
+   Tablette et ordinateur (768 px et plus) : colonne de 672 px pour les
+   écrans de lecture et de saisie ; la carte de l'accueil prend toute la
+   largeur (components/AppShell.tsx).
+   Ordinateur et tablette en paysage (960 px et plus, « lg » de
+   tailwind.config.ts) : la barre du bas
+   devient un rail à gauche (components/BottomNav.tsx) et l'accueil passe
+   en deux colonnes, liste à gauche et carte à droite (CarteLive). */
+:root {
+  --rail: 88px;
+}
+.app-shell {
+  width: 100%;
+  max-width: 28rem;
+}
+@media (min-width: 768px) {
+  .app-shell {
+    max-width: 42rem;
+  }
+  .app-shell--carte {
+    max-width: none;
+  }
+}
+@media (min-width: 960px) {
+  /* La barre du bas est devenue le rail de gauche : plus de place à garder en bas. */
+  .pb-nav {
+    padding-bottom: 2rem;
+  }
+  /* Écrans avec le rail : la colonne se centre dans la place qui reste. */
+  body:has(.nav-principale) .app-shell:not(.app-shell--carte) {
+    max-width: calc(42rem + var(--rail));
+    padding-left: var(--rail);
+  }
+}
+
 /* ---------- Marqueurs de la carte ---------- */
 .vigie-marker {
   position: relative;
@@ -163,6 +199,31 @@ html .leaflet-container .leaflet-control-attribution {
 }
 html .leaflet-container .leaflet-control-attribution a {
   color: #93b0ad;
+}
+/* Boutons + / − (à la souris seulement, voir LiveMap et PositionPicker) */
+html .leaflet-container .leaflet-bar {
+  border: 1px solid #1e363d;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.7);
+}
+html .leaflet-container .leaflet-bar a {
+  width: 40px;
+  height: 40px;
+  line-height: 38px;
+  font-size: 20px;
+  background: rgba(8, 19, 23, 0.92);
+  color: #eaf6f4;
+  border-bottom-color: #1e363d;
+}
+html .leaflet-container .leaflet-bar a:hover {
+  background: #132830;
+  color: #22b8b0;
+}
+html .leaflet-container .leaflet-bar a.leaflet-disabled {
+  background: rgba(8, 19, 23, 0.92);
+  color: #93b0ad;
+  opacity: 0.5;
 }
 
 /* Anneau de progression du SOS (appui long) */
@@ -625,6 +686,22 @@ html .leaflet-container .leaflet-control-attribution a {
   }
   50% {
     transform: translate(-50%, -4px);
+  }
+}
+/* Rail de gauche (ordinateur) : la bulle est à droite du « + » */
+@media (min-width: 960px) {
+  .astuce-signaler {
+    transform: translate(0, -50%);
+    animation-name: astuce-signaler-rail;
+  }
+  @keyframes astuce-signaler-rail {
+    0%,
+    100% {
+      transform: translate(0, -50%);
+    }
+    50% {
+      transform: translate(4px, -50%);
+    }
   }
 }
 

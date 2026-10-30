@@ -103,13 +103,13 @@ export function PartagePointRoute({
       </button>
 
       {ouvert && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-void/75" onClick={fermer}>
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-void/75 md:items-center md:p-6" onClick={fermer}>
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="partage-titre"
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-t-[22px] bg-panel border-t border-line px-4 pt-4 max-h-[94dvh] overflow-y-auto"
+            className="w-full max-w-md rounded-t-[22px] bg-panel border-t border-line px-4 pt-4 max-h-[94dvh] overflow-y-auto md:rounded-[22px] md:border md:max-h-[90dvh]"
             style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}
           >
             <h2 id="partage-titre" className="font-display font-semibold text-[18px]">
