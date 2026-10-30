@@ -195,14 +195,14 @@ export function ReportDetail({
 
   return (
     <div
-      className="fixed inset-0 z-[40] flex items-end justify-center bg-void/60 md:items-center md:p-6 lg:items-stretch lg:justify-end lg:p-4 lg:bg-void/30"
+      className="fixed inset-0 z-[40] flex items-end justify-center bg-void/60 md:items-center md:p-6 lg:items-start lg:justify-end lg:p-4 lg:bg-void/30"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="report-detail-title"
-        className="w-full max-w-md rounded-t-[22px] bg-panel border-t border-line px-4 pt-3 pb-6 max-h-[88dvh] overflow-y-auto md:rounded-[22px] md:border md:max-h-[90dvh] lg:max-w-[420px] lg:max-h-none lg:shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)]"
+        className="w-full max-w-md rounded-t-[22px] bg-panel border-t border-line px-4 pt-3 pb-6 max-h-[88dvh] overflow-y-auto md:rounded-[22px] md:border md:max-h-[90dvh] lg:max-w-[420px] lg:max-h-full lg:shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)]"
         style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))" }}
         onClick={(e) => e.stopPropagation()}
       >

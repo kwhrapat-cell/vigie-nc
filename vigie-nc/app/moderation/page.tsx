@@ -154,7 +154,7 @@ export default function ModerationPage() {
             {checking ? "Vérification…" : "Entrer"}
           </PrimaryButton>
           <p className="mt-3 text-[11px] text-mist-dim leading-relaxed">
-            Le code reste sur ce téléphone. Ne le partage pas et ne fais pas de capture d&apos;écran où il apparaît.
+            Le code reste sur cet appareil (téléphone ou ordinateur). Ne le partage pas et ne fais pas de capture d&apos;écran où il apparaît.
           </p>
         </div>
       </main>
