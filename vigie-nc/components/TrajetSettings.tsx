@@ -456,7 +456,7 @@ export function TrajetSettings() {
         {alertesActives ? (
           <Note>
             {trajet.calme
-              ? `Point sur ta route ${TRAJET_AVANCE_MIN} min avant chaque départ, même quand tout est calme. Alerte aussi pendant le trajet, puis quand un danger est déclaré terminé.`
+              ? `Point sur ta route ${TRAJET_AVANCE_MIN} min avant chaque départ, même quand rien n'est signalé. Alerte aussi pendant le trajet, puis quand un danger est déclaré terminé.`
               : `Alerte ${TRAJET_AVANCE_MIN} min avant chaque départ s'il y a un danger confirmé sur ta route, pendant le trajet, puis quand le danger est déclaré terminé.`}
           </Note>
         ) : (
@@ -633,7 +633,7 @@ export function TrajetSettings() {
               className="mt-0.5 h-5 w-5 shrink-0 accent-[#167F78]"
             />
             <span>
-              Me prévenir aussi quand tout est calme
+              Me prévenir aussi quand rien n&apos;est signalé
               <span className="block text-[13px] text-mist-dim">
                 « Trajet de 6 h 30 · Rien de signalé », {TRAJET_AVANCE_MIN} min avant chaque départ.
               </span>

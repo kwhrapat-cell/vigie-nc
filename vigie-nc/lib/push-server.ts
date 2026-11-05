@@ -193,7 +193,7 @@ export interface AvantDepart extends PushTarget {
   sens: "aller" | "retour";
   depart: string;
   jour: string;
-  /** 0 = « tout est calme » (option du trajet) */
+  /** 0 = « rien de signalé » (option « calme » du trajet) */
   nb: number;
   /** Signalements à surveiller sur le trajet (travaux, trafic, pas encore confirmés). */
   surveiller?: number | null;
