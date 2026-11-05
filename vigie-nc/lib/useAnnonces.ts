@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "./supabase";
+import { demoActive } from "./demo";
 import { fetchAnnonces } from "./reports-api";
 import { doitRecharger, EXPIRATION_MS, RYTHME_ANNONCES, suivreDirect, VERIFICATION_MS } from "./rafraichissement";
 import { Annonce } from "./types";
@@ -23,6 +24,8 @@ const MAX_JITTER_MS = 3_000;
 const CACHE_KEY = "vigie-nc:annonces";
 
 function saveCache(annonces: Annonce[]): void {
+  // Démonstration : l'annonce fictive n'est jamais gardée.
+  if (demoActive()) return;
   try {
     window.localStorage.setItem(CACHE_KEY, JSON.stringify(annonces));
   } catch {
@@ -31,6 +34,7 @@ function saveCache(annonces: Annonce[]): void {
 }
 
 function readCache(): Annonce[] {
+  if (demoActive()) return [];
   try {
     const raw = window.localStorage.getItem(CACHE_KEY);
     const list = raw ? (JSON.parse(raw) as Annonce[]) : [];

@@ -63,6 +63,8 @@ vigie-nc/
                     de la session anonyme)
                   + pages légales (/conditions, /confidentialite, /mentions-legales)
                   + /affiche (l'affiche à envoyer par lien ; images dans public/affiche/)
+                  + /demo (démonstration Mont-Dore pour les mairies, lib/demo.ts ; rien
+                    n'y mène depuis l'appli, noindex)
                   + /moderation (écran des modérateurs, code personnel ; lien discret en bas du Profil ;
                     onglet « Travaux » : date de fin des chantiers (moderation_chantier) ;
                     onglet « Annonces » : message pour toute la Calédonie ;
@@ -115,7 +117,12 @@ vigie-nc/
                   ServiceWorkerRegister (enregistre public/sw.js),
                   SessionInit (ouvre la session anonyme au démarrage),
                   ServiceIndisponible (affiché en prod si la base n'est pas
-                  branchée : JAMAIS de mode démo en production),
+                  branchée : JAMAIS de mode démo en production, sauf la
+                  démonstration Mont-Dore lancée à la main depuis /demo),
+                  BandeauDemo (bandeau « Démonstration · données fictives » +
+                  « Quitter » en haut de tous les écrans pendant la démo ;
+                  classe mode-demo sur <html>, --demo-h retiré de la carte),
+                  DemoLanceur (boutons de /demo),
                   ModStatsPanel (onglet Chiffres de /moderation),
                   ModIaPanel (onglet IA de /moderation : essai du résumé, rien n'est publié),
                   AnnonceBanner (bandeau des annonces générales sur l'accueil ;
@@ -183,6 +190,20 @@ vigie-nc/
     session.ts       session anonyme Supabase (identité signée, pas de compte)
     turnstile.ts     Cloudflare Turnstile (facultatif, NEXT_PUBLIC_TURNSTILE_SITE_KEY)
     demo-store.ts    mode démo en mémoire (mêmes règles que le SQL), jamais en prod
+                     (sauf la démonstration Mont-Dore : scénario fixe, demoAnnonces)
+    demo.ts          démonstration Mont-Dore (décision de Patrice du 05/11/2026,
+                     pour la mairie) : scénario FICTIF d'une matinée de fortes
+                     pluies (SCENARIO_MONT_DORE, repères vérifiés, source
+                     « Ville du Mont-Dore (exemple) », annonce vigilance),
+                     position simulée à Boulari (DEMO_POSITION), vue d'ensemble
+                     cadrée sur la commune (DEMO_EMPRISE). Active dans l'onglet
+                     seulement (sessionStorage « vigie-nc:demo »), entrée par
+                     /demo, sortie par « Quitter » ou en fermant l'onglet. Dans
+                     l'onglet : supabase = null (lib/supabase.ts), aucune
+                     écriture locale gardée (carte hors ligne, annonces, impact,
+                     réglages : garde demoActive()), pas de vigilance Météo-France
+                     ni de trajet personnel. useDemo() pour l'affichage (faux au
+                     premier rendu, comme le serveur). Testé par tests/demo.test.ts
     useLiveReports.ts carte en direct (temps réel vigie_signal) + dernière
                      carte gardée pour l'affichage sans réseau
     useAnnonces.ts   annonces générales en direct (temps réel

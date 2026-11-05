@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "./supabase";
 import { subscribeDemo } from "./demo-store";
 import { errorMessage, fetchNearby } from "./reports-api";
+import { demoActive } from "./demo";
 import { distanceM, LatLng } from "./geo";
 import {
   doitRecharger,
@@ -45,6 +46,9 @@ interface CachedMap {
 }
 
 function saveCache(reports: Report[]): void {
+  // Démonstration : les signalements fictifs ne doivent jamais servir de
+  // « derniers signalements connus » une fois revenu à la vraie carte.
+  if (demoActive()) return;
   try {
     const value: CachedMap = { savedAt: Date.now(), reports };
     window.localStorage.setItem(CACHE_KEY, JSON.stringify(value));
@@ -54,6 +58,7 @@ function saveCache(reports: Report[]): void {
 }
 
 function readCache(): CachedMap | null {
+  if (demoActive()) return null;
   try {
     const raw = window.localStorage.getItem(CACHE_KEY);
     if (!raw) return null;

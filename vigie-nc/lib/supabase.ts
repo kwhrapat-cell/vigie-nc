@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { demoActive } from "./demo";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -7,9 +8,11 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 // mode démo en mémoire (lib/demo-store.ts) plutôt que de planter.
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
-export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl as string, supabaseAnonKey as string)
-  : null;
+// Démonstration Mont-Dore lancée dans cet onglet (lib/demo.ts) : aucune
+// base, rien n'est lu ni écrit dans la vraie. Lu une fois au chargement de
+// la page : entrer ou sortir de la démo recharge la page.
+export const supabase =
+  isSupabaseConfigured && !demoActive() ? createClient(supabaseUrl as string, supabaseAnonKey as string) : null;
 
 /**
  * Côté serveur (routes /api/*) : un client qui agit avec la session
@@ -28,6 +31,9 @@ export function supabaseAvecJeton(jeton: string) {
 // public (faux accidents, fausses inondations) seraient dangereux. Si la
 // configuration manque sur le site en ligne, app/layout.tsx affiche
 // « Service momentanément indisponible » à la place de l'appli.
+// Seule exception, voulue : la démonstration Mont-Dore (lib/demo.ts),
+// lancée à la main depuis /demo, avec un bandeau « Démonstration · données
+// fictives » sur tous les écrans et une source marquée « (exemple) ».
 const isProduction =
   process.env.VERCEL_ENV === "production" || process.env.NEXT_PUBLIC_VERCEL_ENV === "production";
 export const demoBlocked = !isSupabaseConfigured && isProduction;

@@ -4,6 +4,7 @@
 // au bandeau « Ton signalement a servi » de l'accueil et à la carte
 // « Mon impact » du Profil, avec ses badges.
 
+import { demoActive } from "./demo";
 import type { ReportType } from "./types";
 
 const CLE = "vigie-nc:impact-v1";
@@ -75,6 +76,8 @@ export function lireImpact(): Impact {
 export const IMPACT_EVENT = "vigie-nc:impact-change";
 
 function ecrire(impact: Impact): void {
+  // Démonstration Mont-Dore : rien ne compte dans « Mon impact ».
+  if (demoActive()) return;
   try {
     window.localStorage.setItem(CLE, JSON.stringify(impact));
   } catch {

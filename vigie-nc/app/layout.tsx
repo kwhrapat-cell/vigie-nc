@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
+import { BandeauDemo } from "@/components/BandeauDemo";
 import { ErreurReporter } from "@/components/ErreurReporter";
 import { ServiceIndisponible } from "@/components/ServiceIndisponible";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
@@ -57,6 +58,7 @@ export default function RootLayout({
         <ServiceWorkerRegister />
         <ErreurReporter />
         {!demoBlocked && <SessionInit />}
+        <BandeauDemo />
         <AppShell>{demoBlocked ? <ServiceIndisponible /> : children}</AppShell>
       </body>
     </html>

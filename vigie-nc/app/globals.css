@@ -18,6 +18,15 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Démonstration Mont-Dore (components/BandeauDemo) : hauteur du bandeau
+   du haut, retirée de la carte de l'accueil pour qu'elle tienne à l'écran. */
+:root {
+  --demo-h: 0px;
+}
+html.mode-demo {
+  --demo-h: 30px;
+}
+
 /* Espace pour la barre de navigation du bas (+ encoche iPhone) */
 .pb-nav {
   padding-bottom: calc(62px + min(env(safe-area-inset-bottom, 0px), 34px));
