@@ -26,8 +26,10 @@ import { ReliabilityBadge, TypeTile } from "./ui";
 const RELECTURE_MS = 2 * 60_000;
 const ECART_MIN_MS = 30_000;
 
+// « Rien de signalé » reste neutre (pas de vert) : l'absence de signalement
+// n'est pas un feu vert, la route n'est pas pour autant garantie dégagée.
 const COULEURS: Record<NiveauTrajet, string> = {
-  calme: "border-ok/40 bg-ok/10 text-ok",
+  calme: "border-line bg-panel-2 text-mist",
   surveiller: "border-warn/40 bg-warn/10 text-warn",
   danger: "border-danger/50 bg-danger/15 text-danger",
 };

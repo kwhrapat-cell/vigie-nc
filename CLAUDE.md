@@ -26,6 +26,11 @@ mairies de Païta, du Mont-Dore et de Yaté.
   la position pour les contacts d'urgence, permet de l'envoyer à qui on
   veut et propose d'appeler 15/17/18. Jamais de position de personne en
   danger sur la carte publique.
+- **Jamais de « route libre »** (décision de Patrice du 05/11/2026) : aucun
+  texte, notification, voix ou consigne de l'IA ne dit que la route est
+  libre, sûre, dégagée ou que « tout est calme ». On dit seulement ce qui
+  est signalé (« Rien de signalé »), et « Rien de signalé » reste en couleur
+  neutre, pas en vert.
 - **Facebook : uniquement ce qui est légal.** Pas de récupération
   automatique (pas d'API pour les groupes depuis 2024, collecte automatisée
   interdite par Meta). Les infos vues sur Facebook passent par un humain
@@ -207,7 +212,7 @@ vigie-nc/
                      court), simplifiée (400 points au plus), place le long de la ligne,
                      verdict (danger = ALERT_TYPES confirmé : 2e personne ou officiel ;
                      le reste « à surveiller »), jours (bit 0 = lundi), textes des
-                     notifications (avant départ, « tout est calme », fin d'alerte zone
+                     notifications (avant départ, « rien de signalé », fin d'alerte zone
                      ou trajet, pluie et zones inondables), trajet gardé sur le téléphone
                      (« vigie-nc:trajet-v1 », option calme,
                      TRAJET_EVENT). TRAJET_COULOIR_M / _AVANCE_MIN / _APRES_MIN alignés

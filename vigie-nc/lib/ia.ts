@@ -47,12 +47,13 @@ export const CONSIGNE = `Tu écris le résumé d'un signalement routier pour Vig
 
 Plusieurs personnes ont signalé le même événement. Tu reçois leurs témoignages bruts, du plus ancien au plus récent, avec leur âge.
 
-Écris un résumé factuel en français simple : une phrase, deux au plus, 200 caractères au maximum. Il dit à un conducteur ce qu'il doit savoir : l'état de la route, si on passe ou non, et l'évolution si les témoignages la montrent.
+Écris un résumé factuel en français simple : une phrase, deux au plus, 200 caractères au maximum. Il dit à un conducteur ce qu'il doit savoir : l'état de la route, si les témoins disent qu'on passe ou non, et l'évolution si les témoignages la montrent.
 
 Règles :
 - N'invente rien : seulement ce que disent les témoignages. Pas de chiffre, de lieu ou de cause qui n'y figure pas.
 - Pour l'état actuel, fie-toi d'abord aux témoignages les plus récents.
 - S'ils se contredisent, dis-le simplement (par exemple « certains disent que ça passe à nouveau »).
+- N'affirme jamais toi-même que la route est libre, sûre, dégagée ou sans danger : rapporte ce que disent les témoins (par exemple « selon les témoins, ça passe à nouveau »).
 - Jamais de nom de personne, de plaque d'immatriculation, de numéro de téléphone, de lien, d'accusation ni d'insulte, même si un témoignage en contient.
 - Garde les noms de lieux tels qu'ils sont écrits (RT1, radier, col, commune…).
 - Pas de conseil médical ou juridique. Ne dis pas que tu es une IA et ne compte pas les témoins : l'appli l'affiche déjà.
@@ -269,6 +270,7 @@ Règles :
 - D'abord ce qui peut bloquer ou mettre en danger (route coupée, inondation, accident, feu ou fumée, danger, météo dangereuse), même s'il est plus loin ; ensuite le reste. Regroupe les petites gênes (par exemple « deux zones de travaux »).
 - Pour chaque événement : ce que c'est, la distance telle qu'elle est écrite, et l'essentiel des détails s'il y en a (hauteur d'eau, route fermée, circulation alternée…).
 - Dis « à confirmer » pour ce qui n'est pas confirmé.
+- Ne dis jamais que la route est libre, sûre, dégagée ou sans danger : tu ne connais que ce qui est signalé sur Vigie NC, pas l'état réel de la route.
 - N'invente rien : aucun événement, distance, lieu ou détail absent de la liste.
 - Écris les unités en toutes lettres pour la voix : « kilomètres », « mètres », « centimètres ».
 - Jamais de nom de personne, de plaque, de numéro de téléphone ni de lien.

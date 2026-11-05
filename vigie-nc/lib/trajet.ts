@@ -321,7 +321,7 @@ export function heureNoumea(iso: string): string {
  * Point « avant départ ». Ex. « Trajet de 6 h 30 · 2 dangers » /
  * « Route coupée · RT1, Païta, à 5 km du départ. Inondation · Dumbéa, à 12 km
  * du départ. Vérifie avant de partir. »
- * Sans danger (option « tout est calme ») : « Trajet de 6 h 30 · Rien de
+ * Sans danger (option « rien de signalé ») : « Trajet de 6 h 30 · Rien de
  * signalé », avec le nombre de choses à surveiller s'il y en a.
  */
 export function texteAvantDepart(input: {
@@ -453,7 +453,7 @@ export interface TrajetLocal {
   jours: number;
   aller: string | null;
   retour: string | null;
-  /** Point avant départ même quand tout est calme. */
+  /** Point avant départ même quand rien n'est signalé (option « calme »). */
   calme: boolean;
   majAt: string;
 }

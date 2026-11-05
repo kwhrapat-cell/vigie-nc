@@ -182,7 +182,7 @@ export default function ConfidentialitePage() {
             Si les alertes sont activées, la même ligne (toujours sans ses extrémités), tes jours et tes heures sont
             enregistrés avec ton adresse d&apos;envoi des alertes, sans lien avec l&apos;identifiant anonyme de ton
             téléphone. Ils servent à te prévenir 30 min avant de partir et pendant le trajet s&apos;il y a un danger
-            confirmé dessus (ou même quand tout est calme, si tu l&apos;as choisi), puis quand il est déclaré
+            confirmé dessus (ou même quand rien n&apos;est signalé, si tu l&apos;as choisi), puis quand il est déclaré
             terminé.
           </li>
           <li>
