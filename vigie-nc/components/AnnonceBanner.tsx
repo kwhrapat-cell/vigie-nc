@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatAge } from "@/lib/geo";
 import { useAnnonces } from "@/lib/useAnnonces";
+import { useDemo } from "@/lib/useDemo";
 import { Annonce, ANNONCE_NIVEAU_LABELS, AnnonceNiveau } from "@/lib/types";
 
 // Bandeau des annonces générales, en haut de la carte : vu par tout le
@@ -75,6 +76,8 @@ export function AnnonceCard({
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  // Démonstration Mont-Dore (lib/demo.ts) : l'annonce du scénario vise la commune.
+  const demo = useDemo();
   const s = STYLES[annonce.niveau];
   const long = annonce.texte.length > LONG_TEXT || annonce.texte.split("\n").length > 3;
 
@@ -115,7 +118,7 @@ export function AnnonceCard({
 
       <div className="mt-0.5 flex items-center gap-2 pl-[38px] text-[12.5px] text-mist-dim">
         <span className="flex-1 min-w-0 truncate">
-          Toute la NC · {formatAge(annonce.createdAt)} · {finAnnonce(annonce.expiresAt)}
+          {demo ? "Mont-Dore" : "Toute la NC"} · {formatAge(annonce.createdAt)} · {finAnnonce(annonce.expiresAt)}
         </span>
         {long && (
           <button type="button" onClick={() => setOpen((o) => !o)} className={`py-2 font-medium ${s.accent}`}>
