@@ -182,6 +182,15 @@ vigie-nc/
                      carte gardée pour l'affichage sans réseau
     useAnnonces.ts   annonces générales en direct (temps réel
                      vigie_annonce_signal) + copie pour l'affichage sans réseau
+    rafraichissement.ts rythme du filet de sécurité de ces deux-là (sobriété,
+                     décision de Patrice du 05/11/2026) : rien quand l'appli
+                     n'est pas à l'écran (rechargement en revenant) ; carte
+                     1 min sans direct / 3 min avec, annonces 2 / 6 min ;
+                     expirés retirés sur le téléphone toutes les 30 s ;
+                     rattrapage quand le direct se rebranche. PAS de délai
+                     ajouté aux rechargements déclenchés par le direct
+                     (refusé par Patrice : les signalements doivent arriver
+                     tout de suite)
     reliability.ts   4 niveaux : Signalement / À confirmer / Confirmé / Vérifié
     cagou.ts         dessin SVG du cagou (composant Cagou + image du point route)
     impact.ts        « Mon impact », SUR LE TÉLÉPHONE seulement (localStorage

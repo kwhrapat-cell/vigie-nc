@@ -5,11 +5,20 @@ import { supabase } from "./supabase";
 import { subscribeDemo } from "./demo-store";
 import { errorMessage, fetchNearby } from "./reports-api";
 import { distanceM, LatLng } from "./geo";
+import {
+  doitRecharger,
+  EXPIRATION_MS,
+  RYTHME_CARTE,
+  sansExpires,
+  suivreDirect,
+  VERIFICATION_MS,
+} from "./rafraichissement";
 import { Report } from "./types";
 
-// Filet de sécurité en plus du temps réel : fait disparaître les
-// signalements expirés et rattrape une connexion temps réel coupée.
-const REFRESH_EVERY_MS = 60_000;
+// Filet de sécurité en plus du temps réel (lib/rafraichissement.ts) :
+// rechargement complet chaque minute si le direct est coupé, toutes les
+// 3 minutes s'il est connecté, rien quand l'appli n'est pas à l'écran.
+// Les signalements expirés disparaissent sans recharger.
 
 // Le temps réel ne transporte aucun contenu : seulement une case de ~11 km
 // (position arrondie à 0,1°, voir vigie_signal dans schema.sql). On ne
@@ -68,12 +77,15 @@ export function useLiveReports(center: LatLng | null, radiusM: number) {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const requestId = useRef(0);
   const hasLiveData = useRef(false);
+  // Heure du dernier chargement réussi (pour le rythme du filet de sécurité).
+  const dernierChargement = useRef(0);
 
   const refresh = useCallback(async () => {
     const id = ++requestId.current;
     try {
       const data = await fetchNearby(center, radiusM);
       if (id !== requestId.current) return; // réponse périmée
+      dernierChargement.current = Date.now();
       setReports(data);
       setStatus("ready");
       setError(null);
@@ -108,7 +120,10 @@ export function useLiveReports(center: LatLng | null, radiusM: number) {
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
+    const aLEcran = () => document.visibilityState === "visible";
     const scheduleRefresh = () => {
+      // Appli pas à l'écran : rien maintenant, elle recharge en revenant.
+      if (!aLEcran()) return;
       if (timer) return; // un rechargement est déjà prévu
       timer = setTimeout(() => {
         timer = null;
@@ -116,9 +131,22 @@ export function useLiveReports(center: LatLng | null, radiusM: number) {
       }, 400 + Math.random() * MAX_JITTER_MS);
     };
 
-    const interval = setInterval(() => refreshRef.current(), REFRESH_EVERY_MS);
+    const direct = suivreDirect();
+    const interval = setInterval(() => {
+      const etat = {
+        visible: aLEcran(),
+        directConnecte: direct.connecte(),
+        depuisDernierMs: Date.now() - dernierChargement.current,
+      };
+      if (doitRecharger(etat, RYTHME_CARTE)) refreshRef.current();
+    }, VERIFICATION_MS);
+    // Un signalement arrivé à son heure de fin disparaît sans attendre le
+    // prochain chargement.
+    const expiration = setInterval(() => {
+      setReports((list) => sansExpires(list, Date.now()));
+    }, EXPIRATION_MS);
     const onVisible = () => {
-      if (document.visibilityState === "visible") refreshRef.current();
+      if (aLEcran()) refreshRef.current();
     };
     document.addEventListener("visibilitychange", onVisible);
 
@@ -143,7 +171,11 @@ export function useLiveReports(center: LatLng | null, radiusM: number) {
             if (distanceM(c, { lat, lng }) <= r + CELL_MARGIN_M) scheduleRefresh();
           },
         )
-        .subscribe();
+        .subscribe((statut) => {
+          // Rebranché après une coupure : rattraper ce qui a changé entre-temps.
+          // (sauf si la page vient d'être rechargée, en revenant à l'écran).
+          if (direct.statut(statut) && Date.now() - dernierChargement.current > 10_000) scheduleRefresh();
+        });
       unsubscribe = () => {
         client.removeChannel(channel);
       };
@@ -154,6 +186,7 @@ export function useLiveReports(center: LatLng | null, radiusM: number) {
     return () => {
       if (timer) clearTimeout(timer);
       clearInterval(interval);
+      clearInterval(expiration);
       document.removeEventListener("visibilitychange", onVisible);
       unsubscribe();
     };

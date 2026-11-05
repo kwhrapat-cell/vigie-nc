@@ -3,16 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "./supabase";
 import { fetchAnnonces } from "./reports-api";
+import { doitRecharger, EXPIRATION_MS, RYTHME_ANNONCES, suivreDirect, VERIFICATION_MS } from "./rafraichissement";
 import { Annonce } from "./types";
 
 // Annonces générales (toute la Calédonie), tenues à jour en direct.
 // Le temps réel ne transporte aucun contenu (table vigie_annonce_signal) :
 // à chaque signal, le téléphone recharge les annonces en cours.
+// Filet de sécurité en plus du temps réel (lib/rafraichissement.ts) :
+// toutes les 2 minutes si le direct est coupé, toutes les 6 minutes s'il
+// est connecté, rien quand l'appli n'est pas à l'écran.
 
-// Filet de sécurité en plus du temps réel (connexion coupée, annonce expirée)
-const REFRESH_EVERY_MS = 2 * 60_000;
 // Les annonces expirées disparaissent sans attendre le prochain chargement.
-const TICK_MS = 30_000;
+const TICK_MS = EXPIRATION_MS;
 // Petit délai au hasard : tous les téléphones ne rechargent pas en même temps.
 const MAX_JITTER_MS = 3_000;
 
@@ -45,12 +47,15 @@ function enCours(list: Annonce[], now = Date.now()): Annonce[] {
 export function useAnnonces() {
   const [annonces, setAnnonces] = useState<Annonce[]>([]);
   const requestId = useRef(0);
+  // Heure du dernier chargement réussi (pour le rythme du filet de sécurité).
+  const dernierChargement = useRef(0);
 
   const refresh = useCallback(async () => {
     const id = ++requestId.current;
     try {
       const data = await fetchAnnonces();
       if (id !== requestId.current) return; // réponse périmée
+      dernierChargement.current = Date.now();
       setAnnonces(data);
       saveCache(data);
     } catch {
@@ -63,7 +68,10 @@ export function useAnnonces() {
     refresh();
 
     let timer: ReturnType<typeof setTimeout> | null = null;
+    const aLEcran = () => document.visibilityState === "visible";
     const scheduleRefresh = () => {
+      // Appli pas à l'écran : rien maintenant, elle recharge en revenant.
+      if (!aLEcran()) return;
       if (timer) return;
       timer = setTimeout(() => {
         timer = null;
@@ -71,7 +79,15 @@ export function useAnnonces() {
       }, 300 + Math.random() * MAX_JITTER_MS);
     };
 
-    const interval = setInterval(refresh, REFRESH_EVERY_MS);
+    const direct = suivreDirect();
+    const interval = setInterval(() => {
+      const etat = {
+        visible: aLEcran(),
+        directConnecte: direct.connecte(),
+        depuisDernierMs: Date.now() - dernierChargement.current,
+      };
+      if (doitRecharger(etat, RYTHME_ANNONCES)) refresh();
+    }, VERIFICATION_MS);
     const tick = setInterval(() => {
       setAnnonces((list) => {
         const kept = enCours(list);
@@ -79,7 +95,7 @@ export function useAnnonces() {
       });
     }, TICK_MS);
     const onVisible = () => {
-      if (document.visibilityState === "visible") refresh();
+      if (aLEcran()) refresh();
     };
     document.addEventListener("visibilitychange", onVisible);
 
@@ -89,7 +105,11 @@ export function useAnnonces() {
       const channel = client
         .channel("vigie-annonce")
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "vigie_annonce_signal" }, scheduleRefresh)
-        .subscribe();
+        .subscribe((statut) => {
+          // Rebranché après une coupure : rattraper une annonce manquée.
+          // (sauf si la page vient d'être rechargée, en revenant à l'écran).
+          if (direct.statut(statut) && Date.now() - dernierChargement.current > 10_000) scheduleRefresh();
+        });
       unsubscribe = () => {
         client.removeChannel(channel);
       };
