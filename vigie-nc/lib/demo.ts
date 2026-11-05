@@ -150,7 +150,7 @@ export const SCENARIO_MONT_DORE: DemoSignalement[] = [
   {
     type: "route_coupee",
     lat: -22.2518,
-    lng: 166.6114,
+    lng: 166.61,
     ageMin: 25,
     present: 0,
     place: "RP1, vers Plum",
