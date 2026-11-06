@@ -1,196 +1,70 @@
-// Captures d'écran de l'appli (mode démo) à plusieurs largeurs : téléphone,
-// tablette, ordinateur. Lancé par .github/workflows/captures.yml.
+// AUDIT RÉSEAU (branche temporaire, jamais fusionnée) : ouvre vigie-nc.com
+// avec une fausse position (Païta) et note chaque requête : hôte, chemin,
+// et si l'adresse ou le contenu envoyé contient la position.
 import { chromium } from "playwright";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 
-const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 const OUT = process.env.OUT_DIR ?? "captures";
 mkdirSync(OUT, { recursive: true });
-
-const ECRANS = [
-  { nom: "telephone", width: 380, height: 800, mobile: true },
-  { nom: "tablette-portrait", width: 768, height: 1024, mobile: true },
-  { nom: "chrome-version-ordi", width: 980, height: 1900, mobile: true },
-  { nom: "tablette-paysage", width: 1024, height: 768, mobile: true },
-  { nom: "portable", width: 1280, height: 800, mobile: false },
-  { nom: "grand", width: 1920, height: 1080, mobile: false },
-];
-
-const PAGES = [
-  "/",
-  "/signaler",
-  "/relayer",
-  "/alertes",
-  "/historique",
-  "/profil",
-  "/sos",
-  "/contacts",
-  "/moderation",
-  "/mentions-legales",
-  "/affiche",
-];
-
+const SITE = "https://vigie-nc.com";
+const LAT = -22.13161, LNG = 166.35823;
+const POSITION = /-22\.1[0-9]*|166\.3[0-9]*|-22%2E1|166%2E3/;
 const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
+const lignes = [];
 
 const browser = await chromium.launch();
-for (const e of ECRANS) {
-  const context = await browser.newContext({
-    viewport: { width: e.width, height: e.height },
-    deviceScaleFactor: 1,
-    isMobile: e.mobile,
-    hasTouch: e.mobile,
-    locale: "fr-FR",
-    timezoneId: "Pacific/Noumea",
-    geolocation: { latitude: -22.1316, longitude: 166.358 },
-    permissions: ["geolocation"],
-  });
-  // Accueil et astuce déjà vus : on capture l'appli elle-même.
-  await context.addInitScript(() => {
-    try {
-      localStorage.setItem("vigie-nc:avertissement-v1", "1");
-      localStorage.setItem("vigie-nc:astuce-signaler", "vue");
-      localStorage.setItem("vigie-nc:trajet-invite", "1");
-    } catch {}
-  });
-  const page = await context.newPage();
-  for (const chemin of PAGES) {
-    const nom = chemin === "/" ? "accueil" : chemin.slice(1).replace(/\//g, "-");
-    try {
-      await page.goto(BASE + chemin, { waitUntil: "networkidle", timeout: 30000 });
-    } catch {
-      await attendre(3000);
-    }
-    await attendre(chemin === "/" ? 3500 : 1200);
-    await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-${nom}.png` });
-    if (chemin === "/") {
-      // Légende ouverte depuis l'astuce « cercle + SOS » (montrée une fois :
-      // les captures suivantes de l'accueil ne l'ont plus).
-      const legende = page.getByRole("button", { name: "Légende", exact: true });
-      if (await legende.isVisible().catch(() => false)) {
-        await legende.click();
-        await attendre(900);
-        await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-accueil-legende.png` });
-        // Bas de la légende : SOS, position, mise à jour
-        await page
-          .locator('[aria-labelledby="legende-titre"]')
-          .evaluate((el) => (el.scrollTop = el.scrollHeight))
-          .catch(() => {});
-        await attendre(400);
-        await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-accueil-legende-bas.png` });
-        await page.getByRole("button", { name: "Fermer la légende" }).click().catch(() => {});
-        await attendre(500);
-      }
-      // Fiche d'un signalement ouverte depuis la liste
-      const bouton = page.locator("#liste-proximite ul button").first();
-      if (await bouton.count()) {
-        await bouton.click();
-        await attendre(1200);
-        await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-accueil-fiche.png` });
-      }
-      // Ordinateur : panneau de gauche replié (la carte prend tout l'écran)
-      await page.goto(BASE + "/", { waitUntil: "networkidle", timeout: 30000 }).catch(() => {});
-      await attendre(2500);
-      const replier = page.getByRole("button", { name: "Replier le panneau pour agrandir la carte" });
-      if (await replier.isVisible().catch(() => false)) {
-        await replier.click();
-        await attendre(1800);
-        await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-accueil-replie.png` });
-        await page.getByRole("button", { name: "Liste et menu" }).click().catch(() => {});
-      }
-    }
-  }
-  // Démonstration Mont-Dore (lib/demo.ts) : page /demo, puis la carte du
-  // scénario fictif, une fiche, et la carte seule (panneau replié).
+const context = await browser.newContext({
+  viewport: { width: 380, height: 800 }, isMobile: true, hasTouch: true, locale: "fr-FR",
+  timezoneId: "Pacific/Noumea", geolocation: { latitude: LAT, longitude: LNG }, permissions: ["geolocation"],
+});
+await context.addInitScript(() => {
   try {
-    await page.goto(BASE + "/demo", { waitUntil: "networkidle", timeout: 30000 }).catch(() => {});
-    await attendre(1000);
-    await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-demo.png` });
-    await page.getByRole("button", { name: "Lancer la démo" }).click();
-    await page.waitForURL(BASE + "/", { timeout: 15000 }).catch(() => {});
-    await attendre(4500);
-    await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-demo-accueil.png` });
-    const fiche = page.locator("#liste-proximite ul button").first();
-    if (await fiche.count()) {
-      await fiche.click();
-      await attendre(1200);
-      await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-demo-fiche.png` });
-    }
-    await page.goto(BASE + "/", { waitUntil: "networkidle", timeout: 30000 }).catch(() => {});
-    await attendre(3000);
-    const replierDemo = page.getByRole("button", { name: "Replier le panneau pour agrandir la carte" });
-    if (await replierDemo.isVisible().catch(() => false)) {
-      await replierDemo.click();
-      await attendre(2500);
-      await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-demo-replie.png` });
-      await page.getByRole("button", { name: "Liste et menu" }).click().catch(() => {});
-    }
-    await page.evaluate(() => sessionStorage.removeItem("vigie-nc:demo"));
-  } catch (err) {
-    console.log(`démo (${e.nom}) :`, err instanceof Error ? err.message : err);
-  }
-  await context.close();
+    localStorage.setItem("vigie-nc:avertissement-v1", "1");
+    localStorage.setItem("vigie-nc:astuce-signaler", "vue");
+    localStorage.setItem("vigie-nc:astuce-carte", "vue");
+    localStorage.setItem("vigie-nc:emergency-contacts", JSON.stringify([{ id: "x", name: "Essai", phone: "+687000000" }]));
+  } catch {}
+});
+// Pas compté dans les chiffres d'utilisation de Patrice.
+await context.route("**/rpc/vigie_presence", (r) => r.abort());
 
-  // Position bloquée (ordinateur de mairie, Windows qui refuse…) : l'aide,
-  // puis le choix de « Ma zone » sur la carte, puis la zone choisie.
-  const bloque = await browser.newContext({
-    viewport: { width: e.width, height: e.height },
-    deviceScaleFactor: 1,
-    isMobile: e.mobile,
-    hasTouch: e.mobile,
-    locale: "fr-FR",
-    timezoneId: "Pacific/Noumea",
-    permissions: [],
-  });
-  await bloque.addInitScript(() => {
-    try {
-      localStorage.setItem("vigie-nc:avertissement-v1", "1");
-      localStorage.setItem("vigie-nc:astuce-signaler", "vue");
-      localStorage.setItem("vigie-nc:astuce-carte", "vue");
-      localStorage.setItem("vigie-nc:trajet-invite", "1");
-    } catch {}
-  });
-  try {
-    const p = await bloque.newPage();
-    await p.goto(BASE + "/", { waitUntil: "networkidle", timeout: 30000 }).catch(() => {});
-    await attendre(3000);
-    await p.screenshot({ path: `${OUT}/${e.nom}-${e.width}-position-bloquee.png` });
-    await p.getByRole("button", { name: "Activer ma position" }).click();
-    await attendre(1500);
-    await p.screenshot({ path: `${OUT}/${e.nom}-${e.width}-position-aide.png` });
-    await p.getByRole("button", { name: "Choisir ma zone sur la carte" }).click();
-    await attendre(1200);
-    await p.screenshot({ path: `${OUT}/${e.nom}-${e.width}-zone-choix.png` });
-    await p.getByRole("button", { name: "Choisir cet endroit" }).click();
-    await attendre(2500);
-    await p.screenshot({ path: `${OUT}/${e.nom}-${e.width}-zone-choisie.png` });
-    // Rechargée : la zone est gardée sur l'appareil
-    await p.reload({ waitUntil: "networkidle", timeout: 30000 }).catch(() => {});
-    await attendre(3500);
-    await p.screenshot({ path: `${OUT}/${e.nom}-${e.width}-zone-rechargee.png` });
-  } catch (err) {
-    console.log(`position bloquée (${e.nom}) :`, err instanceof Error ? err.message : err);
-  }
-  await bloque.close();
+let etape = "";
+context.on("request", (req) => {
+  const u = new URL(req.url());
+  if (u.protocol === "data:" || u.protocol === "blob:") return;
+  const corps = req.postData() ?? "";
+  const dansUrl = POSITION.test(req.url());
+  const dansCorps = POSITION.test(corps);
+  const tuile = /\/\d+\/\d+\/\d+(\.png)?$/.test(u.pathname) || /tile/.test(u.pathname);
+  lignes.push([etape, req.method(), u.host, u.pathname.slice(0, 70), tuile ? "TUILE" : "", dansUrl ? "POSITION-URL" : "", dansCorps ? "POSITION-CORPS" : ""].join("\t"));
+});
 
-  // Sans JavaScript (comme un lecteur de page) : ce que montre la page
-  // envoyée par le serveur.
-  const sansJs = await browser.newContext({
-    viewport: { width: e.width, height: e.height },
-    deviceScaleFactor: 1,
-    isMobile: e.mobile,
-    hasTouch: e.mobile,
-    locale: "fr-FR",
-    javaScriptEnabled: false,
-  });
-  try {
-    const p = await sansJs.newPage();
-    await p.goto(BASE + "/", { waitUntil: "load", timeout: 30000 }).catch(() => {});
-    await attendre(800);
-    await p.screenshot({ path: `${OUT}/${e.nom}-${e.width}-accueil-sans-js.png` });
-  } catch (err) {
-    console.log(`sans JavaScript (${e.nom}) :`, err instanceof Error ? err.message : err);
-  }
-  await sansJs.close();
+const page = await context.newPage();
+for (const [nom, chemin, ms] of [["accueil", "/", 15000], ["alertes", "/alertes", 6000], ["signaler", "/signaler", 6000], ["sos", "/sos", 3000]]) {
+  etape = nom;
+  await page.goto(SITE + chemin, { waitUntil: "load", timeout: 45000 }).catch((e) => lignes.push(`${nom}\tERREUR ${e.message}`));
+  await attendre(ms);
 }
+// SOS déclenché (appui 3,5 s) avec un faux contact : rien ne doit partir sur le réseau.
+etape = "sos-declenche";
+const bouton = page.getByRole("button", { name: /Déclencher le SOS/ });
+const boite = await bouton.boundingBox().catch(() => null);
+if (boite) {
+  await page.mouse.move(boite.x + boite.width / 2, boite.y + boite.height / 2);
+  await page.mouse.down();
+  await attendre(3600);
+  await page.mouse.up();
+  await attendre(3000);
+} else lignes.push("sos-declenche\tbouton introuvable");
+await page.screenshot({ path: `${OUT}/sos-apres.png` }).catch(() => {});
+
+writeFileSync(`${OUT}/reseau.tsv`, lignes.join("\n") + "\n");
+const resume = {};
+for (const l of lignes) {
+  const [e, m, h, , t, pu, pc] = l.split("\t");
+  const k = `${e}\t${h}\t${t || ""}\t${pu || ""}\t${pc || ""}`;
+  resume[k] = (resume[k] ?? 0) + 1;
+}
+writeFileSync(`${OUT}/reseau-resume.tsv`, Object.entries(resume).map(([k, n]) => `${n}\t${k}`).join("\n") + "\n");
 await browser.close();
-console.log("captures faites");
+console.log("audit fait");
