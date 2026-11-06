@@ -47,6 +47,7 @@ export function HomeSheet({
   onChoisirZone,
   onRetirerZone,
   replieOrdi = false,
+  astuce,
   trajet,
 }: {
   allReports: Report[];
@@ -72,6 +73,8 @@ export function HomeSheet({
   onRetirerZone?: () => void;
   /** Ordinateur : panneau de gauche replié (CarteLive), la liste est cachée. */
   replieOrdi?: boolean;
+  /** Astuce « cercle + SOS » (components/LegendeCarte), téléphone et tablette. */
+  astuce?: ReactNode;
   /** Point sur le trajet favori (components/TrajetResume), visible même liste repliée. */
   trajet?: ReactNode;
 }) {
@@ -216,6 +219,8 @@ export function HomeSheet({
           )}
         </div>
       )}
+
+      {astuce}
 
       {trajet}
 

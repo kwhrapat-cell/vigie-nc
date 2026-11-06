@@ -72,7 +72,8 @@ test("légende : le SOS ne publie rien et ne prévient pas les secours à ta pla
   assert.match(sos, /ne prévient pas les secours/);
   assert.match(sos, /ne publie rien/);
   assert.match(sos, /15.*17.*18/);
-  assert.match(LEGENDE.astuce.sos, /Rien n'est publié/);
+  assert.match(LEGENDE.astuce.sos, /rien n'est publié/i);
+  assert.match(LEGENDE.astuce.sos, /rien ne part sans toi/i);
 });
 
 test("mise à jour : chargement, chargement long, heure, pas de connexion", () => {

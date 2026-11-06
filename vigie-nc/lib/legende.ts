@@ -87,8 +87,8 @@ export const LEGENDE = {
     prudence: "« Rien de signalé » ne garantit pas que la route est dégagée : reste prudent.",
   },
   astuce: {
-    cercle: "Le cercle, c'est ta zone : 1, 3 ou 5 km autour de toi. La liste montre ce qui est signalé dedans.",
-    sos: "SOS prépare un SMS avec ta position pour tes proches. Rien n'est publié, rien ne part sans toi.",
+    cercle: "Le cercle, c'est ta zone : 1, 3 ou 5 km autour de toi.",
+    sos: "SOS prépare un SMS avec ta position pour tes proches. Rien ne part sans toi, rien n'est publié.",
     legende: "Légende",
     compris: "Compris",
   },

@@ -70,6 +70,13 @@ for (const e of ECRANS) {
         await legende.click();
         await attendre(900);
         await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-accueil-legende.png` });
+        // Bas de la légende : SOS, position, mise à jour
+        await page
+          .locator('[aria-labelledby="legende-titre"]')
+          .evaluate((el) => (el.scrollTop = el.scrollHeight))
+          .catch(() => {});
+        await attendre(400);
+        await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-accueil-legende-bas.png` });
         await page.getByRole("button", { name: "Fermer la légende" }).click().catch(() => {});
         await attendre(500);
       }

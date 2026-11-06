@@ -684,7 +684,7 @@ export function CarteLive() {
           SOS
         </Link>
 
-        {montrerAstuce && <AstuceCarte onLegende={ouvrirLegende} onFermer={fermerAstuce} />}
+        {montrerAstuce && <AstuceCarte variante="carte" onLegende={ouvrirLegende} onFermer={fermerAstuce} />}
       </div>
 
       {enConduite && (
@@ -715,6 +715,9 @@ export function CarteLive() {
         onEnableLocation={retry}
         onRetry={refresh}
         replieOrdi={panneauReplie}
+        astuce={
+          montrerAstuce ? <AstuceCarte variante="liste" onLegende={ouvrirLegende} onFermer={fermerAstuce} /> : null
+        }
         trajet={
           demo ? null : (
             <TrajetResume

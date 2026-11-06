@@ -285,14 +285,29 @@ export function LegendeCarte({
 }
 
 /**
- * Astuce montrée une fois, à côté du bouton SOS (lib/legende.ts) : ce que
- * veut dire le cercle et ce que fait le SOS, avec un lien vers la légende.
+ * Astuce montrée une fois (lib/legende.ts) : ce que veut dire le cercle et
+ * ce que fait le SOS, avec un lien vers la légende. « carte » : à côté du
+ * bouton SOS, sur ordinateur seulement (dès 960 px) ; « liste » : dans le
+ * panneau du bas, sur téléphone et tablette, où la carte est trop petite
+ * pour être recouverte.
  */
-export function AstuceCarte({ onLegende, onFermer }: { onLegende: () => void; onFermer: () => void }) {
+export function AstuceCarte({
+  variante,
+  onLegende,
+  onFermer,
+}: {
+  variante: "carte" | "liste";
+  onLegende: () => void;
+  onFermer: () => void;
+}) {
   return (
     <section
       aria-label="Astuce pour lire la carte"
-      className="absolute left-[4.5rem] right-3 bottom-7 z-[11] max-w-[380px] rounded-2xl border border-line bg-panel/95 backdrop-blur px-3 pt-2.5 pb-2 shadow-[0_16px_36px_-14px_rgba(0,0,0,0.9)] animate-pop-in"
+      className={
+        variante === "carte"
+          ? "hidden lg:block absolute left-[4.5rem] right-3 bottom-7 z-[11] max-w-[380px] rounded-2xl border border-line bg-panel/95 backdrop-blur px-3 pt-2.5 pb-2 shadow-[0_16px_36px_-14px_rgba(0,0,0,0.9)] animate-pop-in"
+          : "lg:hidden mt-2.5 rounded-xl border border-lagoon/30 bg-lagoon/10 px-3 pt-2.5 pb-1.5"
+      }
     >
       <ul className="flex flex-col gap-1.5 text-[13.5px] leading-snug text-mist">
         <li className="flex items-start gap-2">
