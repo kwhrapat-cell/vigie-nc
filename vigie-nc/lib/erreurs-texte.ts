@@ -9,6 +9,11 @@ export const IGNOREES = [
   /Failed to fetch|Load failed|NetworkError|Network request failed/i,
   /AbortError|The operation was aborted|The user aborted/i,
   /chrome-extension:|moz-extension:|safari-extension:|safari-web-extension:/i,
+  // Code ajouté par le navigateur, pas par l'appli (vus le 05/11/2026 sur
+  // iPhone) : Firefox (__firefox__), portefeuille crypto (window.ethereum),
+  // scripts installés par l'utilisateur (user-script:). La base les ignore
+  // aussi (vigie_erreur_signaler) : garder les deux listes alignées.
+  /__firefox__|window\.ethereum|user-script:/i,
 ];
 /** « Chrome 140 · Android », « Appli Android », « Facebook · iPhone »… (pas le texte complet). */
 export function navigateurCourt(ua: string): string {
@@ -50,6 +55,9 @@ export function texteErreur(err: unknown): string | null {
     .map((l) => l.trim().replace(/https?:\/\/[^/\s)]+/g, ""))
     .filter(Boolean)
     .join(" | ");
+  // Une extension peut lever une erreur banale (« undefined is not an
+  // object ») : seule la pile dit d'où elle vient.
+  if (pile && IGNOREES.some((r) => r.test(pile))) return null;
   return (pile ? `${message} @ ${pile}` : message).slice(0, 300);
 }
 

@@ -58,8 +58,9 @@ export default function ModerationPage() {
   const [loginError, setLoginError] = useState<string | null>(null);
 
   // Onglets : les listes à modérer (dont les travaux, pour les chantiers),
-  // les annonces générales, les chiffres d'utilisation, puis l'essai du
-  // résumé automatique (IA)
+  // l'historique de tout ce qui a été publié (pour effacer les essais), les
+  // annonces générales, les chiffres d'utilisation, puis l'essai du résumé
+  // automatique (IA)
   const [filter, setFilter] = useState<Onglet>("signales");
   const [items, setItems] = useState<ModItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -179,12 +180,13 @@ export default function ModerationPage() {
 
       <SecurityAlarm code={code} />
 
-      <div className="mx-4 grid grid-cols-3 md:grid-cols-6 gap-1" role="tablist">
+      <div className="mx-4 grid grid-cols-4 md:grid-cols-7 gap-1" role="tablist">
         {(
           [
             ["signales", "Signalés"],
             ["recents", "Récents"],
             ["travaux", "Travaux"],
+            ["historique", "Historique"],
             ["annonces", "Annonces"],
             ["chiffres", "Chiffres"],
             ["ia", "IA"],
@@ -211,7 +213,7 @@ export default function ModerationPage() {
 
       {filter === "ia" && <ModIaPanel code={code} />}
 
-      {(filter === "signales" || filter === "recents" || filter === "travaux") && (
+      {(filter === "signales" || filter === "recents" || filter === "travaux" || filter === "historique") && (
         <>
           <div className="mx-4 mt-2 flex items-center justify-between text-[11.5px] text-mist-dim">
             <span>
@@ -221,7 +223,11 @@ export default function ModerationPage() {
                   ? `${items.length} à regarder (30 derniers jours)`
                   : filter === "travaux"
                     ? `${items.length} travaux (en cours, ou finis depuis moins de 7 jours)`
-                    : `${items.length} signalement${items.length > 1 ? "s" : ""} (48 dernières heures)`}
+                    : filter === "historique"
+                      ? `${items.length} publié${items.length > 1 ? "s" : ""} depuis le début${
+                          items.length >= HISTORIQUE_MAX ? ` (les ${HISTORIQUE_MAX} derniers)` : ""
+                        }`
+                      : `${items.length} signalement${items.length > 1 ? "s" : ""} (48 dernières heures)`}
             </span>
             <button type="button" onClick={load} disabled={loading} className="py-2 underline disabled:opacity-50">
               Actualiser
@@ -233,6 +239,14 @@ export default function ModerationPage() {
               Chantier annoncé par une mairie, la Province ou la DITTT ? Mets sa date de fin : il reste sur la carte
               jusque-là. S&apos;il n&apos;est pas encore sur la carte, signale-le d&apos;abord depuis l&apos;appli (+ ›
               Travaux), puis reviens ici.
+            </p>
+          )}
+
+          {filter === "historique" && (
+            <p className="mx-4 mt-2 rounded-lg border border-line bg-panel px-3 py-2 text-[11.5px] leading-relaxed text-mist-dim">
+              Tout ce qui a été publié sur la carte, du plus récent au plus ancien. Efface ici tes essais : ils
+              disparaissent de la carte, de l&apos;historique des zones, de la mémoire des trajets et des chiffres.
+              Impossible d&apos;annuler, alors ne touche pas aux vrais signalements.
             </p>
           )}
 
@@ -248,13 +262,15 @@ export default function ModerationPage() {
                 ? "Rien à modérer pour l'instant."
                 : filter === "travaux"
                   ? "Aucun travaux en cours."
-                  : "Aucun signalement ces dernières 48 h."}
+                  : filter === "historique"
+                    ? "Rien n'a encore été publié."
+                    : "Aucun signalement ces dernières 48 h."}
             </p>
           )}
 
           <div className="mt-3 flex flex-col gap-3">
             {items.map((item) => (
-              <ModCard key={item.id} item={item} code={code} onDone={load} />
+              <ModCard key={item.id} item={item} code={code} onDone={load} historique={filter === "historique"} />
             ))}
           </div>
         </>
@@ -265,7 +281,33 @@ export default function ModerationPage() {
 
 // ---------------------------------------------------------------------
 
-function ModCard({ item, code, onDone }: { item: ModItem; code: string; onDone: () => void }) {
+/** Taille maximale de l'historique (limite de moderation_liste dans le SQL). */
+const HISTORIQUE_MAX = 300;
+
+/** « 22 oct. 18:09 », heure de Nouméa */
+function dateHeure(iso: string): string {
+  return new Date(iso).toLocaleString("fr-FR", {
+    timeZone: "Pacific/Noumea",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function ModCard({
+  item,
+  code,
+  onDone,
+  historique = false,
+}: {
+  item: ModItem;
+  code: string;
+  onDone: () => void;
+  /** Onglet « Historique » : date complète, et seulement « Effacer » + « Voir sur la carte ». */
+  historique?: boolean;
+}) {
   const [busy, setBusy] = useState<ModAction | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [verifyOpen, setVerifyOpen] = useState(false);
@@ -283,6 +325,13 @@ function ModCard({ item, code, onDone }: { item: ModItem; code: string; onDone: 
 
   async function act(action: ModAction, valeur?: string) {
     if (action === "retirer" && !window.confirm("Retirer ce signalement de la carte pour tout le monde ?")) return;
+    if (
+      action === "effacer" &&
+      !window.confirm(
+        "Effacer définitivement ce signalement ?\n\nÀ faire seulement pour un essai : il disparaît de la carte, de l'historique, de la mémoire des zones et des chiffres. Impossible d'annuler.",
+      )
+    )
+      return;
     setBusy(action);
     setError(null);
     try {
@@ -328,7 +377,7 @@ function ModCard({ item, code, onDone }: { item: ModItem; code: string; onDone: 
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-[13.5px] leading-tight">{REPORT_TYPE_LABELS[item.type]}</p>
           <p className="text-[11px] text-mist-dim truncate">
-            {[item.lieu, formatAge(item.createdAt)].filter(Boolean).join(" · ")}
+            {[item.lieu, historique ? dateHeure(item.createdAt) : formatAge(item.createdAt)].filter(Boolean).join(" · ")}
           </p>
         </div>
       </div>
@@ -461,53 +510,69 @@ function ModCard({ item, code, onDone }: { item: ModItem; code: string; onDone: 
         </div>
       )}
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        {item.type === "travaux" && !chantierOpen && (
-          <ActionButton tone="info" disabled={busy !== null} onClick={ouvrirChantier}>
-            {item.finAnnoncee ? "Changer la date de fin" : "Chantier : date de fin"}
+      {historique ? (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <ActionButton tone="danger" busy={busy === "effacer"} disabled={busy !== null} onClick={() => act("effacer")}>
+            Effacer (essai)
           </ActionButton>
-        )}
-        {aContenu && !masque && (
-          <ActionButton tone="danger" busy={busy === "masquer"} disabled={busy !== null} onClick={() => act("masquer")}>
-            Masquer photo et texte
-          </ActionButton>
-        )}
-        {masque && (
-          <ActionButton busy={busy === "retablir"} disabled={busy !== null} onClick={() => act("retablir")}>
-            Rétablir le contenu
-          </ActionButton>
-        )}
-        {item.nbSignalements > 0 && !masque && (
-          <ActionButton tone="ok" busy={busy === "ignorer"} disabled={busy !== null} onClick={() => act("ignorer")}>
-            C&apos;est OK
-          </ActionButton>
-        )}
-        {item.sourceOfficielle ? (
-          <ActionButton busy={busy === "deverifier"} disabled={busy !== null} onClick={() => act("deverifier")}>
-            {item.finAnnoncee ? "Retirer « Vérifié » et la date" : "Retirer « Vérifié »"}
-          </ActionButton>
-        ) : (
-          !verifyOpen &&
-          item.type !== "sos" && (
-            <ActionButton tone="info" disabled={busy !== null} onClick={() => setVerifyOpen(true)}>
-              Marquer vérifié
+          {item.actif && (
+            <Link
+              href={`/?signalement=${item.id}`}
+              className="rounded-lg border border-line bg-panel-2 py-2.5 text-center text-[12px] font-medium"
+            >
+              Voir sur la carte
+            </Link>
+          )}
+        </div>
+      ) : (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {item.type === "travaux" && !chantierOpen && (
+            <ActionButton tone="info" disabled={busy !== null} onClick={ouvrirChantier}>
+              {item.finAnnoncee ? "Changer la date de fin" : "Chantier : date de fin"}
             </ActionButton>
-          )
-        )}
-        {item.actif && (
-          <ActionButton tone="danger" busy={busy === "retirer"} disabled={busy !== null} onClick={() => act("retirer")}>
-            Retirer de la carte
-          </ActionButton>
-        )}
-        {item.type !== "sos" && (
-          <Link
-            href={`/?signalement=${item.id}`}
-            className="rounded-lg border border-line bg-panel-2 py-2.5 text-center text-[12px] font-medium"
-          >
-            Voir sur la carte
-          </Link>
-        )}
-      </div>
+          )}
+          {aContenu && !masque && (
+            <ActionButton tone="danger" busy={busy === "masquer"} disabled={busy !== null} onClick={() => act("masquer")}>
+              Masquer photo et texte
+            </ActionButton>
+          )}
+          {masque && (
+            <ActionButton busy={busy === "retablir"} disabled={busy !== null} onClick={() => act("retablir")}>
+              Rétablir le contenu
+            </ActionButton>
+          )}
+          {item.nbSignalements > 0 && !masque && (
+            <ActionButton tone="ok" busy={busy === "ignorer"} disabled={busy !== null} onClick={() => act("ignorer")}>
+              C&apos;est OK
+            </ActionButton>
+          )}
+          {item.sourceOfficielle ? (
+            <ActionButton busy={busy === "deverifier"} disabled={busy !== null} onClick={() => act("deverifier")}>
+              {item.finAnnoncee ? "Retirer « Vérifié » et la date" : "Retirer « Vérifié »"}
+            </ActionButton>
+          ) : (
+            !verifyOpen &&
+            item.type !== "sos" && (
+              <ActionButton tone="info" disabled={busy !== null} onClick={() => setVerifyOpen(true)}>
+                Marquer vérifié
+              </ActionButton>
+            )
+          )}
+          {item.actif && (
+            <ActionButton tone="danger" busy={busy === "retirer"} disabled={busy !== null} onClick={() => act("retirer")}>
+              Retirer de la carte
+            </ActionButton>
+          )}
+          {item.type !== "sos" && (
+            <Link
+              href={`/?signalement=${item.id}`}
+              className="rounded-lg border border-line bg-panel-2 py-2.5 text-center text-[12px] font-medium"
+            >
+              Voir sur la carte
+            </Link>
+          )}
+        </div>
+      )}
     </article>
   );
 }

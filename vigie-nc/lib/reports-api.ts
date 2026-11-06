@@ -508,8 +508,10 @@ export async function uploadReportPhoto(file: File): Promise<string> {
 // du modérateur ; le serveur le vérifie (voir moderation_* dans le SQL).
 // ---------------------------------------------------------------------
 
-export type ModFilter = "signales" | "recents" | "travaux";
-export type ModAction = "masquer" | "retablir" | "ignorer" | "retirer" | "verifier" | "deverifier";
+/** « historique » : tout ce qui a été publié depuis le début (300 au plus), pour effacer les essais. */
+export type ModFilter = "signales" | "recents" | "travaux" | "historique";
+/** « effacer » : suppression définitive d'un essai (onglet Historique), impossible à annuler. */
+export type ModAction = "masquer" | "retablir" | "ignorer" | "retirer" | "verifier" | "deverifier" | "effacer";
 
 export interface ModItem {
   id: string;
@@ -565,6 +567,10 @@ async function liveRpc<T>(fn: string, args: Record<string, unknown>): Promise<T>
 
 /** Vérifie un code de modération ; renvoie le nom du modérateur. */
 export async function modVerify(code: string): Promise<string> {
+  // Session ouverte d'abord (sans bloquer si elle échoue) : le serveur note
+  // cet appareil comme appareil de l'équipe, qui ne compte plus dans les
+  // chiffres (vigie_noter_appareil_equipe dans le SQL).
+  await ensureSession().catch(() => false);
   const out = await liveRpc<{ nom: string }>("moderation_verifier", { p_code: code });
   return out.nom;
 }
@@ -667,6 +673,8 @@ export interface ModStats {
   };
   abonnesAlertes: number;
   abonnesTrajet: number;
+  /** Appareils de l'équipe (modération ouverte dessus), jamais comptés. */
+  appareilsEquipe: number;
   sources: { source: string; nouveaux: number }[];
   courbe: { jour: string; actifs: number; signalements: number; maxSimultanes: number }[];
 }
@@ -691,6 +699,7 @@ interface ModStatsRow {
   };
   abonnes_alertes: number;
   abonnes_trajet?: number;
+  appareils_equipe?: number;
   sources: { source: string; nouveaux: number }[] | null;
   courbe: { jour: string; actifs: number; signalements: number; max_simultanes: number }[] | null;
 }
@@ -717,6 +726,7 @@ export async function modStats(code: string): Promise<ModStats> {
     },
     abonnesAlertes: r.abonnes_alertes,
     abonnesTrajet: r.abonnes_trajet ?? 0,
+    appareilsEquipe: r.appareils_equipe ?? 0,
     sources: r.sources ?? [],
     courbe: (r.courbe ?? []).map((c) => ({
       jour: c.jour,

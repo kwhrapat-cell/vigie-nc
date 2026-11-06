@@ -26,3 +26,20 @@ test("erreurs sans intérêt ignorées, adresse du site retirée de la pile", ()
   assert.equal(texteErreur(e), "TypeError: x est vide @ at f (/_next/static/chunks/app.js:1:234) | at g (x.js:2:3)");
   assert.equal(texteErreur("texte simple"), "Error: texte simple");
 });
+
+test("erreurs du navigateur (Firefox iPhone, portefeuille crypto, scripts ajoutés) ignorées", () => {
+  // Les 4 erreurs vues le 05/11/2026 sur iPhone : aucune ne vient de Vigie NC.
+  assert.equal(texteErreur(new ReferenceError("Can't find variable: __firefox__")), null);
+  assert.equal(texteErreur(new TypeError("undefined is not an object (evaluating 'window.__firefox__.reader')")), null);
+  assert.equal(
+    texteErreur(new TypeError("undefined is not an object (evaluating 'window.ethereum.selectedAddress = undefined')")),
+    null,
+  );
+  const script = new TypeError("undefined is not an object (evaluating 'Object.getPrototypeOf(voice)')");
+  script.stack = `${script.name}: ${script.message}\n    voice@user-script:130:186:45\n    f@user-script:130:20:1`;
+  assert.equal(texteErreur(script), null);
+  // La même erreur venue de NOTRE code part bien
+  const notre = new TypeError("undefined is not an object (evaluating 'Object.getPrototypeOf(voice)')");
+  notre.stack = `${notre.name}: ${notre.message}\n    at f (https://vigie-nc.com/_next/static/chunks/app.js:1:2)`;
+  assert.ok(texteErreur(notre)?.startsWith("TypeError: undefined is not an object"));
+});
