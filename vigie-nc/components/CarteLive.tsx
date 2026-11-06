@@ -391,14 +391,16 @@ export function CarteLive() {
   // liste), carte à droite sur toute la hauteur ; panneau replié : la carte
   // prend tout l'écran avec un petit bandeau (BandeauPanneauReplie). Même
   // ordre dans la page dans tous les cas (lecteurs d'écran, clavier). En
-  // conduite, toujours la carte en plein écran.
+  // conduite, toujours la carte en plein écran. Pendant le choix de « Ma
+  // zone », téléphone et tablette passent aussi la carte en plein écran
+  // (sinon la consigne cache le repère) ; l'ordinateur garde son panneau.
   const grille = panneauReplie
     ? "lg:grid-cols-1"
     : "lg:grid-cols-[400px_minmax(0,1fr)] xl:grid-cols-[440px_minmax(0,1fr)]";
   return (
     <div
       className={`h-[calc(100dvh_-_var(--demo-h))] flex flex-col ${
-        enConduite ? "" : `pb-nav lg:!pb-0 lg:grid ${grille} lg:grid-rows-[auto_minmax(0,1fr)]`
+        enConduite ? "" : `${choixZone ? "" : "pb-nav"} lg:!pb-0 lg:grid ${grille} lg:grid-rows-[auto_minmax(0,1fr)]`
       }`}
     >
       {enConduite && (
@@ -416,7 +418,7 @@ export function CarteLive() {
         className={
           enConduite
             ? "hidden"
-            : `contents lg:block lg:col-start-1 lg:row-start-1 lg:bg-panel lg:border-r lg:border-line ${
+            : `${choixZone ? "hidden" : "contents"} lg:block lg:col-start-1 lg:row-start-1 lg:bg-panel lg:border-r lg:border-line ${
                 panneauReplie ? "lg:!hidden" : ""
               }`
         }
@@ -653,7 +655,7 @@ export function CarteLive() {
         />
       )}
 
-      <div className={enConduite ? "hidden" : "contents"}>
+      <div className={enConduite ? "hidden" : choixZone ? "hidden lg:contents" : "contents"}>
       <HomeSheet
         allReports={reports}
         reports={visible}
