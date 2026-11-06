@@ -30,6 +30,11 @@ export function directionGlisse(dx: number, dy: number): "suivante" | "precedent
   return dx < 0 ? "suivante" : "precedente";
 }
 
+// Accueil déjà vu (« 1 ») : components/WelcomeNotice. Changer la version si
+// le texte change de façon importante : l'écran sera montré à nouveau à
+// tout le monde. Lu aussi par l'astuce de la carte (lib/legende.ts).
+export const ACCUEIL_KEY = "vigie-nc:avertissement-v1";
+
 // --- Astuce « Touche ici pour signaler » sur le bouton « + » ---------------
 // Montrée seulement aux nouveaux : l'accueil la met « à montrer » quand on le
 // ferme la première fois. Toucher le « + » ou la fermer la passe à « vue ».

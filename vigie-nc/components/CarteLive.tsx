@@ -14,6 +14,7 @@ import { TravauxBanner } from "./TravauxBanner";
 import { ImpactBanner } from "./ImpactBanner";
 import { TrajetResume } from "./TrajetResume";
 import { AidePosition } from "./AidePosition";
+import { AstuceCarte, BoutonLegende, LegendeCarte } from "./LegendeCarte";
 import { PIN_ZONE_SVG } from "./LiveMap";
 import { AUCUN_BANDEAU, Bandeau, masquePar, Presences } from "@/lib/bandeaux";
 import { avatarSvg } from "@/lib/avatar";
@@ -44,6 +45,8 @@ import {
 import { fetchReport } from "@/lib/reports-api";
 import { useWatchPosition } from "@/lib/useWatchPosition";
 import { useLiveReports } from "@/lib/useLiveReports";
+import { ecrireAstuceCarteVue, heureCourte, lireAstuceCarte } from "@/lib/legende";
+import { ASTUCE_SIGNALER_EVENT } from "@/lib/tuto";
 import type { Point } from "@/lib/trajet";
 import { Category, Report, REPORT_TYPE_CATEGORY } from "@/lib/types";
 
@@ -80,6 +83,26 @@ export function CarteLive() {
   const [erreurChoix, setErreurChoix] = useState<string | null>(null);
   const lireCentreRef = useRef<(() => LatLng | null) | null>(null);
   const [ordi, setOrdi] = useState(false);
+
+  // Légende de la carte (bouton « ? ») et astuce « cercle + SOS » montrée
+  // une fois, après l'accueil et la bulle du « + » (lib/legende.ts).
+  const [legendeOuverte, setLegendeOuverte] = useState(false);
+  const [astuce, setAstuce] = useState(false);
+  useEffect(() => {
+    const maj = () => setAstuce(lireAstuceCarte());
+    maj();
+    window.addEventListener(ASTUCE_SIGNALER_EVENT, maj);
+    return () => window.removeEventListener(ASTUCE_SIGNALER_EVENT, maj);
+  }, []);
+  const fermerAstuce = useCallback(() => {
+    setAstuce(false);
+    ecrireAstuceCarteVue();
+  }, []);
+  const ouvrirLegende = useCallback(() => {
+    setLegendeOuverte(true);
+    fermerAstuce();
+  }, [fermerAstuce]);
+  const fermerLegende = useCallback(() => setLegendeOuverte(false), []);
 
   // Trajet favori : ligne sur la carte (à la demande) et ses signalements,
   // ajoutés à la carte quand la ligne est affichée (même hors zone).
@@ -197,7 +220,7 @@ export function CarteLive() {
   }, [centre]);
 
   const radiusM = radiusKm * 1000;
-  const { reports: rawReports, status, error, updatedAt, patchReport } = useLiveReports(
+  const { reports: rawReports, status, error, updatedAt, refresh, patchReport } = useLiveReports(
     isNc ? null : queryCenter,
     radiusM,
   );
@@ -382,8 +405,14 @@ export function CarteLive() {
     if (enConduite) {
       setChoixZone(false);
       setAideOuverte(false);
+      setLegendeOuverte(false);
     }
   }, [enConduite]);
+
+  // Astuce « cercle + SOS » : pas en démonstration (mairie), ni pendant la
+  // conduite, le choix de la zone, l'aide de la position ou une fiche.
+  const montrerAstuce =
+    astuce && !demo && !enConduite && !choixZone && !aideOuverte && !selectedId && !legendeOuverte;
 
   // Téléphone et tablette en portrait : en-tête et bandeaux, carte, puis
   // liste en dessous. Ordinateur et tablette en paysage (960 px et plus) :
@@ -424,6 +453,7 @@ export function CarteLive() {
         }
       >
       <header className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
+        <h1 className="sr-only">Vigie NC : l&apos;état des routes en Nouvelle-Calédonie, en direct</h1>
         <Logo />
         {/* Les alertes sont dans la barre du bas : pas de deuxième cloche ici. */}
         <div className="flex items-center gap-2">
@@ -538,7 +568,12 @@ export function CarteLive() {
           <div className="pointer-events-auto flex flex-col items-start gap-2.5">
             {/* Ordinateur, panneau replié : logo, chiffres, bouton pour rouvrir */}
             {!enConduite && panneauReplie && (
-              <BandeauPanneauReplie counts={counts} onOuvrir={() => changerPanneau(false)} boutonRef={boutonOuvrirRef} />
+              <BandeauPanneauReplie
+                counts={counts}
+                misAJour={updatedAt ? heureCourte(updatedAt) : null}
+                onOuvrir={() => changerPanneau(false)}
+                boutonRef={boutonOuvrirRef}
+              />
             )}
             {!enConduite && (
               <ZoneSelector
@@ -578,6 +613,8 @@ export function CarteLive() {
                 <PleinEcranButton />
               </div>
             )}
+            {/* Légende : zone et cercle, couleurs, SOS, position, mise à jour */}
+            {!enConduite && <BoutonLegende ouverte={legendeOuverte} onClick={ouvrirLegende} />}
           </div>
         </div>
         {/* Position bloquée ou introuvable : comment l'autoriser, ou choisir sa zone */}
@@ -639,12 +676,15 @@ export function CarteLive() {
 
         <Link
           href="/sos"
-          aria-label="SOS — je suis en danger"
+          aria-label="SOS — je suis en danger : préparer un SMS pour mes proches ou appeler les secours"
+          title="SOS : SMS avec ta position pour tes proches, appel du 15, 17 ou 18. Rien n'est publié."
           className="absolute left-3 bottom-7 z-10 w-[52px] h-[52px] rounded-full flex items-center justify-center font-display font-bold text-[15px] text-white border-[3px] border-void shadow-[0_8px_20px_-6px_rgba(229,72,77,0.8)]"
           style={{ background: "radial-gradient(circle at 35% 30%, #F26A6E, #D3343A)" }}
         >
           SOS
         </Link>
+
+        {montrerAstuce && <AstuceCarte onLegende={ouvrirLegende} onFermer={fermerAstuce} />}
       </div>
 
       {enConduite && (
@@ -673,6 +713,7 @@ export function CarteLive() {
         onFilter={setFilter}
         onSelect={selectFromList}
         onEnableLocation={retry}
+        onRetry={refresh}
         replieOrdi={panneauReplie}
         trajet={
           demo ? null : (
@@ -707,6 +748,8 @@ export function CarteLive() {
           }}
         />
       )}
+
+      {legendeOuverte && <LegendeCarte onFermer={fermerLegende} updatedAt={updatedAt} demo={demo} />}
 
       <WelcomeNotice />
     </div>

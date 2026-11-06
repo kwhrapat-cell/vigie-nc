@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type T
 import { couleurSur } from "@/lib/contraste";
 import { RELIABILITY_HEX } from "@/lib/reliability";
 import {
+  ACCUEIL_KEY,
   cartePrecedente,
   carteSuivante,
   directionGlisse,
@@ -17,9 +18,9 @@ import { REPORT_TYPE_HEX, REPORT_TYPE_ICON, REPORT_TYPE_LABELS, type ReportType 
 import { Logo, PrimaryButton, TypeIcon, TypeTile } from "./ui";
 import { Cagou } from "./Cagou";
 
-// Changer la version si le texte change de façon importante : l'écran
-// sera montré à nouveau à tout le monde.
-const STORAGE_KEY = "vigie-nc:avertissement-v1";
+// Clé de lib/tuto.ts (changer sa version si le texte change de façon
+// importante : l'écran sera montré à nouveau à tout le monde).
+const STORAGE_KEY = ACCUEIL_KEY;
 
 function alreadySeen(): boolean {
   try {

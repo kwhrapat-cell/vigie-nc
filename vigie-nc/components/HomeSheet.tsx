@@ -4,7 +4,9 @@ import { useEffect, useRef, useState, type ReactNode, type TouchEvent } from "re
 import { estChantier, libelleFinChantier } from "@/lib/chantier";
 import { formatAgeShort, formatDistance } from "@/lib/geo";
 import { readListeRepliee, saveListeRepliee, sensGlisseListe, suiviGlisseListe } from "@/lib/preferences";
+import { libelleMiseAJour } from "@/lib/legende";
 import { getReliability } from "@/lib/reliability";
+import { useLenteur } from "@/lib/useLenteur";
 import {
   Category,
   CATEGORY_HEX,
@@ -20,11 +22,6 @@ import { Cagou } from "./Cagou";
 import { PartagePointRoute } from "./PartagePointRoute";
 
 const CATEGORIES: Category[] = ["danger", "perturbation", "meteo"];
-
-function timeLabel(d: Date | null) {
-  if (!d) return null;
-  return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-}
 
 /**
  * Panneau du bas de l'accueil : compteurs + liste « À proximité ».
@@ -45,6 +42,7 @@ export function HomeSheet({
   onFilter,
   onSelect,
   onEnableLocation,
+  onRetry,
   zoneChoisie = false,
   onChoisirZone,
   onRetirerZone,
@@ -64,6 +62,8 @@ export function HomeSheet({
   onFilter: (c: Category | null) => void;
   onSelect: (id: string) => void;
   onEnableLocation: () => void;
+  /** Relancer la lecture des signalements (chargement trop long, pas de réseau). */
+  onRetry?: () => void;
   /** La zone est centrée sur « Ma zone » choisie sur la carte, pas sur la position. */
   zoneChoisie?: boolean;
   /** Choisir (ou changer) « Ma zone » sur la carte. */
@@ -79,7 +79,8 @@ export function HomeSheet({
     (acc, c) => ({ ...acc, [c]: allReports.filter((r) => REPORT_TYPE_CATEGORY[r.type] === c).length }),
     {} as Record<Category, number>,
   );
-  const time = timeLabel(updatedAt);
+  // « Chargement… » qui dure : on le dit et on propose de réessayer.
+  const lent = useLenteur(status === "loading");
   // Démonstration Mont-Dore (lib/demo.ts) : la vue d'ensemble est la commune.
   const demo = useDemo();
 
@@ -166,8 +167,8 @@ export function HomeSheet({
               : "En Calédonie"}
           {hasCenter && <span className="text-mist-dim font-normal text-[14px]"> · {radiusKm} km</span>}
         </h2>
-        <span className="font-mono text-[12px] text-mist-dim">
-          {status === "loading" ? "Chargement…" : time ? `Mis à jour à ${time}` : ""}
+        <span className="font-mono text-[12px] text-mist-dim" aria-live="polite">
+          {libelleMiseAJour(status, updatedAt, lent)}
         </span>
       </div>
 
@@ -250,10 +251,36 @@ export function HomeSheet({
         </div>
       )}
 
+      {status === "loading" && lent && (
+        <div className="mt-2.5 rounded-xl border border-line bg-panel-2 px-3 py-2 text-[13.5px] text-mist" role="status">
+          <p>Les signalements mettent du temps à arriver. Vérifie ta connexion.</p>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-1.5 min-h-[44px] rounded-lg border border-line px-3 text-[14px] font-medium text-lagoon"
+            >
+              Réessayer
+            </button>
+          )}
+        </div>
+      )}
+
       {error && (
-        <p className="mt-2 text-[13.5px] text-danger" role="alert">
-          {error}
-        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-x-2">
+          <p className="flex-1 min-w-0 text-[13.5px] text-danger" role="alert">
+            {error}
+          </p>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="shrink-0 min-h-[44px] px-2 text-[14px] font-medium text-lagoon"
+            >
+              Réessayer
+            </button>
+          )}
+        </div>
       )}
 
       <div id="liste-proximite" ref={listeRef} hidden={repliee} className="lg:!block">

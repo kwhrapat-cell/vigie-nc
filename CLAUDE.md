@@ -85,7 +85,20 @@ vigie-nc/
                   AidePosition (position bloquée ou introuvable, ouverte par
                   « Activer ma position » ou un rayon touché sans position :
                   consignes navigateur / Windows / Mac ou téléphone, bouton
-                  « Choisir ma zone sur la carte »). « Ma zone » (CarteLive,
+                  « Choisir ma zone sur la carte »). LegendeCarte (bouton « ? »
+                  sous les boutons de droite de la carte → feuille « Lire la
+                  carte » : NC / 1-3-5 km et le cercle, couleurs, repères
+                  (récent, pâle, pastille, toi, Ma zone), fiabilité, SOS, ta
+                  position, heure de mise à jour ; AstuceCarte = astuce
+                  « cercle + SOS » à côté du bouton SOS, montrée une fois
+                  après l'accueil et la bulle du « + », jamais en démo,
+                  conduite, choix de zone ni fiche ouverte ; textes et
+                  logique dans lib/legende.ts). LiveMap affiche « Chargement
+                  de la carte… » tant que Leaflet n'est pas prêt (aussi dans
+                  la page du serveur), puis, après 12 s ou si Leaflet ne
+                  charge pas, un message + « Recharger la page » ; HomeSheet
+                  dit « Chargement long… » + « Réessayer » de même ; noscript
+                  dans app/layout.tsx. « Ma zone » (CarteLive,
                   décision de Patrice du 06/11/2026, ordinateurs des mairies) :
                   repère fixe au centre de la carte, on déplace la carte puis
                   « Choisir cet endroit » ; gardée sur l'appareil
@@ -296,6 +309,12 @@ vigie-nc/
                      (blanc, foncé sur l'orange et le jaune où le blanc passe sous 3:1)
     tuto.ts          démo d'accueil : ordre des cartes, glissement du doigt,
                      astuce du « + » (« vigie-nc:astuce-signaler » : a-montrer / vue)
+    legende.ts       légende de la carte et astuce « cercle + SOS » : textes
+                     (testés : jamais « route libre », SOS et position conformes
+                     au code), REPERE_RECENT_MIN (halo de LiveMap),
+                     CHARGEMENT_LENT_MS, libellé « Mis à jour à », astuce
+                     « vigie-nc:astuce-carte » (après ACCUEIL_KEY de tuto.ts et
+                     l'astuce du « + »). useLenteur.ts : vrai après ce délai
     relay-parser.ts  lecture d'un message collé → type + lieu (sur le téléphone)
     legal.ts         éditeur (Tramea Solutions, entreprise individuelle, RIDET
                      0 726 331.003, adresse et téléphone de l'avis RIDET du
