@@ -6,7 +6,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 
 const OUT = process.env.OUT_DIR ?? "captures";
 mkdirSync(OUT, { recursive: true });
-const SITE = "https://vigie-nc.com";
+const SITE = "https://vigie-nc-git-fraicheur-sos-pkd-ev.vercel.app";
 const LAT = -22.13161, LNG = 166.35823;
 const POSITION = /-22\.1[0-9]*|166\.3[0-9]*|-22%2E1|166%2E3/;
 const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
