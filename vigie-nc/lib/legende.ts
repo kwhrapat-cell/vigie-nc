@@ -82,7 +82,7 @@ export const LEGENDE = {
   reperes: {
     titre: "Les repères",
     recent: `Halo qui clignote : signalé il y a moins de ${REPERE_RECENT_MIN} minutes.`,
-    pale: "Repère pâle : pas encore confirmé, ou quelqu'un dit que c'est terminé.",
+    pale: "Repère pâle : un seul signalement pour l'instant, ou quelqu'un dit que c'est terminé.",
     pastille: "Pastille chiffrée : plusieurs signalements proches. Touche-la ou clique dessus pour zoomer.",
     toi: "Point bleu (ou ton cagou) : toi. Toi seul le vois.",
     maZone: "Repère lagon : ta zone choisie sur la carte, quand ta position n'est pas disponible.",
@@ -90,7 +90,7 @@ export const LEGENDE = {
   },
   fiabilite: {
     titre: "Fiabilité et fraîcheur",
-    relaye: "Vu ailleurs (Facebook…), à confirmer sur place",
+    relaye: "Vu ailleurs (Facebook…), pas encore signalé sur place",
     ancien: "Pas de nouvelle depuis la moitié de sa durée sur la carte : à revérifier",
     termine: "Déclaré fini sur place : retiré de la carte",
   },
@@ -98,11 +98,12 @@ export const LEGENDE = {
     titre: "Qui publie, comment c'est vérifié",
     lignes: [
       "Tout le monde peut signaler, sans compte et sans nom, depuis l'endroit où il se trouve (1 signalement par minute au plus).",
-      "Les personnes à moins de 5 km confirment (« Toujours là ») ou corrigent (« C'est terminé ») : plus il y a de réponses, plus l'info est fiable.",
+      "Les personnes à moins de 5 km répondent « Toujours là » (un signalement de plus) ou « C'est terminé » (retiré quand assez de monde le dit).",
+      "Le nombre de signalements ne prouve rien à lui seul : plusieurs téléphones anonymes peuvent venir d'une même personne. C'est pour ça qu'il n'y a jamais de « Confirmé » au nombre.",
       "Une erreur (mauvais type, mauvais endroit) se corrige avec « C'est terminé », puis un nouveau signalement.",
-      "Une info vue ailleurs (Facebook…) reste « Relayé » tant que personne ne l'a confirmée sur place. Une source officielle (mairie, province…) la passe en « Vérifié ».",
+      "Une info vue ailleurs (Facebook…) reste « Relayé » tant que personne ne l'a signalée sur place. Seule une source officielle (mairie, province, pompiers…) la passe en « Vérifié ».",
       "Une photo ou un texte déplacé peut être signalé : il est masqué par la modération.",
-      "Tant qu'elle n'est pas confirmée, une info reste celle d'un usager : elle peut se tromper, vérifie sur place.",
+      "Tant qu'elle n'est pas vérifiée, une info reste celle d'usagers : elle peut se tromper, regarde par toi-même.",
     ],
   },
   sos: {

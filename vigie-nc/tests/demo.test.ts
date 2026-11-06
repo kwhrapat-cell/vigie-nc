@@ -46,12 +46,13 @@ test("démo : la source officielle dit toujours que c'est un exemple", () => {
 });
 
 test("démo : les niveaux de fiabilité sont tous représentés", () => {
-  // lib/reliability.ts : auteur + « Toujours là » = 1 personne (Signalement),
-  // 2 à 3 (À confirmer), 4 et plus (Confirmé), source officielle (Vérifié).
+  // lib/reliability.ts : auteur + « Toujours là » = 1 signalement (Signalé),
+  // 2 et plus (Plusieurs signalements, petits et grands nombres), source
+  // officielle (Vérifié).
   const simple = (s: (typeof SCENARIO_MONT_DORE)[number]) => !s.relaySource && !s.officialSource && !s.termine;
   assert.ok(SCENARIO_MONT_DORE.some((s) => simple(s) && s.present === 0), "signalement");
-  assert.ok(SCENARIO_MONT_DORE.some((s) => simple(s) && s.present >= 1 && s.present <= 2), "à confirmer");
-  assert.ok(SCENARIO_MONT_DORE.some((s) => simple(s) && s.present >= 3), "confirmé");
+  assert.ok(SCENARIO_MONT_DORE.some((s) => simple(s) && s.present >= 1 && s.present <= 2), "plusieurs signalements (2 à 3)");
+  assert.ok(SCENARIO_MONT_DORE.some((s) => simple(s) && s.present >= 3), "plusieurs signalements (4 et plus)");
   assert.ok(SCENARIO_MONT_DORE.some((s) => s.relaySource === "facebook"), "relayé");
   assert.ok(SCENARIO_MONT_DORE.some((s) => (s.termine ?? 0) > 0), "contesté");
 });

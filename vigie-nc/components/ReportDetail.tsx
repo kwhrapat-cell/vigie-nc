@@ -236,13 +236,15 @@ export function ReportDetail({
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <ReliabilityBadge report={report} size="md" />
             <span className="text-[13.5px] text-mist-dim">
-              {report.relaySource
-                ? rel.people > 0
-                  ? `${rel.people} confirmation${rel.people > 1 ? "s" : ""} sur place`
-                  : "Pas encore confirmé sur place"
-                : rel.people > 1
-                  ? `${rel.people - 1} confirmation${rel.people > 2 ? "s" : ""}`
-                  : "Pas encore confirmé"}
+              {report.officialSource
+                ? "Source officielle"
+                : report.relaySource
+                  ? rel.people > 0
+                    ? `Signalé ${rel.people} fois sur place`
+                    : "Pas encore signalé sur place"
+                  : rel.people > 1
+                    ? `Signalé ${rel.people} fois`
+                    : "1 seul signalement pour l'instant"}
             </span>
             {report.riskLevel && (
               <span
@@ -314,13 +316,14 @@ export function ReportDetail({
                 </svg>
               }
             >
+              {/* On dit ce qu'on sait : des téléphones, pas des personnes vérifiées. */}
               {report.relaySource
                 ? rel.people > 0
-                  ? `${rel.people} personne${rel.people > 1 ? "s" : ""} sur place l'${rel.people > 1 ? "ont" : "a"} confirmé`
-                  : "Personne sur place ne l'a encore confirmé"
+                  ? `Signalé sur place depuis ${rel.people} téléphone${rel.people > 1 ? "s" : ""}`
+                  : "Personne ne l'a encore signalé sur place"
                 : rel.people > 1
-                  ? `${rel.people} personnes l'ont vu`
-                  : "Signalé par 1 personne"}
+                  ? `Signalé depuis ${rel.people} téléphones (« Toujours là » compris)`
+                  : "Signalé depuis 1 téléphone"}
               {rel.contested && <span className="block text-[13px] text-warn">{rel.contested}</span>}
             </Row>
             {report.officialSource && (

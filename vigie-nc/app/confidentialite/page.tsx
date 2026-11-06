@@ -195,7 +195,7 @@ export default function ConfidentialitePage() {
             Si les alertes sont activées, la même ligne (toujours sans ses extrémités), tes jours et tes heures sont
             enregistrés avec ton adresse d&apos;envoi des alertes, sans lien avec l&apos;identifiant anonyme de ton
             téléphone. Ils servent à te prévenir 30 min avant de partir et pendant le trajet s&apos;il y a un danger
-            confirmé dessus (ou même quand rien n&apos;est signalé, si tu l&apos;as choisi), puis quand il est déclaré
+            signalé plusieurs fois ou vérifié dessus (ou même quand rien n&apos;est signalé, si tu l&apos;as choisi), puis quand il est déclaré
             terminé.
           </li>
           <li>
@@ -212,7 +212,7 @@ export default function ConfidentialitePage() {
       <LegalSection title="Le mode conduite (si tu l'actives)">
         <p>
           Pendant le mode conduite, ta position est suivie <strong>sur ton téléphone</strong>{" "}pour savoir dans quel
-          sens tu roules et quels dangers confirmés sont devant toi. Elle part seulement pour chercher les
+          sens tu roules et quels dangers signalés plusieurs fois ou vérifiés sont devant toi. Elle part seulement pour chercher les
           signalements autour de toi, comme sur la carte (environ toutes les 90 secondes ou tous les 1,5 km), et
           n&apos;est <strong>pas enregistrée</strong>. Le choix des dangers à annoncer et la voix se font sur le
           téléphone.

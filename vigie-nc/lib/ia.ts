@@ -121,7 +121,7 @@ export function construireMessage(d: DemandeResume): string {
     `Premier signalement : ${ageTexte(d.minutes)}`,
   ];
   if (d.sourceOfficielle) {
-    lignes.push(`Confirmé par une source officielle : ${echapper(uneLigne(d.sourceOfficielle))}`);
+    lignes.push(`Vérifié par une source officielle : ${echapper(uneLigne(d.sourceOfficielle))}`);
   }
   lignes.push("", "Témoignages, du plus ancien au plus récent :", "<temoignages>");
   for (const t of d.temoignages) {
@@ -269,7 +269,7 @@ Règles :
 - Commence exactement par l'ouverture donnée dans le message.
 - D'abord ce qui peut bloquer ou mettre en danger (route coupée, inondation, accident, feu ou fumée, danger, météo dangereuse), même s'il est plus loin ; ensuite le reste. Regroupe les petites gênes (par exemple « deux zones de travaux »).
 - Pour chaque événement : ce que c'est, la distance telle qu'elle est écrite, et l'essentiel des détails s'il y en a (hauteur d'eau, route fermée, circulation alternée…).
-- Dis « à confirmer » pour ce qui n'est pas confirmé.
+- Dis « à confirmer » pour ce qui n'a qu'un seul signalement ou n'est que relayé. N'emploie jamais le mot « confirmé » : dis « signalé plusieurs fois », ou « vérifié par » suivi de la source officielle.
 - Ne dis jamais que la route est libre, sûre, dégagée ou sans danger : tu ne connais que ce qui est signalé sur Vigie NC, pas l'état réel de la route.
 - N'invente rien : aucun événement, distance, lieu ou détail absent de la liste.
 - Écris les unités en toutes lettres pour la voix : « kilomètres », « mètres », « centimètres ».
@@ -301,7 +301,7 @@ export function construireMessagePointRoute(evenements: EvenementPointRoute[], a
     const attributs = [
       `type="${REPORT_TYPE_LABELS[e.type] ?? "Autre"}"`,
       `distance="${distanceParleeIa(e.distanceM)}"`,
-      `fiabilite="${e.confirme ? "confirmé" : "à confirmer"} (${attr(e.fiabilite)})"`,
+      `fiabilite="${e.confirme ? "signalé plusieurs fois ou vérifié" : "à confirmer"} (${attr(e.fiabilite)})"`,
       `signale="${ageTexte(e.minutes)}"`,
     ];
     if (e.lieu) attributs.push(`lieu="${attr(e.lieu)}"`);

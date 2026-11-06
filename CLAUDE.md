@@ -31,6 +31,11 @@ mairies de Païta, du Mont-Dore et de Yaté.
   libre, sûre, dégagée ou que « tout est calme ». On dit seulement ce qui
   est signalé (« Rien de signalé »), et « Rien de signalé » reste en couleur
   neutre, pas en vert.
+- **Jamais « Confirmé » au nombre** (décision de Patrice du 06/11/2026) :
+  des téléphones anonymes peuvent venir d'une même personne. Niveaux
+  « Signalé » (1), « Plusieurs signalements » (2 et plus), « Vérifié »
+  (source officielle seulement). Les textes disent « signalé N fois »,
+  « depuis N téléphones », jamais « N personnes l'ont vu » ni « confirmé ».
 - **Facebook : uniquement ce qui est légal.** Pas de récupération
   automatique (pas d'API pour les groupes depuis 2024, collecte automatisée
   interdite par Meta). Les infos vues sur Facebook passent par un humain
@@ -244,9 +249,14 @@ vigie-nc/
                      ajouté aux rechargements déclenchés par le direct
                      (refusé par Patrice : les signalements doivent arriver
                      tout de suite)
-    reliability.ts   4 niveaux : Signalé / À confirmer / Confirmé / Vérifié
-                     (+ « Relayé » ; « Signalement » renommé « Signalé » le
-                     06/11/2026 : un statut, demandé par les retours)
+    reliability.ts   niveaux : Signalé (1 signalement) / Plusieurs signalements
+                     (2 et plus ; « N signalements » dans les petites pastilles,
+                     libelleCourt) / Vérifié (source officielle), + « Relayé ».
+                     Clés « signalement » / « plusieurs » / « verifie ». Plus de
+                     « À confirmer » ni de « Confirmé » au nombre (décision du
+                     06/11/2026). Alertes et mode conduite : « dangers signalés
+                     plusieurs fois ou vérifiés » (règle inchangée : 2e
+                     signalement ou source officielle)
     fraicheur.ts     fraîcheur : dernière nouvelle = création ou last_confirmed_at
                      (« Toujours là » ou doublon fusionné) ; « ancien » = plus de
                      la moitié de sa durée (REPORT_TYPE_LIFETIME_MIN) sans

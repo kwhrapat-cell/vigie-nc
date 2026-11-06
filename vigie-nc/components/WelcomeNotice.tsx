@@ -430,10 +430,10 @@ function SceneConfirmer() {
           <span className="block font-semibold text-[15px]">{REPORT_TYPE_LABELS.inondation}</span>
           <span className="relative mt-0.5 block h-[20px]">
             <span className="tuto-c-avant absolute left-0 top-0">
-              <Pastille couleur={RELIABILITY_HEX.signalement} texte="Signalé · 1 personne" />
+              <Pastille couleur={RELIABILITY_HEX.signalement} texte="Signalé · 1 signalement" />
             </span>
             <span className="tuto-c-apres absolute left-0 top-0">
-              <Pastille couleur={RELIABILITY_HEX.a_confirmer} texte="À confirmer · 2 personnes" />
+              <Pastille couleur={RELIABILITY_HEX.plusieurs} texte="2 signalements" />
             </span>
           </span>
         </span>

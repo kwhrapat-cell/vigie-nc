@@ -168,7 +168,7 @@ test("trajet : textes des alertes", () => {
   // « tout est calme »
   const calme = texteAvantDepart({ sens: "aller", depart: "2026-10-30T19:30:00Z", nb: 0, surveiller: 2, problemes: [] });
   assert.equal(calme.title, "Trajet de 6 h 30 · Rien de signalé");
-  assert.match(calme.body, /^Aucun danger confirmé sur ta route\. 2 signalements à surveiller/);
+  assert.match(calme.body, /^Aucun danger signalé plusieurs fois ou vérifié sur ta route\. 2 signalements à surveiller/);
   const toutCalme = texteAvantDepart({ sens: "retour", depart: "2026-10-30T05:30:00Z", nb: 0, problemes: [] });
   assert.equal(toutCalme.title, "Retour de 16 h 30 · Rien de signalé");
   assert.match(toutCalme.body, /^Aucun danger signalé/);

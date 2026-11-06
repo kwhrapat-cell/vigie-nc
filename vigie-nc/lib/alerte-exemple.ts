@@ -14,7 +14,7 @@ export const EXEMPLE_SIGNALEMENT = {
   id: "exemple",
   type: "inondation" as const,
   lieu: "RT1, Païta",
-  // 1 confirmation = « Signalé par 2 personnes », comme une alerte qui vient de partir
+  // 1 confirmation = « Signalé 2 fois », comme une alerte qui vient de partir
   confirmations: 1,
   source_officielle: null,
   relais_source: null,

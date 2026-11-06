@@ -60,8 +60,9 @@ export default function ConditionsPage() {
       <LegalSection title="3. Le mode conduite (annonces vocales)">
         <LegalList>
           <li>
-            Seuls les <strong>dangers confirmés</strong>{" "}(par une 2e personne ou une source officielle) déjà
-            signalés sur Vigie NC sont annoncés. Un danger non signalé ou pas encore confirmé n&apos;est pas annoncé :
+            Seuls les <strong>dangers signalés plusieurs fois ou vérifiés</strong>{" "}(par une 2e personne ou une
+            source officielle) sur Vigie NC sont annoncés. Un danger non signalé, ou signalé une seule fois, n&apos;est
+            pas annoncé :
             <strong> le silence ne veut pas dire que la route est libre</strong>.
           </li>
           <li>

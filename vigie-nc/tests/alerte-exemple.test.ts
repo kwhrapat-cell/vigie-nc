@@ -12,11 +12,11 @@ import {
 test("exemple d'alerte : « Essai » en premier mot et en fin de message", () => {
   const p = marquerEssai({
     title: "Inondation · RT1, Païta",
-    body: "Signalé par 2 personnes, à 3,2 km de « Maison ».",
+    body: "Signalé 2 fois, à 3,2 km de « Maison ».",
   });
   assert.equal(p.title, "Essai · Inondation · RT1, Païta");
   assert.ok(p.title.startsWith(EXEMPLE_TITRE_DEBUT));
-  assert.equal(p.body, "Signalé par 2 personnes, à 3,2 km de « Maison ». C'est un essai : rien de réel.");
+  assert.equal(p.body, "Signalé 2 fois, à 3,2 km de « Maison ». C'est un essai : rien de réel.");
   assert.ok(p.body.endsWith(EXEMPLE_FIN));
   // jamais vers un vrai signalement : ouvre l'écran Alertes
   assert.equal(p.url, "/alertes");

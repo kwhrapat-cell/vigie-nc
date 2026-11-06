@@ -31,7 +31,9 @@ class Bulle(private val ctx: Context) {
         fun peutAfficher(ctx: Context): Boolean =
             !estAndroidGo(ctx) && Settings.canDrawOverlays(ctx)
 
-        const val VERT = 0xFF2BB673.toInt()
+        // « Rien devant » ou recherche : couleur neutre, jamais verte (règle
+        // « jamais de route libre » du 05/11/2026). Gris = mist-dim du site.
+        const val NEUTRE = 0xFF93B0AD.toInt()
         const val ORANGE = 0xFFF0912E.toInt()
         const val ROUGE = 0xFFE5484D.toInt()
     }
@@ -56,7 +58,7 @@ class Bulle(private val ctx: Context) {
         val rond = View(ctx).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(VERT)
+                setColor(NEUTRE)
             }
         }
         val label = TextView(ctx).apply {

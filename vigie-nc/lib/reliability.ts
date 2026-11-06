@@ -1,8 +1,12 @@
 import type { Report } from "./types";
 
-// Les 4 niveaux de fiabilité des maquettes. Le nombre de « personnes »
-// compte l'auteur du signalement + celles qui ont confirmé.
-export type ReliabilityLevel = "signalement" | "a_confirmer" | "confirme" | "verifie";
+// Niveaux de fiabilité (décision de Patrice du 06/11/2026, suite aux
+// retours) : on dit seulement ce qu'on sait. « Signalé » (1 signalement),
+// « Plusieurs signalements » (2 et plus), « Vérifié » (source officielle).
+// Le nombre seul ne donne jamais « Confirmé » : des téléphones anonymes
+// peuvent venir d'une même personne. Le nombre de signalements (`people`)
+// compte l'auteur + les « Toujours là » et les doublons fusionnés.
+export type ReliabilityLevel = "signalement" | "plusieurs" | "verifie";
 
 export interface Reliability {
   level: ReliabilityLevel;
@@ -18,18 +22,21 @@ export const RELIABILITY_LEVELS: {
   label: string;
   rule: string;
 }[] = [
-  { level: "signalement", label: "Signalé", rule: "1 personne, pas encore confirmé" },
-  { level: "a_confirmer", label: "À confirmer", rule: "2 à 3 personnes" },
-  { level: "confirme", label: "Confirmé", rule: "4 personnes et +" },
-  { level: "verifie", label: "Vérifié", rule: "Source officielle" },
+  { level: "signalement", label: "Signalé", rule: "1 signalement" },
+  { level: "plusieurs", label: "Plusieurs signalements", rule: "2 signalements et plus" },
+  { level: "verifie", label: "Vérifié", rule: "Source officielle (mairie, province, pompiers…)" },
 ];
 
 export const RELIABILITY_HEX: Record<ReliabilityLevel, string> = {
   signalement: "#E5484D",
-  a_confirmer: "#F0912E",
-  confirme: "#2BB673",
+  plusieurs: "#F0912E",
   verifie: "#3B82F6",
 };
+
+/** Texte court des petites pastilles (listes) : « 3 signalements » plutôt que le libellé long. */
+export function libelleCourt(rel: Reliability): string {
+  return rel.level === "plusieurs" ? rel.detail : rel.label;
+}
 
 export function getReliability(
   r: Pick<Report, "confirmations" | "infirmations" | "officialSource" | "relaySource">,
@@ -58,15 +65,12 @@ export function getReliability(
       level: "signalement",
       label: "Relayé",
       people,
-      detail: "Info relayée, pas encore confirmée sur place",
+      detail: "Info relayée, pas encore signalée sur place",
       contested,
     };
   }
-  if (people >= 4) {
-    return { level: "confirme", label: "Confirmé", people, detail: `${people} personnes`, contested };
-  }
   if (people >= 2) {
-    return { level: "a_confirmer", label: "À confirmer", people, detail: `${people} personnes`, contested };
+    return { level: "plusieurs", label: "Plusieurs signalements", people, detail: `${people} signalements`, contested };
   }
-  return { level: "signalement", label: "Signalé", people, detail: "1 personne", contested };
+  return { level: "signalement", label: "Signalé", people, detail: "1 signalement", contested };
 }

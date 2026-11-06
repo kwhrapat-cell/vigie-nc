@@ -1,16 +1,22 @@
 // Fiabilité, chantiers, lecture des messages relayés, nettoyage des erreurs.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { getReliability } from "../lib/reliability";
+import { getReliability, libelleCourt, RELIABILITY_LEVELS } from "../lib/reliability";
 import { ajouterJours, aujourdhuiNoumea, estChantier, libelleFinChantier } from "../lib/chantier";
 import { analyzeRelayText } from "../lib/relay-parser";
 
 const base = { confirmations: 0, infirmations: 0, officialSource: null, relaySource: null };
 
-test("fiabilité : 4 niveaux", () => {
+test("fiabilité : Signalé, Plusieurs signalements, Vérifié (+ Relayé)", () => {
   assert.equal(getReliability(base).label, "Signalé");
-  assert.equal(getReliability({ ...base, confirmations: 1 }).label, "À confirmer");
-  assert.equal(getReliability({ ...base, confirmations: 3 }).label, "Confirmé");
+  assert.equal(getReliability(base).detail, "1 signalement");
+  assert.equal(getReliability({ ...base, confirmations: 1 }).label, "Plusieurs signalements");
+  assert.equal(getReliability({ ...base, confirmations: 2 }).detail, "3 signalements");
+  // Décision du 06/11/2026 : le nombre seul ne donne jamais « Confirmé ».
+  assert.equal(getReliability({ ...base, confirmations: 30 }).label, "Plusieurs signalements");
+  assert.ok(RELIABILITY_LEVELS.every((n) => !/confirm/i.test(n.label)));
+  assert.equal(libelleCourt(getReliability({ ...base, confirmations: 3 })), "4 signalements");
+  assert.equal(libelleCourt(getReliability(base)), "Signalé");
   assert.equal(getReliability({ ...base, officialSource: "Mairie" }).label, "Vérifié");
   assert.equal(getReliability({ ...base, relaySource: "facebook" as const }).label, "Relayé");
   assert.match(getReliability({ ...base, infirmations: 2 }).contested ?? "", /2 personnes/);

@@ -87,7 +87,7 @@ export function shareTitle(r: PublicReport): string {
   return r.lieu ? `${r.label} · ${r.lieu}` : r.label;
 }
 
-/** Niveau de fiabilité lisible, comme sur la fiche (« À confirmer », « Vérifié »…) */
+/** Niveau de fiabilité lisible, comme sur la fiche (« Plusieurs signalements », « Vérifié »…) */
 export function shareReliability(r: PublicReport): string {
   return getReliability({
     confirmations: r.confirmations,

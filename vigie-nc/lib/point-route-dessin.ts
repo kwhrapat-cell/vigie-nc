@@ -13,7 +13,7 @@ export interface LigneDessin {
   icone: CanvasImageSource | null; // pictogramme blanc
   titre: string; // « Accident »
   detail: string; // « RT1, Dumbéa · il y a 25 min »
-  fiabilite: string; // « Confirmé »
+  fiabilite: string; // « Plusieurs signalements », « Vérifié »…
   couleurFiabilite: string;
 }
 
