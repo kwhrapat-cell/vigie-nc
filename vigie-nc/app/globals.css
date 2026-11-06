@@ -186,6 +186,18 @@ html.mode-demo {
   filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.5));
 }
 
+/* Choix de « Ma zone » sur la carte de l'accueil (LiveMap) : curseur en
+   croix, sauf pendant qu'on fait glisser la carte. */
+html .leaflet-container.choix-zone,
+html .leaflet-container.choix-zone .leaflet-grab {
+  cursor: crosshair;
+}
+/* Leaflet met « leaflet-dragging » sur <body> pendant le glissement */
+html .leaflet-dragging .leaflet-container.choix-zone,
+html .leaflet-dragging .leaflet-container.choix-zone .leaflet-grab {
+  cursor: grabbing;
+}
+
 /* Préfixe `html` : la feuille de Leaflet est chargée après celle-ci dans
    le CSS final, il faut une spécificité plus forte pour la surcharger. */
 html .leaflet-container {

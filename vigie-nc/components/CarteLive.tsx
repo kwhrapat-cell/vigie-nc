@@ -13,6 +13,8 @@ import { AnnonceBanner } from "./AnnonceBanner";
 import { TravauxBanner } from "./TravauxBanner";
 import { ImpactBanner } from "./ImpactBanner";
 import { TrajetResume } from "./TrajetResume";
+import { AidePosition } from "./AidePosition";
+import { PIN_ZONE_SVG } from "./LiveMap";
 import { AUCUN_BANDEAU, Bandeau, masquePar, Presences } from "@/lib/bandeaux";
 import { avatarSvg } from "@/lib/avatar";
 import { useNiveau } from "@/lib/useNiveau";
@@ -25,13 +27,17 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 import { useDemo } from "@/lib/useDemo";
 import { distanceM, LatLng } from "@/lib/geo";
 import {
+  dansLaCaledonie,
+  effacerPointZone,
   estOrdiSouris,
   MapStyle,
   readMapStyle,
   readPanneauReplie,
+  readPointZone,
   readRadiusKm,
   readZoneChoice,
   savePanneauReplie,
+  savePointZone,
   saveZoneChoice,
   ZoneChoice,
 } from "@/lib/preferences";
@@ -60,6 +66,20 @@ export function CarteLive() {
   const [linkedReport, setLinkedReport] = useState<Report | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const selectedSnapshot = useRef<Report | null>(null);
+
+  // « Ma zone » choisie sur la carte (lib/preferences.ts) : centre de la
+  // zone tant que l'appareil ne donne pas sa position. JAMAIS utilisée à la
+  // place de la vraie position pour voter, « Tu passes par là ? » ou les
+  // travaux proches : seulement pour la carte et la liste.
+  const [pointZone, setPointZone] = useState<LatLng | null>(null);
+  const centre: LatLng | null = position ?? pointZone;
+  const zoneChoisie = !position && Boolean(pointZone);
+  // Aide « Position bloquée / introuvable » et choix de la zone sur la carte
+  const [aideOuverte, setAideOuverte] = useState(false);
+  const [choixZone, setChoixZone] = useState(false);
+  const [erreurChoix, setErreurChoix] = useState<string | null>(null);
+  const lireCentreRef = useRef<(() => LatLng | null) | null>(null);
+  const [ordi, setOrdi] = useState(false);
 
   // Trajet favori : ligne sur la carte (à la demande) et ses signalements,
   // ajoutés à la carte quand la ligne est affichée (même hors zone).
@@ -126,6 +146,8 @@ export function CarteLive() {
     setZone(readZoneChoice(estOrdiSouris() ? "nc" : undefined));
     setMapStyle(readMapStyle());
     setPanneauReplie(readPanneauReplie());
+    setPointZone(readPointZone());
+    setOrdi(estOrdiSouris());
   }, []);
   const changeZone = useCallback((z: ZoneChoice) => {
     setZone(z);
@@ -162,16 +184,17 @@ export function CarteLive() {
       .catch(() => setBanner("Impossible d'ouvrir ce signalement."));
   }, []);
 
-  // Centre de recherche : suit la position, sans relancer une requête à
-  // chaque petit mouvement du GPS.
+  // Centre de recherche : suit la position (ou « Ma zone »), sans relancer
+  // une requête à chaque petit mouvement du GPS.
   useEffect(() => {
-    if (!position) return;
+    if (!centre) {
+      setQueryCenter(null);
+      return;
+    }
     setQueryCenter((current) =>
-      current && distanceM(current, position) < REQUERY_DISTANCE_M
-        ? current
-        : { lat: position.lat, lng: position.lng },
+      current && distanceM(current, centre) < REQUERY_DISTANCE_M ? current : { lat: centre.lat, lng: centre.lng },
     );
-  }, [position]);
+  }, [centre]);
 
   const radiusM = radiusKm * 1000;
   const { reports: rawReports, status, error, updatedAt, patchReport } = useLiveReports(
@@ -182,12 +205,12 @@ export function CarteLive() {
   // En vue Calédonie, la base ne calcule pas les distances : on les calcule
   // ici depuis la position, et on trie du plus proche au plus loin.
   const reports = useMemo(() => {
-    if (!position) return rawReports;
+    if (!centre) return rawReports;
     const withDistance = rawReports.map((r) =>
-      r.distanceM == null ? { ...r, distanceM: distanceM(position, r) } : r,
+      r.distanceM == null ? { ...r, distanceM: distanceM(centre, r) } : r,
     );
     return isNc ? [...withDistance].sort((a, b) => (a.distanceM ?? 0) - (b.distanceM ?? 0)) : withDistance;
-  }, [rawReports, position, isNc]);
+  }, [rawReports, centre, isNc]);
 
   // Chiffres du bandeau du panneau replié (comme les compteurs de la liste)
   const counts = useMemo(
@@ -286,15 +309,81 @@ export function CarteLive() {
     return () => window.clearTimeout(t);
   }, [enConduite, follow, selectedId]);
 
-  // « Ma position » : revient sur la zone autour de soi (dernier rayon choisi)
+  // « Ma position » : revient sur la zone autour de soi (dernier rayon
+  // choisi). Sans position : on la redemande ; sans « Ma zone » non plus,
+  // l'aide explique comment l'autoriser ou choisir sa zone sur la carte.
   const recenter = useCallback(() => {
     if (!position) {
       retry();
-      return;
+      if (!pointZone) {
+        setAideOuverte(true);
+        return;
+      }
     }
     if (isNc) changeZone(readRadiusKm());
     else setFollow(true);
-  }, [position, retry, isNc, changeZone]);
+  }, [position, pointZone, retry, isNc, changeZone]);
+
+  // La position arrive : l'aide n'a plus lieu d'être.
+  useEffect(() => {
+    if (position) setAideOuverte(false);
+  }, [position]);
+
+  const ouvrirAide = useCallback(() => {
+    retry();
+    setAideOuverte(true);
+  }, [retry]);
+  const fermerAide = useCallback(() => setAideOuverte(false), []);
+
+  // Choisir « Ma zone » : un repère fixe au centre de la carte, on déplace
+  // la carte dessous (ou on clique), puis « Choisir cet endroit ».
+  const demarrerChoix = useCallback(() => {
+    setAideOuverte(false);
+    setSelectedId(null);
+    setFollow(false);
+    setErreurChoix(null);
+    setChoixZone(true);
+  }, []);
+  const annulerChoix = useCallback(() => {
+    setChoixZone(false);
+    setErreurChoix(null);
+  }, []);
+  const validerChoix = useCallback(() => {
+    const p = lireCentreRef.current?.();
+    if (!p) return;
+    if (!dansLaCaledonie(p) || !savePointZone(p)) {
+      setErreurChoix("Choisis un endroit en Nouvelle-Calédonie.");
+      return;
+    }
+    setPointZone({ lat: p.lat, lng: p.lng });
+    setChoixZone(false);
+    setErreurChoix(null);
+    // Montre la zone (dernier rayon choisi), même depuis la vue Calédonie.
+    changeZone(zone === "nc" ? readRadiusKm() : zone);
+  }, [zone, changeZone]);
+  const retirerZone = useCallback(() => {
+    effacerPointZone();
+    setPointZone(null);
+    if (!position) changeZone("nc");
+  }, [position, changeZone]);
+
+  // Échap annule le choix de la zone.
+  useEffect(() => {
+    if (!choixZone) return;
+    const touche = (e: KeyboardEvent) => {
+      if (e.key === "Escape") annulerChoix();
+    };
+    window.addEventListener("keydown", touche);
+    return () => window.removeEventListener("keydown", touche);
+  }, [choixZone, annulerChoix]);
+
+  // Le mode conduite suit la vraie position : pas de choix de zone en même temps.
+  useEffect(() => {
+    if (enConduite) {
+      setChoixZone(false);
+      setAideOuverte(false);
+    }
+  }, [enConduite]);
 
   // Téléphone et tablette en portrait : en-tête et bandeaux, carte, puis
   // liste en dessous. Ordinateur et tablette en paysage (960 px et plus) :
@@ -435,8 +524,15 @@ export function CarteLive() {
           avatar={avatar}
           ligne={trajetLigne}
           cadrerLigne={cadrageTrajet}
+          pointZone={enConduite ? null : pointZone}
+          choixZone={choixZone}
+          lireCentreRef={lireCentreRef}
         />
-        <div className="absolute top-2.5 left-3 right-3 z-10 flex items-start justify-between gap-2 pointer-events-none">
+        <div
+          className={`absolute top-2.5 left-3 right-3 z-10 flex items-start justify-between gap-2 pointer-events-none ${
+            choixZone ? "hidden" : ""
+          }`}
+        >
           <div className="pointer-events-auto flex flex-col items-start gap-2.5">
             {/* Ordinateur, panneau replié : logo, chiffres, bouton pour rouvrir */}
             {!enConduite && panneauReplie && (
@@ -446,8 +542,9 @@ export function CarteLive() {
               <ZoneSelector
                 value={zone}
                 onChange={changeZone}
-                hasPosition={Boolean(position)}
+                hasPosition={Boolean(centre)}
                 vueEnsemble={demo ? "mont-dore" : "nc"}
+                onSansPosition={ouvrirAide}
               />
             )}
             {/* Ordinateur : vigilance Météo-France sous le choix de la vue
@@ -462,9 +559,9 @@ export function CarteLive() {
           </div>
           <div className="pointer-events-auto flex flex-col gap-2">
             <RecenterButton
-              active={!isNc && follow && Boolean(position)}
+              active={!isNc && follow && Boolean(centre)}
               onClick={recenter}
-              label={position ? "Revenir sur ma position" : "Activer ma position"}
+              label={position ? "Revenir sur ma position" : zoneChoisie ? "Revenir sur ma zone" : "Activer ma position"}
             />
             {/* En conduite, les commandes sont dans la barre du bas (gros
                 boutons). Sur ordinateur, pas de mode conduite. */}
@@ -481,6 +578,63 @@ export function CarteLive() {
             )}
           </div>
         </div>
+        {/* Position bloquée ou introuvable : comment l'autoriser, ou choisir sa zone */}
+        {aideOuverte && !choixZone && !enConduite && (
+          <AidePosition
+            geoStatus={geoStatus}
+            ordi={ordi}
+            onChoisir={demarrerChoix}
+            onReessayer={retry}
+            onFermer={fermerAide}
+          />
+        )}
+
+        {/* Choix de « Ma zone » : repère fixe au centre, consigne et boutons en haut */}
+        {choixZone && (
+          <>
+            <div
+              className="pointer-events-none absolute left-1/2 top-1/2 z-[11] -translate-x-1/2 -translate-y-full [&_svg]:block"
+              aria-hidden="true"
+              dangerouslySetInnerHTML={{ __html: PIN_ZONE_SVG }}
+            />
+            <section
+              role="dialog"
+              aria-modal="false"
+              aria-labelledby="choix-zone-titre"
+              className="absolute inset-x-3 top-2.5 z-20 mx-auto max-w-[460px] rounded-2xl border border-line bg-panel/95 backdrop-blur p-3.5 shadow-[0_16px_36px_-14px_rgba(0,0,0,0.9)]"
+            >
+              <h2 id="choix-zone-titre" className="font-display font-semibold text-[16px]">
+                Choisis ta zone
+              </h2>
+              <p className="mt-0.5 text-[14px] text-mist-dim leading-relaxed">
+                Déplace la carte (ou {ordi ? "clique" : "touche-la"}) pour mettre le repère sur l&apos;endroit à
+                surveiller : ta commune, ton quartier, ta route. Zoome pour être plus précis.
+              </p>
+              {erreurChoix && (
+                <p className="mt-1.5 text-[14px] text-danger" role="alert">
+                  {erreurChoix}
+                </p>
+              )}
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={validerChoix}
+                  className="flex-1 min-h-[44px] rounded-xl bg-primary px-3 font-display font-semibold text-[15px] text-white active:bg-primary-strong"
+                >
+                  Choisir cet endroit
+                </button>
+                <button
+                  type="button"
+                  onClick={annulerChoix}
+                  className="min-h-[44px] rounded-xl border border-line bg-panel-2 px-4 font-display font-semibold text-[15px] text-mist"
+                >
+                  Annuler
+                </button>
+              </div>
+            </section>
+          </>
+        )}
+
         <Link
           href="/sos"
           aria-label="SOS — je suis en danger"
@@ -510,6 +664,9 @@ export function CarteLive() {
         radiusKm={radiusKm}
         scope={isNc ? "nc" : "zone"}
         hasCenter={!isNc && Boolean(queryCenter)}
+        zoneChoisie={zoneChoisie}
+        onChoisirZone={demarrerChoix}
+        onRetirerZone={retirerZone}
         filter={filter}
         onFilter={setFilter}
         onSelect={selectFromList}

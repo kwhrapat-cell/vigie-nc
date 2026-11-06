@@ -10,7 +10,9 @@ const ZONE_OPTIONS: { value: ZoneChoice; label: string; title: string }[] = [
 ];
 
 /**
- * Choix de la zone : toute la Calédonie, ou 1 / 3 / 5 km autour de soi.
+ * Choix de la zone : toute la Calédonie, ou 1 / 3 / 5 km autour de soi (ou
+ * de « Ma zone » choisie sur la carte). Sans position, un rayon touché
+ * ouvre l'aide (`onSansPosition`, components/AidePosition) au lieu d'être grisé.
  * En démonstration (lib/demo.ts), la vue d'ensemble est le Mont-Dore.
  */
 export function ZoneSelector({
@@ -18,11 +20,13 @@ export function ZoneSelector({
   onChange,
   hasPosition,
   vueEnsemble = "nc",
+  onSansPosition,
 }: {
   value: ZoneChoice;
   onChange: (zone: ZoneChoice) => void;
   hasPosition: boolean;
   vueEnsemble?: "nc" | "mont-dore";
+  onSansPosition?: () => void;
 }) {
   return (
     <div
@@ -36,7 +40,8 @@ export function ZoneSelector({
             ? { ...option, label: "Mont-Dore", title: "Tout le Mont-Dore (démonstration)" }
             : option;
         const selected = o.value === value;
-        const disabled = o.value !== "nc" && !hasPosition;
+        const sansPosition = o.value !== "nc" && !hasPosition;
+        const disabled = sansPosition && !onSansPosition;
         return (
           <button
             key={String(o.value)}
@@ -44,10 +49,12 @@ export function ZoneSelector({
             role="radio"
             aria-checked={selected}
             aria-label={o.title}
-            title={disabled ? "Position nécessaire" : o.title}
+            title={sansPosition ? "Position nécessaire" : o.title}
             disabled={disabled}
-            onClick={() => onChange(o.value)}
-            className={`relative min-w-[44px] h-9 rounded-full px-2.5 text-[14px] font-medium transition-colors disabled:opacity-40 before:absolute before:inset-x-0 before:-inset-y-1 before:content-[''] ${
+            onClick={() => (sansPosition ? onSansPosition?.() : onChange(o.value))}
+            className={`relative min-w-[44px] h-9 rounded-full px-2.5 text-[14px] font-medium transition-colors disabled:opacity-40 ${
+              sansPosition ? "opacity-60" : ""
+            } before:absolute before:inset-x-0 before:-inset-y-1 before:content-[''] ${
               selected ? "bg-primary text-white" : "text-mist-dim"
             } ${o.value === "nc" ? "font-display font-bold tracking-wide" : ""}`}
           >

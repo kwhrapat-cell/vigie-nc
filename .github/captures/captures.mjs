@@ -112,6 +112,47 @@ for (const e of ECRANS) {
     console.log(`démo (${e.nom}) :`, err instanceof Error ? err.message : err);
   }
   await context.close();
+
+  // Position bloquée (ordinateur de mairie, Windows qui refuse…) : l'aide,
+  // puis le choix de « Ma zone » sur la carte, puis la zone choisie.
+  const bloque = await browser.newContext({
+    viewport: { width: e.width, height: e.height },
+    deviceScaleFactor: 1,
+    isMobile: e.mobile,
+    hasTouch: e.mobile,
+    locale: "fr-FR",
+    timezoneId: "Pacific/Noumea",
+    permissions: [],
+  });
+  await bloque.addInitScript(() => {
+    try {
+      localStorage.setItem("vigie-nc:avertissement-v1", "1");
+      localStorage.setItem("vigie-nc:astuce-signaler", "vue");
+      localStorage.setItem("vigie-nc:trajet-invite", "1");
+    } catch {}
+  });
+  try {
+    const p = await bloque.newPage();
+    await p.goto(BASE + "/", { waitUntil: "networkidle", timeout: 30000 }).catch(() => {});
+    await attendre(3000);
+    await p.screenshot({ path: `${OUT}/${e.nom}-${e.width}-position-bloquee.png` });
+    await p.getByRole("button", { name: "Activer ma position" }).click();
+    await attendre(1500);
+    await p.screenshot({ path: `${OUT}/${e.nom}-${e.width}-position-aide.png` });
+    await p.getByRole("button", { name: "Choisir ma zone sur la carte" }).click();
+    await attendre(1200);
+    await p.screenshot({ path: `${OUT}/${e.nom}-${e.width}-zone-choix.png` });
+    await p.getByRole("button", { name: "Choisir cet endroit" }).click();
+    await attendre(2500);
+    await p.screenshot({ path: `${OUT}/${e.nom}-${e.width}-zone-choisie.png` });
+    // Rechargée : la zone est gardée sur l'appareil
+    await p.reload({ waitUntil: "networkidle", timeout: 30000 }).catch(() => {});
+    await attendre(3500);
+    await p.screenshot({ path: `${OUT}/${e.nom}-${e.width}-zone-rechargee.png` });
+  } catch (err) {
+    console.log(`position bloquée (${e.nom}) :`, err instanceof Error ? err.message : err);
+  }
+  await bloque.close();
 }
 await browser.close();
 console.log("captures faites");
