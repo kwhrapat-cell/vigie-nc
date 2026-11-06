@@ -2,6 +2,8 @@
 
 // Réglages gardés sur le téléphone (jamais envoyés au serveur).
 
+import { demoActive } from "./demo";
+
 export const RADIUS_OPTIONS_KM = [1, 3, 5] as const;
 export type RadiusKm = (typeof RADIUS_OPTIONS_KM)[number];
 
@@ -25,6 +27,8 @@ function read(key: string): string | null {
 }
 
 function write(key: string, value: string): void {
+  // Démonstration Mont-Dore : les vrais réglages ne changent pas.
+  if (demoActive()) return;
   try {
     window.localStorage.setItem(key, value);
   } catch {
@@ -48,6 +52,8 @@ export function saveRadiusKm(km: RadiusKm): void {
  * approximative), sinon le dernier rayon.
  */
 export function readZoneChoice(parDefaut?: ZoneChoice): ZoneChoice {
+  // Démonstration : vue d'ensemble, cadrée sur le Mont-Dore (components/LiveMap).
+  if (demoActive()) return "nc";
   const v = read(ZONE_KEY);
   if (v === "nc") return "nc";
   if (v == null && parDefaut != null) return parDefaut;

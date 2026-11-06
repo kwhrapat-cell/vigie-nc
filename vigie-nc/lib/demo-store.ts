@@ -7,10 +7,12 @@
 // rechargement de la page.
 
 import { ajouterJours, aujourdhuiNoumea } from "./chantier";
+import { ANNONCE_DEMO, demoActive, SCENARIO_MONT_DORE } from "./demo";
 import { distanceM, GRAND_NOUMEA, LatLng, offsetKm } from "./geo";
 import type { ReportRow } from "./reports-api";
 import {
   ALERT_TYPES,
+  Annonce,
   FlagReason,
   FLAG_HIDE_THRESHOLD,
   RelaySource,
@@ -93,6 +95,13 @@ function seed(center: LatLng | null) {
     return;
   }
   seeded = true;
+  if (demoActive()) {
+    // Démonstration Mont-Dore (lien /demo) : scénario à des endroits fixes,
+    // jamais déplacé vers l'utilisateur.
+    anchoredOnUser = true;
+    seedMontDore();
+    return;
+  }
   if (center) anchoredOnUser = true;
   seedCenter = center ?? GRAND_NOUMEA;
   const origin = seedCenter;
@@ -151,6 +160,60 @@ function seed(center: LatLng | null) {
   add("meteo", 3.2, -3.5, 40, 2, { description: "Fortes pluies, visibilité réduite." });
   add("trafic_dense", 1.8, 1.4, 8, 0);
   add("route_coupee", 4.6, 3.2, 15, 0, { relaySource: "facebook", place: "Info relayée (démo)" });
+}
+
+// Scénario fictif d'une matinée de fortes pluies au Mont-Dore (lib/demo.ts).
+function seedMontDore() {
+  const now = Date.now();
+  for (const s of SCENARIO_MONT_DORE) {
+    const chantier = s.type === "travaux" && s.finDansJours != null;
+    store.push({
+      id: `demo-md-${store.length + 1}`,
+      type: s.type,
+      lat: s.lat,
+      lng: s.lng,
+      photoUrl: null,
+      description: s.description ?? null,
+      riskLevel: s.riskLevel ?? null,
+      place: s.place,
+      officialSource: s.officialSource ?? null,
+      relaySource: s.relaySource ?? null,
+      createdAt: now - s.ageMin * MIN,
+      expiresAt: chantier
+        ? now + (s.finDansJours as number) * 24 * 60 * MIN
+        : now + (REPORT_TYPE_LIFETIME_MIN[s.type] - s.ageMin) * MIN,
+      resolvedAt: null,
+      lastConfirmedAt: s.present > 0 ? now - Math.min(s.ageMin, 4) * MIN : null,
+      author: "demo-auteur",
+      votes: fakeVotes(s.present, s.termine ?? 0),
+      flags: new Map(),
+      contentHiddenAt: null,
+      endDate: chantier ? ajouterJours(aujourdhuiNoumea(), s.finDansJours as number) : null,
+    });
+  }
+}
+
+// Annonce du scénario : heure fixée au premier affichage (pas « nouvelle »
+// à chaque rechargement).
+let annonceDemoCreee: number | null = null;
+
+/** Annonces générales en mode démo : celle du scénario Mont-Dore, sinon aucune. */
+export function demoAnnonces(): Annonce[] {
+  if (!demoActive()) return [];
+  const now = Date.now();
+  annonceDemoCreee ??= now - ANNONCE_DEMO.ageMin * MIN;
+  const fin = annonceDemoCreee + (ANNONCE_DEMO.ageMin + ANNONCE_DEMO.dureeMin) * MIN;
+  if (fin <= now) return [];
+  return [
+    {
+      id: "demo-annonce-mont-dore",
+      niveau: ANNONCE_DEMO.niveau,
+      texte: ANNONCE_DEMO.texte,
+      source: ANNONCE_DEMO.source,
+      createdAt: new Date(annonceDemoCreee).toISOString(),
+      expiresAt: new Date(fin).toISOString(),
+    },
+  ];
 }
 
 function reanchor(center: LatLng) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { DEMO_POSITION, demoActive } from "./demo";
 import type { GeoPosition } from "./useGeolocation";
 
 export type WatchStatus = "pending" | "active" | "denied" | "unavailable" | "unsupported";
@@ -23,6 +24,12 @@ export function useWatchPosition() {
   }, []);
 
   const start = useCallback(() => {
+    // Démonstration Mont-Dore : position simulée à Boulari, vrai GPS non lu.
+    if (demoActive()) {
+      setPosition({ ...DEMO_POSITION });
+      setStatus("active");
+      return;
+    }
     if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
       setStatus("unsupported");
       return;

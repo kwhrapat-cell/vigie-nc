@@ -82,6 +82,35 @@ for (const e of ECRANS) {
       }
     }
   }
+  // Démonstration Mont-Dore (lib/demo.ts) : page /demo, puis la carte du
+  // scénario fictif, une fiche, et la carte seule (panneau replié).
+  try {
+    await page.goto(BASE + "/demo", { waitUntil: "networkidle", timeout: 30000 }).catch(() => {});
+    await attendre(1000);
+    await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-demo.png` });
+    await page.getByRole("button", { name: "Lancer la démo" }).click();
+    await page.waitForURL(BASE + "/", { timeout: 15000 }).catch(() => {});
+    await attendre(4500);
+    await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-demo-accueil.png` });
+    const fiche = page.locator("#liste-proximite ul button").first();
+    if (await fiche.count()) {
+      await fiche.click();
+      await attendre(1200);
+      await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-demo-fiche.png` });
+    }
+    await page.goto(BASE + "/", { waitUntil: "networkidle", timeout: 30000 }).catch(() => {});
+    await attendre(3000);
+    const replierDemo = page.getByRole("button", { name: "Replier le panneau pour agrandir la carte" });
+    if (await replierDemo.isVisible().catch(() => false)) {
+      await replierDemo.click();
+      await attendre(2500);
+      await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-demo-replie.png` });
+      await page.getByRole("button", { name: "Liste et menu" }).click().catch(() => {});
+    }
+    await page.evaluate(() => sessionStorage.removeItem("vigie-nc:demo"));
+  } catch (err) {
+    console.log(`démo (${e.nom}) :`, err instanceof Error ? err.message : err);
+  }
   await context.close();
 }
 await browser.close();

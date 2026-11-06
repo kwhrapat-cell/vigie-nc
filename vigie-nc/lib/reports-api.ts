@@ -9,7 +9,7 @@ import { supabase } from "./supabase";
 import { getDeviceId } from "./device-id";
 import { ensureSession } from "./session";
 import { noterSignalement, noterVote } from "./impact";
-import { demoCreate, demoDetail, demoFlag, demoNearby, demoRelay, demoStats, demoVote } from "./demo-store";
+import { demoAnnonces, demoCreate, demoDetail, demoFlag, demoNearby, demoRelay, demoStats, demoVote } from "./demo-store";
 import { LatLng } from "./geo";
 import {
   arrondirPosition,
@@ -995,7 +995,8 @@ function mapAnnonce(r: AnnonceRow): Annonce {
 
 /** Annonces en cours, les plus graves d'abord. */
 export async function fetchAnnonces(): Promise<Annonce[]> {
-  if (!supabase) return [];
+  // Sans base : seulement l'annonce de la démonstration Mont-Dore (lien /demo).
+  if (!supabase) return demoAnnonces();
   const rows = await liveRpc<AnnonceRow[]>("annonces_actives", {});
   return (rows ?? []).map(mapAnnonce);
 }

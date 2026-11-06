@@ -22,6 +22,7 @@ import {
 } from "@/lib/preferences";
 import { RELIABILITY_HEX, RELIABILITY_LEVELS } from "@/lib/reliability";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { useDemo } from "@/lib/useDemo";
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -38,6 +39,8 @@ export default function ProfilPage() {
   const [contacts, setContacts] = useState(0);
   const [fond, setFond] = useState<MapStyle>("plan");
   const [demo, setDemo] = useState(false);
+  // Démonstration Mont-Dore lancée dans cet onglet (lien /demo)
+  const demonstration = useDemo();
 
   useEffect(() => {
     setRadius(readRadiusKm());
@@ -208,7 +211,11 @@ export default function ProfilPage() {
         <p className="mt-2 text-[12.5px] text-mist-dim">
           Gratuit pour tous · développé en Nouvelle-Calédonie par {LEGAL.editeur}
           <br />
-          {isSupabaseConfigured ? "Données en direct" : "Mode démo : rien n'est enregistré"}
+          {demonstration
+            ? "Démonstration Mont-Dore : données fictives, rien n'est enregistré"
+            : isSupabaseConfigured
+              ? "Données en direct"
+              : "Mode démo : rien n'est enregistré"}
         </p>
         <Link href="/moderation" className="mt-3 px-3 py-2 text-[13px] text-mist-dim/70 underline">
           Espace modérateur

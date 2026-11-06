@@ -9,15 +9,20 @@ const ZONE_OPTIONS: { value: ZoneChoice; label: string; title: string }[] = [
   ...RADIUS_OPTIONS_KM.map((km) => ({ value: km as ZoneChoice, label: `${km} km`, title: `${km} km autour de moi` })),
 ];
 
-/** Choix de la zone : toute la Calédonie, ou 1 / 3 / 5 km autour de soi. */
+/**
+ * Choix de la zone : toute la Calédonie, ou 1 / 3 / 5 km autour de soi.
+ * En démonstration (lib/demo.ts), la vue d'ensemble est le Mont-Dore.
+ */
 export function ZoneSelector({
   value,
   onChange,
   hasPosition,
+  vueEnsemble = "nc",
 }: {
   value: ZoneChoice;
   onChange: (zone: ZoneChoice) => void;
   hasPosition: boolean;
+  vueEnsemble?: "nc" | "mont-dore";
 }) {
   return (
     <div
@@ -25,7 +30,11 @@ export function ZoneSelector({
       aria-label="Zone affichée"
       className="flex items-center gap-0.5 rounded-full bg-void/90 border border-line p-1 backdrop-blur shadow-[0_6px_16px_-8px_rgba(0,0,0,0.7)]"
     >
-      {ZONE_OPTIONS.map((o) => {
+      {ZONE_OPTIONS.map((option) => {
+        const o =
+          option.value === "nc" && vueEnsemble === "mont-dore"
+            ? { ...option, label: "Mont-Dore", title: "Tout le Mont-Dore (démonstration)" }
+            : option;
         const selected = o.value === value;
         const disabled = o.value !== "nc" && !hasPosition;
         return (

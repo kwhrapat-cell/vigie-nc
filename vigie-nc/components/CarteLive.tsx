@@ -22,6 +22,7 @@ import { Logo } from "./ui";
 import { PleinEcranButton, RecenterButton, ZoneSelector } from "./MapControls";
 import { CONDUITE_RECENTRAGE_MS } from "@/lib/conduite";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { useDemo } from "@/lib/useDemo";
 import { distanceM, LatLng } from "@/lib/geo";
 import {
   estOrdiSouris,
@@ -47,6 +48,9 @@ const CATEGORIES: Category[] = ["danger", "perturbation", "meteo"];
 
 export function CarteLive() {
   const { status: geoStatus, position, retry } = useWatchPosition();
+  // Démonstration Mont-Dore (lien /demo) : scénario fictif, vue cadrée sur
+  // la commune, sans vigilance Météo-France ni trajet personnel.
+  const demo = useDemo();
   const [zone, setZone] = useState<ZoneChoice>(5);
   const [mapStyle, setMapStyle] = useState<MapStyle>("plan");
   const [follow, setFollow] = useState(true);
@@ -304,7 +308,7 @@ export function CarteLive() {
     : "lg:grid-cols-[400px_minmax(0,1fr)] xl:grid-cols-[440px_minmax(0,1fr)]";
   return (
     <div
-      className={`h-[100dvh] flex flex-col ${
+      className={`h-[calc(100dvh_-_var(--demo-h))] flex flex-col ${
         enConduite ? "" : `pb-nav lg:!pb-0 lg:grid ${grille} lg:grid-rows-[auto_minmax(0,1fr)]`
       }`}
     >
@@ -332,7 +336,14 @@ export function CarteLive() {
         <Logo />
         {/* Les alertes sont dans la barre du bas : pas de deuxième cloche ici. */}
         <div className="flex items-center gap-2">
-          {isSupabaseConfigured ? (
+          {demo ? (
+            <span
+              className="font-mono text-[12px] tracking-wider text-ochre bg-ochre/10 border border-ochre/30 px-2 py-1 rounded-full"
+              title="Démonstration : scénario fictif, rien n'est enregistré"
+            >
+              DÉMO
+            </span>
+          ) : isSupabaseConfigured ? (
             <span className="flex items-center gap-1.5 font-mono text-[12px] tracking-wider text-lagoon-dim bg-lagoon/10 border border-lagoon/30 px-2 py-1 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-lagoon animate-blink" />
               EN DIRECT
@@ -431,10 +442,19 @@ export function CarteLive() {
             {!enConduite && panneauReplie && (
               <BandeauPanneauReplie counts={counts} onOuvrir={() => changerPanneau(false)} boutonRef={boutonOuvrirRef} />
             )}
-            {!enConduite && <ZoneSelector value={zone} onChange={changeZone} hasPosition={Boolean(position)} />}
-            {/* Ordinateur : vigilance Météo-France sous le choix de la vue
-                (la vignette ne se charge pas sur téléphone : masquée) */}
             {!enConduite && (
+              <ZoneSelector
+                value={zone}
+                onChange={changeZone}
+                hasPosition={Boolean(position)}
+                vueEnsemble={demo ? "mont-dore" : "nc"}
+              />
+            )}
+            {/* Ordinateur : vigilance Météo-France sous le choix de la vue
+                (la vignette ne se charge pas sur téléphone : masquée).
+                Pas en démonstration : la vraie vigilance contredirait le
+                scénario fictif. */}
+            {!enConduite && !demo && (
               <div className="hidden lg:block">
                 <VigilanceMeteo className="w-[326px] shadow-[0_12px_28px_-14px_rgba(0,0,0,0.85)]" />
               </div>
@@ -496,14 +516,16 @@ export function CarteLive() {
         onEnableLocation={retry}
         replieOrdi={panneauReplie}
         trajet={
-          <TrajetResume
-            actualisation={updatedAt}
-            demandeOuverture={trajetDemande}
-            ligneAffichee={Boolean(trajetLigne)}
-            onLigne={montrerTrajet}
-            onReports={setTrajetReports}
-            onOpen={openFromBanner}
-          />
+          demo ? null : (
+            <TrajetResume
+              actualisation={updatedAt}
+              demandeOuverture={trajetDemande}
+              ligneAffichee={Boolean(trajetLigne)}
+              onLigne={montrerTrajet}
+              onReports={setTrajetReports}
+              onOpen={openFromBanner}
+            />
+          )
         }
       />
 

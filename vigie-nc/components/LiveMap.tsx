@@ -6,6 +6,7 @@ import { AVATAR_HAUTEUR, AVATAR_LARGEUR, AVATAR_POINT } from "@/lib/avatar";
 import { clusterByDistance } from "@/lib/cluster";
 import { couleurSur } from "@/lib/contraste";
 import { distanceM, LatLng } from "@/lib/geo";
+import { DEMO_EMPRISE, demoActive } from "@/lib/demo";
 import { BACKUP_PLAN_LAYER, MAP_STYLES, NC_BOUNDS } from "@/lib/map-styles";
 import type { MapStyle } from "@/lib/preferences";
 import { getReliability } from "@/lib/reliability";
@@ -23,6 +24,12 @@ const RECENT_THRESHOLD_MIN = 15;
 const CLUSTER_MAX_ZOOM = 13;
 const CLUSTER_RADIUS_PX = 46;
 const CATEGORY_PRIORITY: Category[] = ["danger", "meteo", "perturbation"];
+
+// Vue d'ensemble : toute la Calédonie, ou le Mont-Dore pendant la
+// démonstration (lib/demo.ts).
+function empriseCarte() {
+  return demoActive() ? DEMO_EMPRISE : NC_BOUNDS;
+}
 
 export type MapScope = "zone" | "nc";
 
@@ -134,7 +141,7 @@ export function LiveMap({
         attributionControl: true,
         minZoom: 6,
       });
-      map.fitBounds(NC_BOUNDS, { padding: [8, 8] });
+      map.fitBounds(empriseCarte(), { padding: [8, 8] });
       // À la souris (ordinateur) : boutons + / − en bas à droite. Sur
       // téléphone et tablette, on zoome avec les doigts.
       if (window.matchMedia?.("(hover: hover) and (pointer: fine)").matches) {
@@ -168,7 +175,7 @@ export function LiveMap({
             m.invalidateSize();
             if (!suivi) return;
             if (vue === "nc" || !hasPosition) {
-              m.fitBounds(NC_BOUNDS, { padding: [8, 8], animate: false });
+              m.fitBounds(empriseCarte(), { padding: [8, 8], animate: false });
             } else if (circleRef.current) {
               m.fitBounds(circleRef.current.getBounds(), { padding: [12, 12], animate: false });
             }
@@ -382,7 +389,7 @@ export function LiveMap({
 
     if (scope === "nc") {
       if (prev.scope !== "nc" || (follow && !prev.follow)) {
-        map.flyToBounds(NC_BOUNDS, { padding: [8, 8], duration: 0.8 });
+        map.flyToBounds(empriseCarte(), { padding: [8, 8], duration: 0.8 });
       }
       lastFitRef.current = null;
       return;

@@ -13,6 +13,7 @@ import {
   REPORT_TYPE_CATEGORY,
 } from "@/lib/types";
 import type { LiveStatus } from "@/lib/useLiveReports";
+import { useDemo } from "@/lib/useDemo";
 import type { WatchStatus } from "@/lib/useWatchPosition";
 import { ReliabilityBadge, TypeTile } from "./ui";
 import { Cagou } from "./Cagou";
@@ -70,6 +71,8 @@ export function HomeSheet({
     {} as Record<Category, number>,
   );
   const time = timeLabel(updatedAt);
+  // Démonstration Mont-Dore (lib/demo.ts) : la vue d'ensemble est la commune.
+  const demo = useDemo();
 
   // Liste repliée : seuls le titre et les compteurs restent, la carte
   // prend la place. Toucher la barre du haut, ou la tirer avec le doigt :
@@ -143,7 +146,13 @@ export function HomeSheet({
 
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="font-display font-semibold text-[16px]">
-          {scope === "nc" ? "Toute la Calédonie" : hasCenter ? "Autour de moi" : "En Calédonie"}
+          {scope === "nc"
+            ? demo
+              ? "Tout le Mont-Dore (démo)"
+              : "Toute la Calédonie"
+            : hasCenter
+              ? "Autour de moi"
+              : "En Calédonie"}
           {hasCenter && <span className="text-mist-dim font-normal text-[14px]"> · {radiusKm} km</span>}
         </h2>
         <span className="font-mono text-[12px] text-mist-dim">

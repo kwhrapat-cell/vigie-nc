@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { DEMO_POSITION, demoActive } from "./demo";
 
 export interface GeoPosition {
   lat: number;
@@ -17,6 +18,14 @@ export function useGeolocation() {
   const [error, setError] = useState<string | null>(null);
 
   const locate = useCallback((): Promise<GeoPosition> => {
+    // Démonstration Mont-Dore : position simulée à Boulari, vrai GPS non lu.
+    if (demoActive()) {
+      const p: GeoPosition = { lat: DEMO_POSITION.lat, lng: DEMO_POSITION.lng, accuracy: DEMO_POSITION.accuracy };
+      setPosition(p);
+      setStatus("success");
+      setError(null);
+      return Promise.resolve(p);
+    }
     if (typeof window === "undefined" || !("geolocation" in navigator)) {
       setStatus("unsupported");
       setError("La géolocalisation n'est pas disponible sur cet appareil.");
