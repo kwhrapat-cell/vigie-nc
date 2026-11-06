@@ -3,6 +3,7 @@
 // Réglages gardés sur le téléphone (jamais envoyés au serveur).
 
 import { demoActive } from "./demo";
+import type { LatLng } from "./geo";
 
 export const RADIUS_OPTIONS_KM = [1, 3, 5] as const;
 export type RadiusKm = (typeof RADIUS_OPTIONS_KM)[number];
@@ -36,6 +37,15 @@ function write(key: string, value: string): void {
   }
 }
 
+function remove(key: string): void {
+  if (demoActive()) return;
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // stockage indisponible : rien à effacer
+  }
+}
+
 /** Dernier rayon en km choisi (utilisé aussi par Alertes et Historique). */
 export function readRadiusKm(): RadiusKm {
   const v = Number(read(RADIUS_KEY));
@@ -63,6 +73,59 @@ export function readZoneChoice(parDefaut?: ZoneChoice): ZoneChoice {
 export function saveZoneChoice(zone: ZoneChoice): void {
   write(ZONE_KEY, String(zone));
   if (zone !== "nc") saveRadiusKm(zone);
+}
+
+// « Ma zone » choisie sur la carte, quand l'appareil ne donne pas sa
+// position (refusée, introuvable, ordinateur d'une mairie bloqué par son
+// service informatique…) : le centre de la zone surveillée, gardé sur
+// l'appareil. Ne remplace JAMAIS la vraie position : dès que l'appareil la
+// donne, c'est elle qui compte, et seule la vraie position sert aux votes
+// (« Toujours là » / « C'est terminé ») et à « Tu passes par là ? ».
+const POINT_ZONE_KEY = "vigie-nc:point-zone";
+
+/** Limites larges de la Nouvelle-Calédonie, îles comprises. */
+export const LIMITES_NC = { latMin: -23.2, latMax: -19.0, lngMin: 163.0, lngMax: 168.8 } as const;
+
+export function dansLaCaledonie(p: LatLng): boolean {
+  return (
+    Number.isFinite(p.lat) &&
+    Number.isFinite(p.lng) &&
+    p.lat >= LIMITES_NC.latMin &&
+    p.lat <= LIMITES_NC.latMax &&
+    p.lng >= LIMITES_NC.lngMin &&
+    p.lng <= LIMITES_NC.lngMax
+  );
+}
+
+/** Lit le point gardé (texte JSON) ; null s'il est absent, abîmé ou hors de la Calédonie. */
+export function lirePointZone(texte: string | null): LatLng | null {
+  if (!texte) return null;
+  try {
+    const v = JSON.parse(texte) as { lat?: unknown; lng?: unknown };
+    if (typeof v?.lat !== "number" || typeof v?.lng !== "number") return null;
+    const p = { lat: v.lat, lng: v.lng };
+    return dansLaCaledonie(p) ? p : null;
+  } catch {
+    return null;
+  }
+}
+
+export function readPointZone(): LatLng | null {
+  // Démonstration : position simulée à Boulari, pas de zone choisie.
+  if (demoActive()) return null;
+  return lirePointZone(read(POINT_ZONE_KEY));
+}
+
+/** Garde le point (arrondi à ~1 m) ; refusé hors de la Calédonie. */
+export function savePointZone(p: LatLng): boolean {
+  if (!dansLaCaledonie(p)) return false;
+  const arrondi = (x: number) => Math.round(x * 1e5) / 1e5;
+  write(POINT_ZONE_KEY, JSON.stringify({ lat: arrondi(p.lat), lng: arrondi(p.lng) }));
+  return true;
+}
+
+export function effacerPointZone(): void {
+  remove(POINT_ZONE_KEY);
 }
 
 export function readMapStyle(): MapStyle {

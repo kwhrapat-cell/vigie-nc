@@ -23,7 +23,7 @@ export const LEGAL = {
   contact: "tramea.solutions@gmail.com",
   lieu: "Nouvelle-Calédonie",
   // À changer à chaque modification des textes légaux.
-  miseAJour: "5 novembre 2026",
+  miseAJour: "6 novembre 2026",
   hebergeur: {
     nom: "Vercel Inc.",
     adresse: "440 N Barranca Avenue #4133, Covina, CA 91723, États-Unis",

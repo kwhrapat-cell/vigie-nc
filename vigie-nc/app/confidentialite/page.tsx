@@ -107,6 +107,12 @@ export default function ConfidentialitePage() {
           moins de 5 km. Dans les deux cas, elle n&apos;est <strong>pas enregistrée</strong>. Seule la position
           d&apos;un signalement que tu publies est conservée.
         </p>
+        <p>
+          Si ta position est refusée ou introuvable, tu peux <strong>choisir ta zone sur la carte</strong>. Ce repère
+          reste sur ton appareil ; comme la position, il est envoyé seulement au moment de la recherche des
+          signalements autour, sans être enregistré. Il ne sert jamais à confirmer ni à déclarer terminé un
+          signalement : pour ça, il faut ta vraie position.
+        </p>
       </LegalSection>
 
       <LegalSection title="Chiffres d'utilisation">

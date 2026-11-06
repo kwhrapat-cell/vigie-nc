@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type * as Leaflet from "leaflet";
 import { AVATAR_HAUTEUR, AVATAR_LARGEUR, AVATAR_POINT } from "@/lib/avatar";
 import { clusterByDistance } from "@/lib/cluster";
@@ -51,7 +51,23 @@ interface Props {
   ligne?: [number, number][] | null;
   /** Change de valeur pour cadrer la carte sur le trajet. */
   cadrerLigne?: number;
+  /**
+   * « Ma zone » choisie sur la carte (lib/preferences.ts) : centre de la
+   * zone quand l'appareil ne donne pas sa position. Repère lagon, pas le
+   * cagou ni le point bleu (ce n'est pas l'endroit où tu es).
+   */
+  pointZone?: LatLng | null;
+  /** Choix de la zone en cours : un clic déplace la carte, le repère fixe du centre est dans CarteLive. */
+  choixZone?: boolean;
+  /** Rempli par la carte : lit son centre (choix de la zone). */
+  lireCentreRef?: RefObject<(() => LatLng | null) | null>;
 }
+
+// Repère « Ma zone » (lagon), même forme que celui de l'écran Localisation
+export const PIN_ZONE_SVG = `<svg class="pick-pin" viewBox="0 0 34 44" aria-hidden="true">
+  <path d="M17 1.5A15.5 15.5 0 0 1 32.5 17c0 11-15.5 25.5-15.5 25.5S1.5 28 1.5 17A15.5 15.5 0 0 1 17 1.5z" fill="#1C9890" stroke="#081317" stroke-width="2"/>
+  <circle cx="17" cy="17" r="5.5" fill="#EAF6F4"/>
+</svg>`;
 
 // Taille du cagou sur la carte (dessin de lib/avatar.ts, 72 × 92 à l'échelle)
 const AVATAR_CARTE_L = 54;
@@ -96,8 +112,16 @@ export function LiveMap({
   avatar = null,
   ligne = null,
   cadrerLigne = 0,
+  pointZone = null,
+  choixZone = false,
+  lireCentreRef,
 }: Props) {
+  // Centre de la zone : la vraie position d'abord, sinon « Ma zone ».
+  const centre: LatLng | null = position ?? pointZone;
   const containerRef = useRef<HTMLDivElement>(null);
+  const zonePinRef = useRef<Leaflet.Marker | null>(null);
+  const choixRef = useRef(choixZone);
+  choixRef.current = choixZone;
   const leafletRef = useRef<typeof Leaflet | null>(null);
   const mapRef = useRef<Leaflet.Map | null>(null);
   const tilesRef = useRef<Leaflet.Layer[]>([]);
@@ -121,8 +145,8 @@ export function LiveMap({
   const drawRef = useRef<() => void>(() => undefined);
 
   // Cadrage voulu, lu quand la taille de la carte change (voir plus bas)
-  const frameRef = useRef({ follow, scope, hasPosition: Boolean(position) });
-  frameRef.current = { follow, scope, hasPosition: Boolean(position) };
+  const frameRef = useRef({ follow, scope, hasPosition: Boolean(centre) });
+  frameRef.current = { follow, scope, hasPosition: Boolean(centre) };
 
   // 1. Création de la carte (une seule fois) — cadrée sur toute la Calédonie
   useEffect(() => {
@@ -152,6 +176,16 @@ export function LiveMap({
       // recentrer automatiquement sur lui.
       map.on("dragstart", () => onFollowChangeRef.current(false));
       map.on("zoomend", () => drawRef.current());
+      // Choix de la zone : un clic amène l'endroit sous le repère du centre.
+      map.on("click", (e: Leaflet.LeafletMouseEvent) => {
+        if (choixRef.current) map.panTo(e.latlng, { animate: true });
+      });
+      if (lireCentreRef) {
+        lireCentreRef.current = () => {
+          const c = mapRef.current?.getCenter();
+          return c ? { lat: c.lat, lng: c.lng } : null;
+        };
+      }
 
       leafletRef.current = L;
       mapRef.current = map;
@@ -193,6 +227,8 @@ export function LiveMap({
       mapRef.current = null;
       markersRef.current = null;
       userMarkerRef.current = null;
+      zonePinRef.current = null;
+      if (lireCentreRef) lireCentreRef.current = null;
       circleRef.current = null;
       ligneRef.current = null;
       tilesRef.current = [];
@@ -313,7 +349,11 @@ export function LiveMap({
           title: ahead ? `${r.label} — devant toi` : r.label,
           zIndexOffset: r.id === selId ? 1000 : isSos ? 500 : ahead ? 400 : 0,
         })
-          .on("click", () => onSelectRef.current(r.id))
+          .on("click", () => {
+            // Choix de la zone : le clic sert à placer le repère, pas à ouvrir la fiche.
+            if (choixRef.current) map.panTo([r.lat, r.lng], { animate: true });
+            else onSelectRef.current(r.id);
+          })
           .addTo(group);
       }
     };
@@ -355,13 +395,29 @@ export function LiveMap({
       }
     }
 
-    // Pas de cercle en vue « toute la Calédonie »
-    if (!position || scope === "nc") {
+    // « Ma zone » choisie sur la carte : repère lagon, seulement sans vraie
+    // position (et caché pendant qu'on en choisit une nouvelle).
+    if (position || !pointZone || choixZone) {
+      zonePinRef.current?.remove();
+      zonePinRef.current = null;
+    } else if (!zonePinRef.current) {
+      zonePinRef.current = L.marker([pointZone.lat, pointZone.lng], {
+        icon: L.divIcon({ className: "", html: PIN_ZONE_SVG, iconSize: [34, 44], iconAnchor: [17, 42] }),
+        interactive: false,
+        keyboard: false,
+        zIndexOffset: 1500,
+      }).addTo(map);
+    } else {
+      zonePinRef.current.setLatLng([pointZone.lat, pointZone.lng]);
+    }
+
+    // Pas de cercle en vue « toute la Calédonie », ni pendant le choix de la zone
+    if (!centre || scope === "nc" || choixZone) {
       circleRef.current?.remove();
       circleRef.current = null;
       return;
     }
-    const latlng: [number, number] = [position.lat, position.lng];
+    const latlng: [number, number] = [centre.lat, centre.lng];
     if (!circleRef.current) {
       circleRef.current = L.circle(latlng, {
         radius: radiusM,
@@ -377,7 +433,15 @@ export function LiveMap({
       circleRef.current.setLatLng(latlng);
       circleRef.current.setRadius(radiusM);
     }
-  }, [ready, position, radiusM, scope]);
+  }, [ready, position, pointZone, centre, choixZone, radiusM, scope]);
+
+  // Choix de la zone : curseur en croix (classe posée à la main : Leaflet
+  // gère lui-même les classes de ce conteneur, React ne doit pas y toucher).
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!ready || !el) return;
+    el.classList.toggle("choix-zone", choixZone);
+  }, [ready, choixZone]);
 
   // 5. Cadrage : toute la Calédonie, ou la zone autour de soi (suivi)
   const prevRef = useRef({ follow, scope });
@@ -396,11 +460,11 @@ export function LiveMap({
     }
 
     const circle = circleRef.current;
-    if (!follow || !position || !circle) return;
+    if (!follow || !centre || !circle) return;
 
     const justResumed = (follow && !prev.follow) || prev.scope !== "zone";
     const last = lastFitRef.current;
-    if (!justResumed && last && last.radiusM === radiusM && distanceM(last, position) < 75) {
+    if (!justResumed && last && last.radiusM === radiusM && distanceM(last, centre) < 75) {
       return; // petit déplacement : on ne bouge pas la carte pour rien
     }
 
@@ -411,8 +475,8 @@ export function LiveMap({
     } else {
       map.fitBounds(circle.getBounds(), { padding: [12, 12], animate: true });
     }
-    lastFitRef.current = { lat: position.lat, lng: position.lng, radiusM };
-  }, [ready, follow, position, radiusM, scope]);
+    lastFitRef.current = { lat: centre.lat, lng: centre.lng, radiusM };
+  }, [ready, follow, centre, radiusM, scope]);
 
   // 6. Trajet favori : ligne sombre en dessous (lisible sur tous les fonds),
   // ligne lagon par-dessus. Sous les signalements, jamais cliquable.

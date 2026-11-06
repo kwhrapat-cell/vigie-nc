@@ -45,6 +45,9 @@ export function HomeSheet({
   onFilter,
   onSelect,
   onEnableLocation,
+  zoneChoisie = false,
+  onChoisirZone,
+  onRetirerZone,
   replieOrdi = false,
   trajet,
 }: {
@@ -61,6 +64,12 @@ export function HomeSheet({
   onFilter: (c: Category | null) => void;
   onSelect: (id: string) => void;
   onEnableLocation: () => void;
+  /** La zone est centrée sur « Ma zone » choisie sur la carte, pas sur la position. */
+  zoneChoisie?: boolean;
+  /** Choisir (ou changer) « Ma zone » sur la carte. */
+  onChoisirZone?: () => void;
+  /** Retirer « Ma zone ». */
+  onRetirerZone?: () => void;
   /** Ordinateur : panneau de gauche replié (CarteLive), la liste est cachée. */
   replieOrdi?: boolean;
   /** Point sur le trajet favori (components/TrajetResume), visible même liste repliée. */
@@ -151,7 +160,9 @@ export function HomeSheet({
               ? "Tout le Mont-Dore (démo)"
               : "Toute la Calédonie"
             : hasCenter
-              ? "Autour de moi"
+              ? zoneChoisie
+                ? "Ma zone"
+                : "Autour de moi"
               : "En Calédonie"}
           {hasCenter && <span className="text-mist-dim font-normal text-[14px]"> · {radiusKm} km</span>}
         </h2>
@@ -188,26 +199,54 @@ export function HomeSheet({
       </div>
       </div>
 
+      {/* « Ma zone » choisie sur la carte (position refusée ou introuvable) */}
+      {zoneChoisie && scope === "zone" && (
+        <div className="mt-1.5 flex items-center gap-1 text-[13px] text-mist-dim">
+          <span className="flex-1 min-w-0">Zone choisie sur la carte, pas ta position.</span>
+          {onChoisirZone && (
+            <button type="button" onClick={onChoisirZone} className="shrink-0 min-h-[44px] px-2 font-medium text-lagoon">
+              Changer
+            </button>
+          )}
+          {onRetirerZone && (
+            <button type="button" onClick={onRetirerZone} className="shrink-0 min-h-[44px] px-2 font-medium text-mist-dim">
+              Retirer
+            </button>
+          )}
+        </div>
+      )}
+
       {trajet}
 
       {!hasCenter && scope === "zone" && (geoStatus === "denied" || geoStatus === "unsupported" || geoStatus === "unavailable") && (
-        <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-warn/30 bg-warn/10 px-3 py-2 text-[13.5px] text-mist">
-          <span className="flex-1">
+        <div className="mt-2.5 rounded-xl border border-warn/30 bg-warn/10 px-3 py-2 text-[13.5px] text-mist">
+          <p>
             {geoStatus === "denied"
-              ? "Position refusée : tu vois toute la Calédonie. Autorise la localisation pour ne voir que ta zone."
+              ? "Position refusée : tu vois toute la Calédonie. Autorise la localisation, ou choisis ta zone sur la carte."
               : geoStatus === "unsupported"
-                ? "Ce téléphone ne donne pas sa position : tu vois toute la Calédonie."
-                : "Position introuvable pour l'instant : tu vois toute la Calédonie."}
-          </span>
-          {geoStatus !== "unsupported" && (
-            <button
-              type="button"
-              onClick={onEnableLocation}
-              className="shrink-0 min-h-[44px] rounded-lg border border-warn/40 px-3 text-[14px] font-medium text-warn"
-            >
-              Réessayer
-            </button>
-          )}
+                ? "Cet appareil ne donne pas sa position : tu vois toute la Calédonie. Tu peux choisir ta zone sur la carte."
+                : "Position introuvable pour l'instant : tu vois toute la Calédonie. Tu peux choisir ta zone sur la carte."}
+          </p>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {onChoisirZone && (
+              <button
+                type="button"
+                onClick={onChoisirZone}
+                className="min-h-[44px] rounded-lg bg-primary px-3 text-[14px] font-medium text-white"
+              >
+                Choisir sur la carte
+              </button>
+            )}
+            {geoStatus !== "unsupported" && (
+              <button
+                type="button"
+                onClick={onEnableLocation}
+                className="min-h-[44px] rounded-lg border border-warn/40 px-3 text-[14px] font-medium text-warn"
+              >
+                Réessayer
+              </button>
+            )}
+          </div>
         </div>
       )}
 

@@ -82,6 +82,18 @@ vigie-nc/
                   bas — pour agrandir la carte, choix gardé sur le téléphone :
                   readListeRepliee de lib/preferences.ts), ReportDetail,
                   PositionPicker, BottomNav, ui.tsx (Logo, TypeTile, boutons…),
+                  AidePosition (position bloquée ou introuvable, ouverte par
+                  « Activer ma position » ou un rayon touché sans position :
+                  consignes navigateur / Windows / Mac ou téléphone, bouton
+                  « Choisir ma zone sur la carte »). « Ma zone » (CarteLive,
+                  décision de Patrice du 06/11/2026, ordinateurs des mairies) :
+                  repère fixe au centre de la carte, on déplace la carte puis
+                  « Choisir cet endroit » ; gardée sur l'appareil
+                  (« vigie-nc:point-zone », lib/preferences.ts, refusée hors
+                  Calédonie), repère lagon PIN_ZONE_SVG (LiveMap pointZone),
+                  sert de centre à la carte et à la liste SEULEMENT sans vraie
+                  position ; jamais pour voter, « Tu passes par là ? », les
+                  travaux proches ni le mode conduite,
                   VigilanceMeteo (vignette officielle meteo.nc, sans clé),
                   WelcomeNotice (accueil à la 1re ouverture : démo des gestes
                   de base en 4 cartes — Voir, Signaler, Confirmer avec scènes
