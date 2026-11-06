@@ -73,6 +73,9 @@ vigie-nc/
                     n'y mène depuis l'appli, noindex)
                   + /moderation (écran des modérateurs, code personnel ; lien discret en bas du Profil ;
                     onglet « Travaux » : date de fin des chantiers (moderation_chantier) ;
+                    onglet « Historique » : tout ce qui a été publié (300 au plus), bouton
+                    « Effacer (essai) » = suppression DÉFINITIVE (moderation_action
+                    'effacer', décision de Patrice du 06/11/2026, pour les essais) ;
                     onglet « Annonces » : message pour toute la Calédonie ;
                     onglet « Chiffres » : utilisateurs actifs, connectés en direct, provenances ;
                     onglet « IA » : essai du résumé automatique avec des témoignages inventés)
@@ -156,7 +159,9 @@ vigie-nc/
                   « Quitter » en haut de tous les écrans pendant la démo ;
                   classe mode-demo sur <html>, --demo-h retiré de la carte),
                   DemoLanceur (boutons de /demo),
-                  ModStatsPanel (onglet Chiffres de /moderation),
+                  ModStatsPanel (onglet Chiffres de /moderation ; résumé à copier dans
+                  lib/chiffres-resume.ts : période réelle si le comptage a moins de 30 jours,
+                  jamais « confirmé » ni « personnes », appareils),
                   ModIaPanel (onglet IA de /moderation : essai du résumé, rien n'est publié),
                   AnnonceBanner (bandeau des annonces générales sur l'accueil ;
                   AnnonceCard sert aussi d'aperçu), ModAnnoncesPanel (onglet
@@ -380,10 +385,10 @@ vigie-nc/
   supabase/schema.sql  schéma complet, ré-exécutable
   supabase/functions/purge-photos  fonction Supabase (Deno) : photos > 7 jours
   supabase/tests/  shim-supabase.sql (faux Supabase pour Postgres + PostGIS)
-                   et essais.sql (42 essais : identité, votes, SOS, photos, droits,
+                   et essais.sql (44 essais : identité, votes, SOS, photos, droits,
                    type « feu », chiffres d'utilisation, annonces générales, chantiers,
                    témoignages et résumé IA, point route, erreurs des téléphones,
-                   trajet favori)
+                   trajet favori, historique et effacement, appareils de l'équipe)
 .github/workflows/verification.yml  à chaque PR : tests de la logique (Node 22),
                    build + types, schema.sql deux fois puis essais.sql sur
                    Postgres + PostGIS
@@ -549,6 +554,12 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   avec un appareil). Lecture : `moderation_statistiques(p_code)`, seulement
   des totaux. La purge de nuit range les jours terminés dans
   `vigie_stats_jour`. Provenance d'un lien : `?src=affiche`, `?src=partage`…
+  **Appareils de l'équipe jamais comptés** (décision de Patrice du
+  06/11/2026) : `moderation_verifier` appelle `vigie_noter_appareil_equipe`
+  (table privée `vigie_appareils_equipe`, empreinte de session, effacée
+  après 1 an sans passage) ; `vigie_presence` les ignore, et ce qui avait
+  été compté est retiré une fois (jours d'activité, un « nouveau » ; pas
+  la provenance ni les records). `modVerify` ouvre la session avant.
 - Notifications : RPC `notif_abonner` / `notif_mon_abonnement` /
   `notif_desabonner` (table privée `push_abonnements`, lieu arrondi à
   ~1 km, rayon 3/5/10 km). Le déclencheur `trg_vigie_notification` appelle
@@ -613,6 +624,9 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   avant), texte nettoyé par `vigie_texte_erreur` (nombres longs, e-mails,
   fin des liens), 300 erreurs différentes par jour au plus, purge après
   14 jours ; lecture `moderation_erreurs(code)` (onglet « Chiffres »).
+  Erreurs du navigateur ignorées (`__firefox__`, `window.ethereum`,
+  `user-script:`) des deux côtés : `IGNOREES` de lib/erreurs-texte.ts
+  (message ET pile) et `vigie_erreur_signaler` — listes alignées.
 - Les pages `/confidentialite` et `/conditions` décrivent ce que fait
   vraiment le code (données envoyées, durées, purge `pg_cron`) : les mettre
   à jour (et `miseAJour` dans `lib/legal.ts`) si ça change.

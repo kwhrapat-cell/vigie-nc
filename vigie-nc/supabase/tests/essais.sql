@@ -4,7 +4,8 @@
 -- témoignages et résumé automatique (IA), point route (mode conduite),
 -- erreurs des téléphones, trajet favori (réglage, point sur le trajet,
 -- alertes pendant le trajet, avant le départ, « tout est calme », fin
--- d'alerte du trajet et de la zone, itinéraire, mémoire des inondations).
+-- d'alerte du trajet et de la zone, itinéraire, mémoire des inondations),
+-- historique de la modération (effacer un essai), appareils de l'équipe.
 -- À lancer APRÈS schema.sql. Chaque essai qui échoue arrête tout avec un
 -- message « Ex échec : … ». Rien n'est envoyé : l'adresse d'envoi des
 -- alertes est retirée pendant l'essai.
@@ -71,6 +72,12 @@ declare
   v_travaux uuid;
   v_dans_10_min text := left((timezone('Pacific/Noumea', now()) + interval '10 minutes')::time::text, 5);
   v_dans_5_h text := left((timezone('Pacific/Noumea', now()) + interval '5 hours')::time::text, 5);
+  v_u uuid := gen_random_uuid();
+  v_u2 uuid := gen_random_uuid();
+  v_eq uuid := gen_random_uuid();
+  v_cle text;
+  code_historique constant text := 'code-essai-historique-00000000';
+  code_equipe constant text := 'code-essai-equipe-000000000000';
 begin
   delete from vigie_config where cle in ('notif_url', 'securite_url', 'ia_url');
   insert into vigie_config (cle, valeur) values ('photo_host', 'essai.supabase.co')
@@ -767,6 +774,13 @@ begin
   if (select count(*) from vigie_erreurs) <> 1 then
     raise exception 'E35 échec : message vide enregistré';
   end if;
+  -- Erreurs du navigateur (pas de l'appli) : ignorées
+  perform vigie_erreur_signaler('ReferenceError: Can''t find variable: __firefox__', '/ (page)', 'Safari 26 · iPhone');
+  perform vigie_erreur_signaler('TypeError: undefined is not an object (evaluating ''window.ethereum.selectedAddress = undefined'')', '/', null);
+  perform vigie_erreur_signaler('TypeError: x @ <courriel> | @user-script:130:186:45', '/', null);
+  if (select count(*) from vigie_erreurs) <> 1 then
+    raise exception 'E35 échec : erreur du navigateur enregistrée';
+  end if;
   for v_n in 1..305 loop
     perform vigie_erreur_signaler('Erreur numéro ' || v_n::text || ' différente', '/', null);
   end loop;
@@ -1057,6 +1071,110 @@ begin
     raise exception 'E42 échec : inondation trouvée sur un trajet sans inondation %', v_r;
   end if;
 
-  raise notice 'ESSAIS OK (42)';
+  -- E43 : historique de la modération — tout ce qui a été publié, du plus
+  -- récent au plus ancien ; effacer un essai (carte prévenue, journal),
+  -- code obligatoire
+  perform set_config('request.jwt.claims', json_build_object('sub', v_u, 'role', 'authenticated')::text, true);
+  v_id := (creer_signalement_v3('route_coupee', -20.70, 164.95, null, null, null, 'Essai historique')->>'id')::uuid;
+  update reports set created_at = now() - interval '60 days', expires_at = now() - interval '59 days' where id = v_id;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_u2, 'role', 'authenticated')::text, true);
+  v_id2 := (creer_signalement_v3('inondation', -20.71, 164.96, null, null, null, 'Essai historique 2')->>'id')::uuid;
+  perform set_config('request.jwt.claims', '', true);
+  begin
+    perform moderation_liste('mauvais-code-historique-000', 'historique');
+    raise exception 'E43 échec : historique lu sans code';
+  exception when others then
+    if sqlerrm not like '%code_invalide%' then raise exception 'E43 échec : %', sqlerrm; end if;
+  end;
+  perform vigie_ajouter_moderateur('Essai historique', code_historique);
+  v_r := moderation_liste(code_historique, 'historique');
+  select o into v_n from jsonb_array_elements(v_r) with ordinality x(e, o) where e->>'id' = v_id2::text;
+  select o into v_id_n from jsonb_array_elements(v_r) with ordinality x(e, o) where e->>'id' = v_id::text;
+  if v_n is null or v_id_n is null or v_n > v_id_n then
+    raise exception 'E43 échec : historique (récent %, ancien %)', v_n, v_id_n;
+  end if;
+  if moderation_liste(code_historique, 'recents') @> jsonb_build_array(jsonb_build_object('id', v_id)) then
+    raise exception 'E43 échec : signalement de 60 jours dans les récents';
+  end if;
+  begin
+    perform moderation_action('mauvais-code-historique-000', v_id2, 'effacer');
+    raise exception 'E43 échec : effacé sans code';
+  exception when others then
+    if sqlerrm not like '%code_invalide%' then raise exception 'E43 échec : %', sqlerrm; end if;
+  end;
+  select count(*) into v_n from vigie_signal;
+  perform moderation_action(code_historique, v_id2, 'effacer');
+  if exists (select 1 from reports where id = v_id2)
+     or exists (select 1 from report_authors where report_id = v_id2) then
+    raise exception 'E43 échec : essai non effacé';
+  end if;
+  if (select count(*) from vigie_signal) <> v_n + 1 then
+    raise exception 'E43 échec : la carte n''est pas prévenue';
+  end if;
+  if not exists (select 1 from moderation_journal
+                 where report_id = v_id2 and action = 'effacer'
+                   and detail like 'inondation · Essai historique 2 · %') then
+    raise exception 'E43 échec : journal (%)', (select detail from moderation_journal where report_id = v_id2);
+  end if;
+  -- Déjà terminé : effacé sans prévenir la carte
+  select count(*) into v_n from vigie_signal;
+  perform moderation_action(code_historique, v_id, 'effacer');
+  if exists (select 1 from reports where id = v_id) or (select count(*) from vigie_signal) <> v_n then
+    raise exception 'E43 échec : effacement d''un signalement terminé';
+  end if;
+  begin
+    perform moderation_action(code_historique, v_id, 'effacer');
+    raise exception 'E43 échec : effacé deux fois';
+  exception when others then
+    if sqlerrm not like '%signalement_introuvable%' then raise exception 'E43 échec : %', sqlerrm; end if;
+  end;
+  delete from moderateurs where nom = 'Essai historique';
+
+  -- E44 : appareils de l'équipe — dès l'ouverture de la modération, plus
+  -- comptés, et ce qui l'avait été est retiré (une seule fois)
+  perform set_config('request.jwt.claims', json_build_object('sub', v_eq, 'role', 'authenticated')::text, true);
+  v_cle := vigie_device_key('auth:' || v_eq::text);
+  perform vigie_presence('essai-equipe');
+  if not exists (select 1 from vigie_activite where cle = v_cle) then
+    raise exception 'E44 échec : appareil non compté avant';
+  end if;
+  select nouveaux into v_n from vigie_stats_jour where jour = vigie_jour_local();
+  perform vigie_ajouter_moderateur('Essai equipe', code_equipe);
+  perform moderation_verifier(code_equipe);
+  if exists (select 1 from vigie_activite where cle = v_cle)
+     or exists (select 1 from vigie_visiteurs where cle = v_cle) then
+    raise exception 'E44 échec : comptage de l''équipe gardé';
+  end if;
+  if (select nouveaux from vigie_stats_jour where jour = vigie_jour_local()) <> v_n - 1 then
+    raise exception 'E44 échec : nouveau visiteur non retiré';
+  end if;
+  perform vigie_presence('essai-equipe');
+  if exists (select 1 from vigie_activite where cle = v_cle) then
+    raise exception 'E44 échec : appareil de l''équipe compté';
+  end if;
+  select nouveaux into v_n from vigie_stats_jour where jour = vigie_jour_local();
+  perform moderation_verifier(code_equipe);
+  if (select nouveaux from vigie_stats_jour where jour = vigie_jour_local()) <> v_n then
+    raise exception 'E44 échec : retiré deux fois';
+  end if;
+  if coalesce((moderation_statistiques(code_equipe)->>'appareils_equipe')::int, 0) < 1 then
+    raise exception 'E44 échec : chiffres sans les appareils de l''équipe';
+  end if;
+  perform set_config('request.jwt.claims', '', true);
+  perform moderation_verifier(code_equipe);  -- sans session : rien à noter
+  if has_table_privilege('anon', 'public.vigie_appareils_equipe', 'select')
+     or has_table_privilege('authenticated', 'public.vigie_appareils_equipe', 'select')
+     or has_function_privilege('anon', 'vigie_noter_appareil_equipe()', 'execute')
+     or has_function_privilege('authenticated', 'vigie_noter_appareil_equipe()', 'execute') then
+    raise exception 'E44 échec : droits des appareils de l''équipe';
+  end if;
+  update vigie_appareils_equipe set derniere_vue = now() - interval '13 months' where cle = v_cle;
+  perform vigie_purger_donnees_appareil();
+  if exists (select 1 from vigie_appareils_equipe where cle = v_cle) then
+    raise exception 'E44 échec : appareil gardé plus d''un an sans passage';
+  end if;
+  delete from moderateurs where nom = 'Essai equipe';
+
+  raise notice 'ESSAIS OK (44)';
 end
 $essais$;

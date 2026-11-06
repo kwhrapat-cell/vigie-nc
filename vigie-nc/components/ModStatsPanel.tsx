@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { aujourdhuiNoumea } from "@/lib/chantier";
+import { debutRecent, delaiTexte, jourLong, nombre as n, partPlusieurs, resumeChiffres } from "@/lib/chiffres-resume";
 import { ErreurTelephone, errorMessage, modErreurs, ModStats, modStats } from "@/lib/reports-api";
 
 // Onglet « Chiffres » de /moderation : les totaux à montrer aux
@@ -25,10 +27,6 @@ const SOURCE_LABELS: Record<string, string> = {
 
 const nf = new Intl.NumberFormat("fr-FR");
 
-function n(x: number | null | undefined): string {
-  return x == null ? "—" : nf.format(x);
-}
-
 /** « 2026-10-20 » → « mar. 20 oct. » (date calendaire, sans décalage horaire) */
 function jourCourt(jour: string): string {
   return new Date(`${jour}T00:00:00Z`).toLocaleDateString("fr-FR", {
@@ -39,37 +37,13 @@ function jourCourt(jour: string): string {
   });
 }
 
-function jourLong(jour: string): string {
-  return new Date(`${jour}T00:00:00Z`).toLocaleDateString("fr-FR", {
-    timeZone: "UTC",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function delaiTexte(min: number | null): string {
-  if (min == null) return "—";
-  if (min < 60) return `${Math.max(1, Math.round(min))} min`;
-  const h = min / 60;
-  return h < 10 ? `${h.toFixed(1).replace(".", ",")} h` : `${Math.round(h)} h`;
-}
-
-/** Résumé à coller dans un message ou un dossier. */
+/** Résumé à coller dans un message ou un dossier (lib/chiffres-resume.ts). */
 function resume(s: ModStats): string {
-  const pct = s.signalements.mois > 0 ? Math.round((100 * s.signalements.confirmesMois) / s.signalements.mois) : null;
-  const lignes = [
-    `Vigie NC — chiffres au ${new Date().toLocaleDateString("fr-FR", { timeZone: "Pacific/Noumea" })}`,
-    `• ${n(s.mois)} utilisateurs actifs sur 30 jours (${n(s.semaine)} sur 7 jours, ${n(s.aujourdhui)} aujourd'hui)`,
-    s.record ? `• Record : ${n(s.record.nombre)} personnes connectées en même temps (${jourLong(s.record.jour)})` : null,
-    `• ${n(s.signalements.mois)} signalements en 30 jours${pct != null ? `, dont ${pct} % confirmés` : ""}`,
-    s.signalements.delaiConfirmationMin != null
-      ? `• Confirmation en ${delaiTexte(s.signalements.delaiConfirmationMin)} (médiane)`
-      : null,
-    `• ${n(s.abonnesAlertes)} téléphones abonnés aux alertes, dont ${n(s.abonnesTrajet)} avec un trajet surveillé`,
-    "Comptage anonyme : 1 utilisateur = 1 téléphone ou navigateur.",
-  ];
-  return lignes.filter(Boolean).join("\n");
+  return resumeChiffres(
+    s,
+    aujourdhuiNoumea(),
+    new Date().toLocaleDateString("fr-FR", { timeZone: "Pacific/Noumea" }),
+  );
 }
 
 export function ModStatsPanel({ code }: { code: string }) {
@@ -126,8 +100,8 @@ export function ModStatsPanel({ code }: { code: string }) {
 
   const s = stats;
   const fidelitePct = s.fidelite.base >= 5 ? Math.round((100 * s.fidelite.revenus) / s.fidelite.base) : null;
-  const confirmesPct =
-    s.signalements.mois > 0 ? Math.round((100 * s.signalements.confirmesMois) / s.signalements.mois) : null;
+  const plusieursPct = partPlusieurs(s);
+  const debut = debutRecent(s.debut, aujourdhuiNoumea());
   const sourcesMax = Math.max(1, ...s.sources.map((x) => x.nouveaux));
 
   return (
@@ -153,7 +127,10 @@ export function ModStatsPanel({ code }: { code: string }) {
         <Tile label="7 jours" value={n(s.semaine)} />
         <Tile label="30 jours" value={n(s.mois)} />
       </div>
-      <p className="-mt-1.5 text-[10.5px] text-mist-dim">Utilisateurs actifs (appareils différents)</p>
+      <p className="-mt-1.5 text-[10.5px] text-mist-dim">
+        Utilisateurs actifs (appareils différents)
+        {debut ? ` · comptés depuis le ${jourLong(debut)} seulement` : ""}
+      </p>
 
       <div className="grid grid-cols-2 gap-2">
         <Tile
@@ -190,12 +167,17 @@ export function ModStatsPanel({ code }: { code: string }) {
           <Tile flat label="Aujourd'hui" value={n(s.signalements.aujourdhui)} />
           <Tile flat label="7 jours" value={n(s.signalements.semaine)} />
           <Tile flat label="30 jours" value={n(s.signalements.mois)} />
-          <Tile flat label="Confirmés" value={confirmesPct != null ? `${confirmesPct} %` : "—"} note="30 jours" />
           <Tile
             flat
-            label="1re confirmation"
+            label="Plusieurs fois ou vérifiés"
+            value={plusieursPct != null ? `${plusieursPct} %` : "—"}
+            note="30 jours"
+          />
+          <Tile
+            flat
+            label="2e signalement"
             value={delaiTexte(s.signalements.delaiConfirmationMin)}
-            note="médiane"
+            note="délai médian"
           />
           <Tile flat label="Votes" value={n(s.signalements.votesMois)} note="30 jours" />
         </div>
@@ -265,6 +247,12 @@ export function ModStatsPanel({ code }: { code: string }) {
         Comptage anonyme, sans cookie ni outil extérieur : 1 utilisateur = 1 téléphone ou navigateur (sur iPhone,
         l&apos;appli de l&apos;écran d&apos;accueil compte à part de Safari). Aucune adresse IP ni position.
         {s.debut ? ` Comptage depuis le ${jourLong(s.debut)}.` : ""}
+      </p>
+      <p className="text-[10.5px] text-mist-dim leading-relaxed">
+        Appareils de l&apos;équipe non comptés : {n(s.appareilsEquipe)}. Un appareil sort des chiffres dès qu&apos;on
+        ouvre la modération dessus : fais-le une fois sur chaque téléphone, navigateur ou ordinateur de test (sur
+        iPhone, Safari et l&apos;appli de l&apos;écran d&apos;accueil comptent à part). Les records passés ne
+        changent pas.
       </p>
     </div>
   );

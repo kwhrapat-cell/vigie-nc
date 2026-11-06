@@ -134,6 +134,10 @@ export default function ConfidentialitePage() {
           nouveaux visiteurs du jour, sans lien avec ton téléphone.
         </p>
         <p>Seuls des totaux sont affichés (aux modérateurs) : personne ne voit qui utilise l&apos;appli ni quand.</p>
+        <p>
+          Les appareils de l&apos;équipe (ceux sur lesquels on a ouvert l&apos;écran de modération) ne sont pas
+          comptés : leur empreinte est gardée à part, puis effacée après un an sans passage en modération.
+        </p>
       </LegalSection>
 
       <LegalSection title="Quand l'appli plante">

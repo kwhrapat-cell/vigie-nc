@@ -1360,15 +1360,20 @@ begin
 end;
 $$;
 
--- RPC : vérifier un code (connexion à l'écran de modération)
+-- RPC : vérifier un code (connexion à l'écran de modération). L'appareil
+-- devient un appareil de l'équipe : il ne compte plus dans les chiffres.
 create or replace function moderation_verifier(p_code text)
 returns jsonb
 language plpgsql
 security definer
 set search_path = public, extensions
 as $$
+declare
+  v_nom text;
 begin
-  return jsonb_build_object('nom', vigie_moderateur(p_code));
+  v_nom := vigie_moderateur(p_code);
+  perform vigie_noter_appareil_equipe();
+  return jsonb_build_object('nom', v_nom);
 end;
 $$;
 
@@ -1378,6 +1383,9 @@ $$;
 --   'recents'  : tous les signalements des dernières 48 h (sauf SOS)
 --   'travaux'  : travaux en cours ou terminés depuis moins de 7 jours
 --                (pour fixer ou changer la date de fin d'un chantier)
+--   'historique' : tout ce qui a été publié depuis le début (sauf SOS),
+--                du plus récent au plus ancien, 300 au plus (pour effacer
+--                les essais, décision de Patrice du 06/11/2026)
 -- Le contenu masqué reste visible ici (et seulement ici) pour juger.
 create or replace function moderation_liste(p_code text, p_filtre text default 'signales')
 returns jsonb
@@ -1405,7 +1413,8 @@ begin
       r.resume_ia, r.resume_ia_nb,
       coalesce(f.nb, 0) as nb_signalements,
       coalesce(f.motifs, '{}'::jsonb) as motifs,
-      coalesce(f.dernier, r.contenu_masque_at, r.created_at) as tri
+      case when p_filtre = 'historique' then r.created_at
+           else coalesce(f.dernier, r.contenu_masque_at, r.created_at) end as tri
     from reports r
     left join report_contenu_masque m on m.report_id = r.id
     left join lateral (
@@ -1422,6 +1431,8 @@ begin
         r.created_at > now() - interval '48 hours' and r.type::text <> 'sos'
       when p_filtre = 'travaux' then
         r.type::text = 'travaux' and r.expires_at > now() - interval '7 days'
+      when p_filtre = 'historique' then
+        r.type::text <> 'sos'
       else
         ((coalesce(f.nb, 0) > 0 or r.contenu_masque_at is not null)
           and r.created_at > now() - interval '30 days')
@@ -1429,7 +1440,7 @@ begin
             and r.resolved_at is null and r.expires_at > now())
     end
     order by tri desc
-    limit 100
+    limit case when p_filtre = 'historique' then 300 else 100 end
   ) t;
 
   return v_res;
@@ -1441,6 +1452,12 @@ $$;
 --   ignorer            : « c'est OK », efface les signalements de contenu
 --   retirer            : enlève le signalement de la carte
 --   verifier / deverifier : niveau « Vérifié » (p_valeur = la source)
+--   effacer            : supprime DÉFINITIVEMENT un essai (onglet
+--                        « Historique ») : carte, historique, mémoire de
+--                        zone, chiffres. Votes, témoignages, alertes
+--                        envoyées partent avec lui (on delete cascade) ;
+--                        la photo est effacée par la purge des 7 jours.
+--                        Le journal garde le type, le lieu et la date.
 create or replace function moderation_action(
   p_code text,
   p_report_id uuid,
@@ -1486,6 +1503,18 @@ begin
                           else least(expires_at, now() + vigie_duree_vie(type)) end,
         fin_annoncee = null
     where id = p_report_id;
+  elsif p_action = 'effacer' then
+    select left(r.type::text || ' · ' || coalesce(r.lieu, 'lieu inconnu') || ' · '
+                || to_char(timezone('Pacific/Noumea', r.created_at), 'DD/MM/YYYY HH24:MI'), 200)
+      into v_source
+      from reports r where r.id = p_report_id;
+    -- Encore sur la carte : les téléphones de la zone rechargent tout de
+    -- suite (même signal sans contenu que trg_vigie_signal).
+    insert into vigie_signal (cellule_lat, cellule_lng)
+    select round(r.lat::numeric, 1)::real, round(r.lng::numeric, 1)::real
+      from reports r
+     where r.id = p_report_id and r.resolved_at is null and r.expires_at > now();
+    delete from reports where id = p_report_id;
   else
     raise exception 'action_invalide';
   end if;
@@ -2136,6 +2165,18 @@ create table if not exists vigie_stats_jour (
   max_simultanes int not null default 0
 );
 
+-- Appareils de l'équipe (décision de Patrice du 06/11/2026) : jamais
+-- comptés dans les chiffres. Un appareil y entre quand on ouvre l'écran
+-- /moderation avec un code valide (moderation_verifier) ; ce qui avait
+-- déjà été compté pour lui est alors retiré (vigie_noter_appareil_equipe).
+-- Empreinte de la session seulement, comme vigie_activite. Quelques
+-- lignes, effacées après 1 an sans passage en modération.
+create table if not exists vigie_appareils_equipe (
+  cle text primary key,
+  ajoute_at timestamptz not null default now(),
+  derniere_vue timestamptz not null default now()
+);
+
 -- Jour calendaire à Nouméa
 create or replace function vigie_jour_local(p_t timestamptz default now())
 returns date
@@ -2164,6 +2205,10 @@ declare
   v_simultanes int;
 begin
   if v_key is null then
+    return;
+  end if;
+  -- Appareil de l'équipe : jamais compté
+  if exists (select 1 from vigie_appareils_equipe where cle = v_key) then
     return;
   end if;
 
@@ -2203,6 +2248,51 @@ begin
   values (v_jour, v_simultanes)
   on conflict (jour) do update
     set max_simultanes = greatest(vigie_stats_jour.max_simultanes, excluded.max_simultanes);
+end;
+$$;
+
+-- Cet appareil appartient à l'équipe (appelé par moderation_verifier, code
+-- déjà vérifié) : il n'est plus compté, et ce qui l'avait été est retiré
+-- — ses jours d'activité (actifs, fidélité, courbe) et, s'il avait été
+-- compté comme nouveau, un nouveau de son premier jour. Ni sa provenance
+-- (comptée sans lien avec l'appareil) ni les records passés ne peuvent
+-- être corrigés.
+create or replace function vigie_noter_appareil_equipe()
+returns void
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_key text := vigie_cle_session();
+  v_nouveau boolean;
+  v_premier date;
+begin
+  if v_key is null then
+    return;
+  end if;
+  insert into vigie_appareils_equipe (cle) values (v_key)
+  on conflict (cle) do update set derniere_vue = now()
+  returning (xmax = 0) into v_nouveau;
+  if not v_nouveau then
+    return;
+  end if;
+
+  -- Jours déjà rangés en totaux : un actif de moins (la purge de nuit
+  -- recalcule les jours encore détaillés, pas ceux où il était seul).
+  update vigie_stats_jour s
+     set actifs = greatest(s.actifs - 1, 0)
+    from vigie_activite a
+   where a.cle = v_key and a.jour = s.jour;
+  delete from vigie_activite where cle = v_key;
+
+  delete from vigie_visiteurs where cle = v_key
+  returning premier_jour into v_premier;
+  if v_premier is not null then
+    update vigie_stats_jour
+       set nouveaux = greatest(nouveaux - 1, 0)
+     where jour = v_premier;
+  end if;
 end;
 $$;
 
@@ -2284,6 +2374,7 @@ begin
     ),
     'abonnes_alertes', (select count(*) from push_abonnements),
     'abonnes_trajet', (select count(*) from push_trajets),
+    'appareils_equipe', (select count(*) from vigie_appareils_equipe),
     'sources', coalesce((
       select jsonb_agg(jsonb_build_object('source', source, 'nouveaux', n) order by n desc, source)
       from (
@@ -3042,7 +3133,8 @@ $$;
 --   - chiffres d'utilisation : le détail par appareil est ramené à des
 --     totaux par jour, puis effacé après 35 jours (90 jours sans visite
 --     pour le premier/dernier jour d'un appareil).
--- Les signalements eux-mêmes restent, anonymes, pour l'historique.
+-- Les signalements eux-mêmes restent, anonymes, pour l'historique (sauf
+-- les essais effacés par la modération, onglet « Historique »).
 -- ---------------------------------------------------------------------
 create or replace function vigie_purger_donnees_appareil()
 returns void
@@ -3091,6 +3183,8 @@ begin
    where a.jour < vigie_jour_local() - 35;
   delete from vigie_visiteurs v
    where v.dernier_jour < vigie_jour_local() - 90;
+  delete from vigie_appareils_equipe e
+   where e.derniere_vue < now() - interval '1 year';
 
   -- Sessions anonymes sans activité depuis 90 jours : supprimées. Elles ne
   -- portent aucun nom, et leur lien avec les signalements est déjà effacé
@@ -4007,6 +4101,13 @@ begin
   if v_message is null then
     return;
   end if;
+  -- Erreurs du navigateur, pas de l'appli (Firefox sur iPhone, portefeuille
+  -- crypto, scripts ajoutés par l'utilisateur) : vues le 05/11/2026 sur
+  -- iPhone. Aussi filtrées sur le téléphone (IGNOREES de
+  -- lib/erreurs-texte.ts) : garder les deux listes alignées.
+  if v_message ~* '(__firefox__|window\.ethereum|user-script:)' then
+    return;
+  end if;
   v_empreinte := md5(v_message || '|' || coalesce(v_ecran, ''));
   update vigie_erreurs
      set nombre = least(nombre + 1, 1000000), derniere = now()
@@ -4086,6 +4187,7 @@ alter table vigie_activite enable row level security;
 alter table vigie_visiteurs enable row level security;
 alter table vigie_sources_jour enable row level security;
 alter table vigie_stats_jour enable row level security;
+alter table vigie_appareils_equipe enable row level security;
 alter table annonces enable row level security;
 alter table vigie_annonce_signal enable row level security;
 alter table report_temoignages enable row level security;
@@ -4128,6 +4230,7 @@ revoke all on vigie_activite from anon, authenticated;
 revoke all on vigie_visiteurs from anon, authenticated;
 revoke all on vigie_sources_jour from anon, authenticated;
 revoke all on vigie_stats_jour from anon, authenticated;
+revoke all on vigie_appareils_equipe from anon, authenticated;
 revoke all on annonces from anon, authenticated;
 revoke insert, update, delete on vigie_annonce_signal from anon, authenticated;
 revoke all on report_temoignages from anon, authenticated;
@@ -4140,6 +4243,7 @@ revoke execute on function vigie_appliquer_vote(uuid, text, text) from public, a
 revoke execute on function vigie_masquer_contenu(uuid, text) from public, anon, authenticated;
 revoke execute on function vigie_retablir_contenu(uuid) from public, anon, authenticated;
 revoke execute on function vigie_purger_donnees_appareil() from public, anon, authenticated;
+revoke execute on function vigie_noter_appareil_equipe() from public, anon, authenticated;
 revoke execute on function vigie_code_moderation(text) from public, anon, authenticated;
 revoke execute on function vigie_ajouter_moderateur(text, text) from public, anon, authenticated;
 revoke execute on function vigie_retirer_moderateur(text) from public, anon, authenticated;
