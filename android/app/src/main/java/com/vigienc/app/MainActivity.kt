@@ -270,7 +270,7 @@ class MainActivity : Activity() {
     private fun majBarre() {
         if (ConduiteService.actif) {
             titre.text = "Mode conduite actif"
-            sousTitre.text = ConduiteService.statut.ifBlank { "Annonces vocales des dangers confirmés devant toi" }
+            sousTitre.text = ConduiteService.statut.ifBlank { "Annonces vocales des dangers signalés plusieurs fois devant toi" }
             bouton.text = "Arrêter"
         } else {
             titre.text = "Mode conduite"

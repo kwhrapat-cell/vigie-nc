@@ -355,7 +355,7 @@ export function AlertSettings() {
           </span>
         </Title>
         <Note>
-          Dangers confirmés à moins de <strong className="text-mist">{zone.rayonKm} km</strong> de{" "}
+          Dangers signalés plusieurs fois ou vérifiés, à moins de <strong className="text-mist">{zone.rayonKm} km</strong> de{" "}
           <strong className="text-mist">{zone.nom ? `« ${zone.nom} »` : "ton lieu d'alerte"}</strong>, même
           l&apos;appli fermée.
         </Note>
@@ -509,7 +509,7 @@ export function AlertSettings() {
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <Title>Être prévenu sur ce téléphone</Title>
-          <Note className="mt-1">Dangers confirmés près d&apos;un lieu que tu choisis, même l&apos;appli fermée.</Note>
+          <Note className="mt-1">Dangers signalés plusieurs fois ou vérifiés, près d&apos;un lieu que tu choisis, même l&apos;appli fermée.</Note>
         </div>
         <button
           type="button"

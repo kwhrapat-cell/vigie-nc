@@ -9,6 +9,34 @@ import type { Category, ReportType } from "./types";
 import { REPORT_TYPE_CATEGORY, REPORT_TYPE_LABELS, SIGNALABLE_TYPES } from "./types";
 import { ACCUEIL_KEY, ASTUCE_SIGNALER_KEY } from "./tuto";
 
+/**
+ * Le SOS, sans ambiguïté : ce qu'il fait, qui le reçoit, ce qui se passe si
+ * personne ne répond. Mêmes textes sur l'écran SOS (app/sos/page.tsx) et
+ * dans la légende. Doit rester conforme au code de app/sos/page.tsx.
+ */
+export const SOS_EXPLICATION = [
+  {
+    titre: "Ce qu'il fait",
+    texte:
+      "Garde le doigt 3 secondes sur le gros bouton : un SMS déjà écrit, avec ta position, s'ouvre sur ton téléphone. C'est toi qui l'envoies. Il ne prévient pas les secours à ta place.",
+  },
+  {
+    titre: "Qui le reçoit",
+    texte:
+      "Seulement tes contacts d'urgence (gardés sur ton téléphone), ou la personne à qui tu choisis de l'envoyer. Personne d'autre, pas même Vigie NC.",
+  },
+  {
+    titre: "Ta position",
+    texte:
+      "Elle est dans le SMS, sous forme de lien Google Maps : seules les personnes qui le reçoivent la voient. Elle n'est ni envoyée à Vigie NC, ni publiée sur la carte.",
+  },
+  {
+    titre: "Si ça ne marche pas",
+    texte:
+      "Position introuvable : tu peux prévenir tes contacts sans elle. SMS qui ne part pas, ou personne qui ne répond : Vigie NC ne le sait pas et ne relance personne. N'attends pas, appelle le 15 (SAMU), le 17 (police, gendarmerie) ou le 18 (pompiers).",
+  },
+] as const;
+
 /** Halo qui pulse autour d'un repère : signalé il y a moins de 15 min (LiveMap). */
 export const REPERE_RECENT_MIN = 15;
 
@@ -47,36 +75,49 @@ export const LEGENDE = {
     nc: "Toute la Nouvelle-Calédonie.",
     ncDemo: "Tout le Mont-Dore (démonstration).",
     rayon:
-      "1, 3 ou 5 km : le cercle en pointillés autour de toi. La carte et la liste montrent ce qui est signalé dedans.",
+      "1, 3 ou 5 km : le cercle en pointillés. Il est centré sur ta position donnée par ton appareil (GPS), ou sur « Ma zone » si tu l'as choisie sur la carte. La carte et la liste montrent ce qui est signalé dedans.",
     sansPosition: "Sans ta position, tu vois toute la Calédonie, ou la zone que tu choisis sur la carte.",
   },
   couleurs: { titre: "Les couleurs" },
   reperes: {
     titre: "Les repères",
     recent: `Halo qui clignote : signalé il y a moins de ${REPERE_RECENT_MIN} minutes.`,
-    pale: "Repère pâle : pas encore confirmé, ou quelqu'un dit que c'est terminé.",
+    pale: "Repère pâle : un seul signalement pour l'instant, ou quelqu'un dit que c'est terminé.",
     pastille: "Pastille chiffrée : plusieurs signalements proches. Touche-la ou clique dessus pour zoomer.",
     toi: "Point bleu (ou ton cagou) : toi. Toi seul le vois.",
     maZone: "Repère lagon : ta zone choisie sur la carte, quand ta position n'est pas disponible.",
+    ancien: "Repère grisé : pas de nouvelle depuis un moment, c'est peut-être fini.",
   },
   fiabilite: {
-    titre: "Fiabilité",
-    relaye: "Vu ailleurs (Facebook…), à confirmer sur place",
+    titre: "Fiabilité et fraîcheur",
+    relaye: "Vu ailleurs (Facebook…), pas encore signalé sur place",
+    ancien: "Pas de nouvelle depuis la moitié de sa durée sur la carte : à revérifier",
+    termine: "Déclaré fini sur place : retiré de la carte",
+  },
+  confiance: {
+    titre: "Qui publie, comment c'est vérifié",
+    lignes: [
+      "Tout le monde peut signaler, sans compte et sans nom, depuis l'endroit où il se trouve (1 signalement par minute au plus).",
+      "Les personnes à moins de 5 km répondent « Toujours là » (un signalement de plus) ou « C'est terminé » (retiré quand assez de monde le dit).",
+      "Le nombre de signalements ne prouve rien à lui seul : plusieurs téléphones anonymes peuvent venir d'une même personne. C'est pour ça qu'il n'y a jamais de « Confirmé » au nombre.",
+      "Une erreur (mauvais type, mauvais endroit) se corrige avec « C'est terminé », puis un nouveau signalement.",
+      "Une info vue ailleurs (Facebook…) reste « Relayé » tant que personne ne l'a signalée sur place. Seule une source officielle (mairie, province, pompiers…) la passe en « Vérifié ».",
+      "Une photo ou un texte déplacé peut être signalé : il est masqué par la modération.",
+      "Tant qu'elle n'est pas vérifiée, une info reste celle d'usagers : elle peut se tromper, regarde par toi-même.",
+    ],
   },
   sos: {
     titre: "Le bouton SOS",
-    lignes: [
-      "Il ouvre l'écran SOS. Rien ne part tant que tu n'as pas gardé le doigt 3 secondes sur le gros bouton.",
-      "Ensuite, un SMS avec ta position est préparé pour tes contacts d'urgence : c'est toi qui l'envoies. Sur cet écran, tu peux aussi appeler le 15, le 17 ou le 18.",
-      "Vigie NC ne prévient pas les secours à ta place et ne publie rien sur la carte.",
-    ],
+    ouvre: "Il ouvre l'écran SOS : rien ne part tout seul.",
   },
   position: {
     titre: "Ta position",
     lignes: [
-      "Elle n'apparaît que sur ton écran : personne d'autre ne la voit.",
-      "Elle sert à chercher les signalements autour de toi, sans être enregistrée. Quand tu publies un signalement, seul son endroit est gardé, jamais ton nom.",
-      "Si tu actives les alertes, sont gardés : le lieu choisi, arrondi à environ 1 km, et ton trajet favori sans son départ ni son arrivée.",
+      "Elle n'apparaît que sur ton écran : personne d'autre ne la voit sur la carte.",
+      "Pour trouver les signalements autour de toi, elle est envoyée à la base de Vigie NC au moment de la recherche, sans être enregistrée.",
+      "Les fonds de carte (OpenStreetMap, ou Esri en satellite) reçoivent les morceaux de carte affichés, donc la zone que tu regardes, comme pour toute carte en ligne.",
+      "Sur l'écran Signaler, la position du repère est envoyée à OpenStreetMap dès l'ouverture, pour afficher le nom du lieu.",
+      "Quand tu publies, seul l'endroit du signalement est gardé, jamais ton nom. Avec les alertes : le lieu choisi, arrondi à environ 1 km, et ton trajet favori sans son départ ni son arrivée.",
     ],
     lien: "Tout savoir sur tes données",
   },

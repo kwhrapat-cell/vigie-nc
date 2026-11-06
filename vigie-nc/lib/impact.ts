@@ -198,7 +198,7 @@ export const BADGES: Badge[] = [
     id: "bon-oeil",
     emoji: "👀",
     nom: "Bon œil",
-    comment: "Un de tes signalements est confirmé par quelqu'un d'autre.",
+    comment: "Un autre téléphone signale la même chose qu'un de tes signalements.",
     obtenu: (i) => i.nbSignalementsConfirmes >= 1,
   },
   {
@@ -243,7 +243,7 @@ export const BADGES: Badge[] = [
     id: "oeil-de-faucon",
     emoji: "🦅",
     nom: "Œil de faucon",
-    comment: "10 de tes signalements confirmés par d'autres.",
+    comment: "10 de tes signalements appuyés par un autre téléphone.",
     obtenu: (i) => i.nbSignalementsConfirmes >= 10,
   },
   {

@@ -224,7 +224,7 @@ export function useModeConduite() {
     setProbleme(null);
     // Annonce de départ, dans le geste du doigt : elle « débloque » la voix
     // sur les téléphones qui l'exigent.
-    if (voixRef.current) parler("Mode conduite activé. Je te préviens des dangers confirmés devant toi.");
+    if (voixRef.current) parler("Mode conduite activé. Je te préviens des dangers signalés plusieurs fois ou vérifiés, devant toi.");
     garderEcranAllume();
     watchId.current = navigator.geolocation.watchPosition(
       (pos) => {
@@ -636,9 +636,13 @@ export function BandeauConduite({
         {prochain ? (
           <TypeTile type={prochain.report.type} size={44} />
         ) : (
-          <span className="w-11 h-11 rounded-xl bg-ok/15 text-ok flex items-center justify-center shrink-0">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} className="w-6 h-6">
-              <path d="M5 12.5l4.5 4.5L19 7.5" strokeLinecap="round" strokeLinejoin="round" />
+          // Rien devant : couleur neutre et icône « je surveille », jamais un
+          // « ✓ » vert (règle « jamais de route libre » du 05/11/2026).
+          <span className="w-11 h-11 rounded-xl bg-panel-2 border border-line text-mist-dim flex items-center justify-center shrink-0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" className="w-6 h-6" aria-hidden="true">
+              <circle cx="12" cy="12" r="8.5" />
+              <circle cx="12" cy="12" r="4.5" />
+              <circle cx="12" cy="12" r="1" fill="currentColor" />
             </svg>
           </span>
         )}
@@ -660,7 +664,7 @@ export function BandeauConduite({
           ) : (
             <>
               <p className="font-display font-bold text-[17px] leading-tight text-mist truncate">
-                Rien de confirmé devant
+                Aucune alerte devant
               </p>
               <p className="text-[14px] text-mist-dim truncate">
                 {!position
@@ -784,7 +788,7 @@ export function BandeauConduite({
           </div>
           <p className="mt-2 text-[13px] leading-snug text-mist-dim">
             Téléphone sur un support, ou tenu par un passager. Ne touche pas l&apos;écran en roulant. Seuls les
-            dangers confirmés sont annoncés, à vol d&apos;oiseau. Le point route (au départ, ou bouton « Point route »
+            dangers signalés plusieurs fois ou vérifiés sont annoncés, à vol d&apos;oiseau. Le point route (au départ, ou bouton « Point route »
             en bas de l&apos;écran) cite tout ce qui est signalé sur les {POINT_ROUTE_KM} km devant ; il peut être écrit par
             l&apos;IA et se tromper.
           </p>

@@ -26,12 +26,11 @@ import { REPORT_TYPE_LABELS } from "@/lib/types";
 const DUREE_MS = 20_000;
 
 export function texteConfirmation(n: NouvelleConfirmation): string {
-  const quoi = `ton signalement « ${REPORT_TYPE_LABELS[n.signalement.type]} »${
-    n.signalement.lieu ? ` (${n.signalement.lieu})` : ""
-  }`;
+  const quoi = `« ${REPORT_TYPE_LABELS[n.signalement.type]} »${n.signalement.lieu ? ` (${n.signalement.lieu})` : ""}`;
+  // On compte des téléphones, pas des personnes vérifiées (décision du 06/11/2026).
   return n.total > 1
-    ? `${n.total} personnes ont confirmé ${quoi}. Merci, tu aides tout le monde sur la route !`
-    : `Quelqu'un a confirmé ${quoi}. Merci, tu aides tout le monde sur la route !`;
+    ? `${n.total} autres téléphones ont signalé la même chose que toi : ${quoi}. Merci, tu aides tout le monde sur la route !`
+    : `Un autre téléphone a signalé la même chose que toi : ${quoi}. Merci, tu aides tout le monde sur la route !`;
 }
 
 export function ImpactBanner({

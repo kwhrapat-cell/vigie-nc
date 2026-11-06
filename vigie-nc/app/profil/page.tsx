@@ -137,7 +137,9 @@ export default function ProfilPage() {
             </li>
           ))}
         </ul>
-        <p className="mt-2 text-[13px] text-mist-dim">Plus c&apos;est confirmé, plus c&apos;est mis en avant.</p>
+        <p className="mt-2 text-[13px] text-mist-dim">
+          Le nombre de signalements ne prouve rien à lui seul : seule une source officielle donne « Vérifié ».
+        </p>
       </Card>
 
       <Card title="Installer l'appli">

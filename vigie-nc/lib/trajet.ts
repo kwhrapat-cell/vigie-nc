@@ -341,7 +341,7 @@ export function texteAvantDepart(input: {
       title: `${qui} · Rien de signalé`,
       body:
         s > 0
-          ? `Aucun danger confirmé sur ta route. ${s} signalement${s > 1 ? "s" : ""} à surveiller (travaux, trafic…) dans l'appli.`
+          ? `Aucun danger signalé plusieurs fois ou vérifié sur ta route. ${s} signalement${s > 1 ? "s" : ""} à surveiller (travaux, trafic…) dans l'appli.`
           : "Aucun danger signalé sur ta route pour l'instant. Reste prudent.",
     };
   }

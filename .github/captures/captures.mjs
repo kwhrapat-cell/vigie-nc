@@ -62,6 +62,10 @@ for (const e of ECRANS) {
     }
     await attendre(chemin === "/" ? 3500 : 1200);
     await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-${nom}.png` });
+    if (chemin === "/sos") {
+      // Écran SOS en entier : « Comment marche le SOS »
+      await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-sos-entier.png`, fullPage: true });
+    }
     if (chemin === "/") {
       // Légende ouverte depuis l'astuce « cercle + SOS » (montrée une fois :
       // les captures suivantes de l'accueil ne l'ont plus).
@@ -86,6 +90,17 @@ for (const e of ECRANS) {
         await bouton.click();
         await attendre(1200);
         await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-accueil-fiche.png` });
+      }
+      // Fiche d'un signalement « ancien » (lib/fraicheur.ts)
+      await page.keyboard.press("Escape").catch(() => {});
+      await attendre(400);
+      const ancien = page.locator("#liste-proximite ul button", { hasText: "ancien" }).first();
+      if (await ancien.count()) {
+        await ancien.scrollIntoViewIfNeeded().catch(() => {});
+        await ancien.click().catch(() => {});
+        await attendre(1200);
+        await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-accueil-fiche-ancien.png` });
+        await page.keyboard.press("Escape").catch(() => {});
       }
       // Ordinateur : panneau de gauche replié (la carte prend tout l'écran)
       await page.goto(BASE + "/", { waitUntil: "networkidle", timeout: 30000 }).catch(() => {});

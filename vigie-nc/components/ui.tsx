@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
-import { getReliability, RELIABILITY_HEX } from "@/lib/reliability";
+import { getReliability, libelleCourt, RELIABILITY_HEX } from "@/lib/reliability";
 import { couleurSur } from "@/lib/contraste";
 import { Report, ReportType, REPORT_TYPE_HEX, REPORT_TYPE_ICON } from "@/lib/types";
 
@@ -48,13 +48,14 @@ export function ReliabilityBadge({
   const color = RELIABILITY_HEX[rel.level];
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border font-medium ${
+      className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border font-medium ${
         size === "md" ? "px-2.5 py-1 text-[13.5px]" : "px-1.5 py-px text-[12px]"
       }`}
       style={{ color, borderColor: `${color}66`, background: `${color}1A` }}
     >
       <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
-      {rel.label}
+      {/* Listes : « 3 signalements » (court) ; fiche : « Plusieurs signalements » */}
+      {size === "sm" ? libelleCourt(rel) : rel.label}
     </span>
   );
 }

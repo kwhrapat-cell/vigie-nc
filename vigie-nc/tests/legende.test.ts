@@ -7,6 +7,7 @@ import {
   CHARGEMENT_LENT_MS,
   ecrireAstuceCarteVue,
   LEGENDE,
+  SOS_EXPLICATION,
   libelleMiseAJour,
   lireAstuceCarte,
   REPERE_RECENT_MIN,
@@ -32,6 +33,7 @@ function tousLesTextes(v: unknown): string[] {
 test("légende : jamais « route libre », « sûre » ni « tout est calme » (décision du 05/11/2026)", () => {
   const textes = [
     ...tousLesTextes(LEGENDE),
+    ...tousLesTextes(SOS_EXPLICATION),
     ...CATEGORIES.map(texteTypesCategorie),
     texteDerniereMiseAJour(null),
     texteDerniereMiseAJour(new Date()),
@@ -65,12 +67,19 @@ test("légende : les rayons cités sont ceux du choix de la zone", () => {
   assert.ok(LEGENDE.reperes.recent.includes(`${REPERE_RECENT_MIN} minutes`));
 });
 
-test("légende : le SOS ne publie rien et ne prévient pas les secours à ta place", () => {
-  const sos = LEGENDE.sos.lignes.join(" ");
+test("SOS : ce qu'il fait, qui reçoit, la position, si ça ne marche pas (avant usage)", () => {
+  assert.deepEqual(
+    SOS_EXPLICATION.map((q) => q.titre),
+    ["Ce qu'il fait", "Qui le reçoit", "Ta position", "Si ça ne marche pas"],
+  );
+  const sos = SOS_EXPLICATION.map((q) => q.texte).join(" ");
   assert.match(sos, /3 secondes/); // appui long de app/sos/page.tsx
-  assert.match(sos, /c'est toi qui l'envoies/);
+  assert.match(sos, /C'est toi qui l'envoies/);
   assert.match(sos, /ne prévient pas les secours/);
-  assert.match(sos, /ne publie rien/);
+  assert.match(sos, /ni publiée sur la carte/);
+  assert.match(sos, /pas même Vigie NC/);
+  assert.match(sos, /lien Google Maps/); // lib/sos.ts lienPosition
+  assert.match(sos, /sans elle/); // « Prévenir mes contacts sans position »
   assert.match(sos, /15.*17.*18/);
   assert.match(LEGENDE.astuce.sos, /rien n'est publié/i);
   assert.match(LEGENDE.astuce.sos, /rien ne part sans toi/i);
@@ -119,4 +128,19 @@ test("astuce de la carte : lue et écrite sur le téléphone, sans planter", () 
   } finally {
     delete (globalThis as { window?: unknown }).window;
   }
+});
+
+test("légende : le modèle de confiance et la position disent ce que fait le code", () => {
+  const confiance = LEGENDE.confiance.lignes.join(" ");
+  assert.match(confiance, /sans compte et sans nom/);
+  assert.match(confiance, /5 km/); // MAX_WITNESS_DISTANCE_M
+  assert.match(confiance, /C'est terminé/);
+  assert.match(confiance, /Relayé/);
+  assert.match(confiance, /Vérifié/);
+  const position = LEGENDE.position.lignes.join(" ");
+  assert.match(position, /fonds de carte/); // tuiles : zone affichée
+  assert.match(position, /OpenStreetMap/); // nom du lieu (lib/place.ts)
+  assert.match(position, /sans être enregistrée/);
+  assert.match(LEGENDE.zone.rayon, /centré sur ta position/);
+  assert.match(LEGENDE.zone.rayon, /Ma zone/);
 });

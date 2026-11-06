@@ -6,6 +6,7 @@ import { errorMessage, flagReport, FlagResult, voteOnReport, VoteResult } from "
 import { idsBadges, nouveauxBadges, texteNouveauxBadges } from "@/lib/impact";
 import { libelleFinChantier } from "@/lib/chantier";
 import { distanceM, formatAge, formatDistance, formatDuration, LatLng } from "@/lib/geo";
+import { aEteReconfirme, estAncien, heureSignalement, statutFin, texteAncien, TEXTE_FIN } from "@/lib/fraicheur";
 import { getReliability, RELIABILITY_HEX } from "@/lib/reliability";
 import {
   FlagReason,
@@ -125,6 +126,9 @@ export function ReportDetail({
   const minutesLeft = (new Date(report.expiresAt).getTime() - Date.now()) / 60_000;
   const myDistanceM = userPosition ? distanceM(userPosition, report) : null;
   const isWitness = myDistanceM !== null && myDistanceM <= MAX_WITNESS_DISTANCE_M;
+  // Fraîcheur (lib/fraicheur.ts) : ancien, dernière confirmation, ou pourquoi il n'est plus sur la carte
+  const fin = statutFin(report);
+  const ancien = active && estAncien(report);
 
   async function vote(v: Vote) {
     if (busy) return;
@@ -232,13 +236,15 @@ export function ReportDetail({
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <ReliabilityBadge report={report} size="md" />
             <span className="text-[13.5px] text-mist-dim">
-              {report.relaySource
-                ? rel.people > 0
-                  ? `${rel.people} confirmation${rel.people > 1 ? "s" : ""} sur place`
-                  : "Pas encore confirmé sur place"
-                : rel.people > 1
-                  ? `${rel.people - 1} confirmation${rel.people > 2 ? "s" : ""}`
-                  : "Pas encore confirmé"}
+              {report.officialSource
+                ? "Source officielle"
+                : report.relaySource
+                  ? rel.people > 0
+                    ? `Signalé ${rel.people} fois sur place`
+                    : "Pas encore signalé sur place"
+                  : rel.people > 1
+                    ? `Signalé ${rel.people} fois`
+                    : "1 seul signalement pour l'instant"}
             </span>
             {report.riskLevel && (
               <span
@@ -253,7 +259,7 @@ export function ReportDetail({
 
         {!active && (
           <p className="mt-3 rounded-xl border border-line bg-panel-2 px-3 py-2 text-[14px] text-mist-dim">
-            Ce signalement est terminé ou a expiré.
+            {fin ? TEXTE_FIN[fin] : TEXTE_FIN.retire}
           </p>
         )}
 
@@ -273,8 +279,8 @@ export function ReportDetail({
 
         <p className="mt-3 text-[13px] text-mist-dim">
           {report.relaySource
-            ? `Info relayée depuis ${RELAY_SOURCE_LABELS[report.relaySource]} · ${formatAge(report.createdAt)}`
-            : `Signalé anonymement · ${formatAge(report.createdAt)}`}
+            ? `Info relayée depuis ${RELAY_SOURCE_LABELS[report.relaySource]} ${heureSignalement(report.createdAt)} (${formatAge(report.createdAt)})`
+            : `Signalé anonymement ${heureSignalement(report.createdAt)} (${formatAge(report.createdAt)})`}
         </p>
         {report.aiSummary && <AiSummary text={report.aiSummary} count={report.aiSummaryCount} />}
         {report.description &&
@@ -310,13 +316,14 @@ export function ReportDetail({
                 </svg>
               }
             >
+              {/* On dit ce qu'on sait : des téléphones, pas des personnes vérifiées. */}
               {report.relaySource
                 ? rel.people > 0
-                  ? `${rel.people} personne${rel.people > 1 ? "s" : ""} sur place l'${rel.people > 1 ? "ont" : "a"} confirmé`
-                  : "Personne sur place ne l'a encore confirmé"
+                  ? `Signalé sur place depuis ${rel.people} téléphone${rel.people > 1 ? "s" : ""}`
+                  : "Personne ne l'a encore signalé sur place"
                 : rel.people > 1
-                  ? `${rel.people} personnes l'ont vu`
-                  : "Signalé par 1 personne"}
+                  ? `Signalé depuis ${rel.people} téléphones (« Toujours là » compris)`
+                  : "Signalé depuis 1 téléphone"}
               {rel.contested && <span className="block text-[13px] text-warn">{rel.contested}</span>}
             </Row>
             {report.officialSource && (
@@ -329,6 +336,30 @@ export function ReportDetail({
                 }
               >
                 Source officielle ({report.officialSource})
+              </Row>
+            )}
+            {ancien && (
+              <Row
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round">
+                    <path d="M4.5 12a7.5 7.5 0 0 1 12.9-5.2L19.5 9M19.5 4.5V9H15M19.5 12a7.5 7.5 0 0 1-12.9 5.2L4.5 15M4.5 19.5V15H9" />
+                  </svg>
+                }
+              >
+                <span className="font-medium text-warn">Ancien</span>
+                <span className="block text-[13px] text-mist-dim">{texteAncien(report)}</span>
+              </Row>
+            )}
+            {active && !ancien && aEteReconfirme(report) && report.lastConfirmedAt && (
+              <Row
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round">
+                    <path d="M4.5 12a7.5 7.5 0 0 1 12.9-5.2L19.5 9M19.5 4.5V9H15M19.5 12a7.5 7.5 0 0 1-12.9 5.2L4.5 15M4.5 19.5V15H9" />
+                  </svg>
+                }
+              >
+                Signalé à nouveau sur place {heureSignalement(report.lastConfirmedAt)} (
+                {formatAge(report.lastConfirmedAt)})
               </Row>
             )}
             {active && report.endDate && report.type === "travaux" && (
@@ -355,7 +386,7 @@ export function ReportDetail({
                   </svg>
                 }
               >
-                Disparaît dans {formatDuration(minutesLeft)} sans nouvelle confirmation
+                Disparaît dans {formatDuration(minutesLeft)} si personne ne le signale à nouveau
               </Row>
             )}
           </div>

@@ -204,7 +204,7 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
             }
         } catch (_: Exception) {}
         if (Bulle.peutAfficher(this)) {
-            bulle = Bulle(this).also { it.afficher(); it.maj("Recherche…", Bulle.VERT) }
+            bulle = Bulle(this).also { it.afficher(); it.maj("Recherche…", Bulle.NEUTRE) }
         }
         main.postDelayed(minuteur, 15_000)
     }
@@ -256,7 +256,7 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
         if (!(demarreAuto && relanceRecente)) {
             parler(
                 if (demarreAuto) "Vigie NC : tu roules, je surveille la route devant toi."
-                else "Mode conduite activé. Je te préviens des dangers confirmés devant toi, même écran éteint.",
+                else "Mode conduite activé. Je te préviens des dangers signalés plusieurs fois ou vérifiés, devant toi, même écran éteint.",
             )
         }
     }
@@ -384,7 +384,7 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
         if (!actif) return
         val pos = position
         if (pos == null) {
-            majAffichage("Mode conduite", "Recherche de ta position…", "Recherche…", Bulle.VERT)
+            majAffichage("Mode conduite", "Recherche de ta position…", "Recherche…", Bulle.NEUTRE)
             return
         }
         val maintenant = System.currentTimeMillis()
@@ -412,7 +412,7 @@ class ConduiteService : Service(), LocationListener, TextToSpeech.OnInitListener
                 cap == null -> "Je surveille 1 km autour de toi"
                 else -> "Je surveille les $portee km devant toi"
             }
-            majAffichage("Rien de confirmé devant toi", detail, "Rien devant", Bulle.VERT)
+            majAffichage("Aucune alerte devant toi", detail, "Rien devant", Bulle.NEUTRE)
         }
     }
 

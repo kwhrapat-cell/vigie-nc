@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { IBM_Plex_Mono, Inter, Space_Grotesk } from "next/font/google";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
@@ -41,6 +42,19 @@ export const metadata: Metadata = {
   },
 };
 
+// Polices téléchargées à la construction du site et servies par Vigie NC :
+// le téléphone ne contacte jamais Google Fonts (pas d'adresse IP envoyée
+// à Google à chaque visite). Utilisées par Tailwind (font-display, font-body,
+// font-mono), globals.css et le dessin du point route (lib/point-route-dessin.ts).
+const policeTexte = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], display: "swap", variable: "--police-texte" });
+const policeTitre = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  display: "swap",
+  variable: "--police-titre",
+});
+const policeMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], display: "swap", variable: "--police-mono" });
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -53,7 +67,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr">
+    <html lang="fr" className={`${policeTexte.variable} ${policeTitre.variable} ${policeMono.variable}`}>
       <body>
         {/* Sans JavaScript (bloqué, vieux navigateur, lecteur de page) : la
             carte et la liste ne peuvent pas se charger, on le dit. */}
