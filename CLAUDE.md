@@ -35,7 +35,8 @@ mairies de Païta, du Mont-Dore et de Yaté.
   des téléphones anonymes peuvent venir d'une même personne. Niveaux
   « Signalé » (1), « Plusieurs signalements » (2 et plus), « Vérifié »
   (source officielle seulement). Les textes disent « signalé N fois »,
-  « depuis N téléphones », jamais « N personnes l'ont vu » ni « confirmé ».
+  « depuis N téléphones », « revu il y a… », jamais « N personnes l'ont
+  vu » ni un statut « confirmé » (le geste « confirmer en passant » reste).
 - **Facebook : uniquement ce qui est légal.** Pas de récupération
   automatique (pas d'API pour les groupes depuis 2024, collecte automatisée
   interdite par Meta). Les infos vues sur Facebook passent par un humain

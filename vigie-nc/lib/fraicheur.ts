@@ -61,7 +61,7 @@ export function statutFin(
 }
 
 export const TEXTE_FIN: Record<"expire" | "termine" | "retire", string> = {
-  expire: "Expiré : personne ne l'a reconfirmé à temps, il a été retiré de la carte.",
+  expire: "Expiré : personne ne l'a signalé à nouveau à temps, il a été retiré de la carte.",
   termine: "Terminé : déclaré fini sur place, il a été retiré de la carte.",
   retire: "Retiré de la carte.",
 };

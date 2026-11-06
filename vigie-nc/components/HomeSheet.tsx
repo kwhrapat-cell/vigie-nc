@@ -349,7 +349,7 @@ export function HomeSheet({
                       {estChantier(r) && r.endDate
                         ? `chantier ${libelleFinChantier(r.endDate)}`
                         : `il y a ${formatAgeShort(r.createdAt)}${
-                            reconfirme ? ` · confirmé il y a ${formatAgeShort(reconfirme)}` : ""
+                            reconfirme ? ` · revu il y a ${formatAgeShort(reconfirme)}` : ""
                           }`}
                     </span>
                     {ancien && <span className="font-sans font-medium text-warn"> · ancien</span>}

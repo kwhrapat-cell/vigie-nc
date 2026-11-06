@@ -358,7 +358,7 @@ export function ReportDetail({
                   </svg>
                 }
               >
-                Dernière confirmation sur place {heureSignalement(report.lastConfirmedAt)} (
+                Signalé à nouveau sur place {heureSignalement(report.lastConfirmedAt)} (
                 {formatAge(report.lastConfirmedAt)})
               </Row>
             )}
@@ -386,7 +386,7 @@ export function ReportDetail({
                   </svg>
                 }
               >
-                Disparaît dans {formatDuration(minutesLeft)} sans nouvelle confirmation
+                Disparaît dans {formatDuration(minutesLeft)} si personne ne le signale à nouveau
               </Row>
             )}
           </div>
