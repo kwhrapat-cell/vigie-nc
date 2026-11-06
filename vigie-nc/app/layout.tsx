@@ -55,6 +55,18 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body>
+        {/* Sans JavaScript (bloqué, vieux navigateur, lecteur de page) : la
+            carte et la liste ne peuvent pas se charger, on le dit. */}
+        <noscript>
+          <div className="border-b border-warn/30 bg-warn/10 px-4 py-3 text-[14px] leading-relaxed text-mist">
+            <p className="font-display font-semibold">Vigie NC a besoin de JavaScript pour fonctionner.</p>
+            <p className="mt-1 text-mist-dim">
+              Vigie NC est une carte gratuite et anonyme de l&apos;état des routes en Nouvelle-Calédonie (accidents,
+              inondations, routes coupées, travaux), signalé en direct par les usagers. Pour voir la carte et les
+              signalements, active JavaScript ou ouvre vigie-nc.com dans Chrome ou Safari.
+            </p>
+          </div>
+        </noscript>
         <ServiceWorkerRegister />
         <ErreurReporter />
         {!demoBlocked && <SessionInit />}

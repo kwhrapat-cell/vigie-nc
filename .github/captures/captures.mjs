@@ -63,6 +63,23 @@ for (const e of ECRANS) {
     await attendre(chemin === "/" ? 3500 : 1200);
     await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-${nom}.png` });
     if (chemin === "/") {
+      // Légende ouverte depuis l'astuce « cercle + SOS » (montrée une fois :
+      // les captures suivantes de l'accueil ne l'ont plus).
+      const legende = page.getByRole("button", { name: "Légende", exact: true });
+      if (await legende.isVisible().catch(() => false)) {
+        await legende.click();
+        await attendre(900);
+        await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-accueil-legende.png` });
+        // Bas de la légende : SOS, position, mise à jour
+        await page
+          .locator('[aria-labelledby="legende-titre"]')
+          .evaluate((el) => (el.scrollTop = el.scrollHeight))
+          .catch(() => {});
+        await attendre(400);
+        await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-accueil-legende-bas.png` });
+        await page.getByRole("button", { name: "Fermer la légende" }).click().catch(() => {});
+        await attendre(500);
+      }
       // Fiche d'un signalement ouverte depuis la liste
       const bouton = page.locator("#liste-proximite ul button").first();
       if (await bouton.count()) {
@@ -128,6 +145,7 @@ for (const e of ECRANS) {
     try {
       localStorage.setItem("vigie-nc:avertissement-v1", "1");
       localStorage.setItem("vigie-nc:astuce-signaler", "vue");
+      localStorage.setItem("vigie-nc:astuce-carte", "vue");
       localStorage.setItem("vigie-nc:trajet-invite", "1");
     } catch {}
   });
@@ -153,6 +171,26 @@ for (const e of ECRANS) {
     console.log(`position bloquée (${e.nom}) :`, err instanceof Error ? err.message : err);
   }
   await bloque.close();
+
+  // Sans JavaScript (comme un lecteur de page) : ce que montre la page
+  // envoyée par le serveur.
+  const sansJs = await browser.newContext({
+    viewport: { width: e.width, height: e.height },
+    deviceScaleFactor: 1,
+    isMobile: e.mobile,
+    hasTouch: e.mobile,
+    locale: "fr-FR",
+    javaScriptEnabled: false,
+  });
+  try {
+    const p = await sansJs.newPage();
+    await p.goto(BASE + "/", { waitUntil: "load", timeout: 30000 }).catch(() => {});
+    await attendre(800);
+    await p.screenshot({ path: `${OUT}/${e.nom}-${e.width}-accueil-sans-js.png` });
+  } catch (err) {
+    console.log(`sans JavaScript (${e.nom}) :`, err instanceof Error ? err.message : err);
+  }
+  await sansJs.close();
 }
 await browser.close();
 console.log("captures faites");

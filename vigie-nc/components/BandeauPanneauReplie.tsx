@@ -13,10 +13,13 @@ const CATEGORIES: Category[] = ["danger", "perturbation", "meteo"];
  */
 export function BandeauPanneauReplie({
   counts,
+  misAJour = null,
   onOuvrir,
   boutonRef,
 }: {
   counts: Record<Category, number>;
+  /** Heure de la dernière mise à jour de la carte (« 19:14 »), ou null. */
+  misAJour?: string | null;
   onOuvrir: () => void;
   boutonRef?: Ref<HTMLButtonElement>;
 }) {
@@ -34,6 +37,9 @@ export function BandeauPanneauReplie({
           </span>
         ))}
       </span>
+      {misAJour && (
+        <span className="font-mono text-[12px] text-mist-dim whitespace-nowrap">Mis à jour à {misAJour}</span>
+      )}
       <button
         ref={boutonRef}
         type="button"

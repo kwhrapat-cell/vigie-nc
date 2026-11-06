@@ -7,6 +7,9 @@ import { clusterByDistance } from "@/lib/cluster";
 import { couleurSur } from "@/lib/contraste";
 import { distanceM, LatLng } from "@/lib/geo";
 import { DEMO_EMPRISE, demoActive } from "@/lib/demo";
+import { signalerErreur } from "@/lib/erreurs";
+import { REPERE_RECENT_MIN } from "@/lib/legende";
+import { useLenteur } from "@/lib/useLenteur";
 import { BACKUP_PLAN_LAYER, MAP_STYLES, NC_BOUNDS } from "@/lib/map-styles";
 import type { MapStyle } from "@/lib/preferences";
 import { getReliability } from "@/lib/reliability";
@@ -18,7 +21,8 @@ import {
   REPORT_TYPE_ICON,
 } from "@/lib/types";
 
-const RECENT_THRESHOLD_MIN = 15;
+// Halo qui pulse : signalé il y a moins de 15 min (expliqué dans la légende).
+const RECENT_THRESHOLD_MIN = REPERE_RECENT_MIN;
 // Au-delà de ce zoom (≈ échelle d'un quartier), chaque signalement est
 // affiché seul ; en dessous, les signalements proches sont regroupés.
 const CLUSTER_MAX_ZOOM = 13;
@@ -133,6 +137,10 @@ export function LiveMap({
   const ligneRef = useRef<Leaflet.LayerGroup | null>(null);
   const lastFitRef = useRef<{ lat: number; lng: number; radiusM: number } | null>(null);
   const [ready, setReady] = useState(false);
+  // La carte ne s'affiche pas (fichier de Leaflet pas arrivé, erreur) ou
+  // tarde : on le dit au lieu de laisser un cadre vide.
+  const [echec, setEchec] = useState(false);
+  const lente = useLenteur(!ready && !echec);
 
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
@@ -156,8 +164,16 @@ export function LiveMap({
 
     (async () => {
       // Leaflet touche à `window` : chargé uniquement dans le navigateur.
-      const mod = await import("leaflet");
-      const L = ((mod as unknown as { default?: typeof Leaflet }).default ?? mod) as typeof Leaflet;
+      let L: typeof Leaflet;
+      try {
+        const mod = await import("leaflet");
+        L = ((mod as unknown as { default?: typeof Leaflet }).default ?? mod) as typeof Leaflet;
+      } catch (e) {
+        // Après une mise à jour du site, signalerErreur recharge la page une fois.
+        if (!cancelled) setEchec(true);
+        signalerErreur(e, "carte");
+        return;
+      }
       if (cancelled || !containerRef.current || mapRef.current) return;
 
       const map = L.map(containerRef.current, {
@@ -512,11 +528,39 @@ export function LiveMap({
   }, [ready, selectedId]);
 
   return (
-    <div
-      ref={containerRef}
-      className="absolute inset-0 isolate"
-      role="application"
-      aria-label="Carte des signalements"
-    />
+    <>
+      <div
+        ref={containerRef}
+        className="absolute inset-0 isolate"
+        role="application"
+        aria-label="Carte des signalements"
+      />
+      {/* Avant que la carte soit prête (aussi dans la page envoyée par le
+          serveur) : ce qu'elle montre, et quoi faire si elle ne vient pas. */}
+      {!ready && (
+        <div className="absolute inset-0 z-[1] flex items-center justify-center bg-void px-6 text-center" role="status">
+          <div className="max-w-[300px]">
+            <p className="flex items-center justify-center gap-2 font-display font-semibold text-[15px] text-mist">
+              {!echec && <span className="w-2 h-2 rounded-full bg-lagoon animate-blink" aria-hidden="true" />}
+              {echec ? "La carte n'a pas pu s'afficher" : lente ? "La carte met du temps à s'afficher" : "Chargement de la carte…"}
+            </p>
+            <p className="mt-1 text-[13.5px] text-mist-dim leading-relaxed">
+              {echec || lente
+                ? "Vérifie ta connexion. La liste des signalements reste à jour."
+                : "Les signalements autour de toi, en direct."}
+            </p>
+            {(echec || lente) && (
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="mt-3 min-h-[44px] rounded-xl border border-line bg-panel-2 px-4 text-[14px] font-medium text-mist"
+              >
+                Recharger la page
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
