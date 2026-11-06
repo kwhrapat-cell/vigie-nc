@@ -159,6 +159,8 @@ function seed(center: LatLng | null) {
   });
   add("meteo", 3.2, -3.5, 40, 2, { description: "Fortes pluies, visibilité réduite." });
   add("trafic_dense", 1.8, 1.4, 8, 0);
+  // Ancien (lib/fraicheur.ts) : plus de la moitié de sa durée sans nouvelle
+  add("chaussee_degradee", -1.2, 3.0, 40 * 60, 0, { description: "Nid-de-poule sur la voie de droite." });
   add("route_coupee", 4.6, 3.2, 15, 0, { relaySource: "facebook", place: "Info relayée (démo)" });
 }
 

@@ -36,8 +36,19 @@ const C = {
   mistDim: "#93B0AD",
   terre: "#E8622F",
 };
-const TITRE = '"Space Grotesk", "Inter", sans-serif';
-const TEXTE = '"Inter", sans-serif';
+// Polices de l'appli, servies par Vigie NC (next/font, app/layout.tsx) sous
+// un nom à elles : lu dans la variable CSS, sinon le nom habituel.
+export function famillePolice(variable: string, secours: string): string {
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(variable).trim();
+    if (v) return v;
+  } catch {
+    // pas de page (tests) : nom habituel
+  }
+  return secours;
+}
+const TITRE = () => `${famillePolice("--police-titre", '"Space Grotesk"')}, sans-serif`;
+const TEXTE = () => `${famillePolice("--police-texte", '"Inter"')}, sans-serif`;
 const M = 72; // marge
 
 function rectArrondi(ctx: CanvasRenderingContext2D, x: number, y: number, l: number, h: number, r: number) {
@@ -75,13 +86,13 @@ export function dessinerPointRoute(ctx: CanvasRenderingContext2D, d: DonneesDess
 
   // En-tête : VIGIE NC + date
   let y = 112;
-  ctx.font = `700 54px ${TITRE}`;
+  ctx.font = `700 54px ${TITRE()}`;
   ctx.fillStyle = C.mist;
   ctx.fillText("VIGIE", M, y);
   const lVigie = ctx.measureText("VIGIE ").width;
   ctx.fillStyle = C.lagon;
   ctx.fillText("NC", M + lVigie, y);
-  ctx.font = `500 30px ${TEXTE}`;
+  ctx.font = `500 30px ${TEXTE()}`;
   ctx.fillStyle = C.mistDim;
   ctx.textAlign = "right";
   ctx.fillText(d.quand, L - M, y - 6);
@@ -92,11 +103,11 @@ export function dessinerPointRoute(ctx: CanvasRenderingContext2D, d: DonneesDess
   const tailleCagou = 170;
   if (d.cagou && !vide) ctx.drawImage(d.cagou, L - M - tailleCagou + 12, 140, tailleCagou, tailleCagou);
   y = 236;
-  ctx.font = `700 96px ${TITRE}`;
+  ctx.font = `700 96px ${TITRE()}`;
   ctx.fillStyle = C.mist;
   ctx.fillText("Point route", M, y);
   y = 300;
-  ctx.font = `500 38px ${TEXTE}`;
+  ctx.font = `500 38px ${TEXTE()}`;
   ctx.fillStyle = C.mistDim;
   ctx.fillText(couper(ctx, d.zone, vide ? L - 2 * M : L - 2 * M - tailleCagou), M, y);
 
@@ -114,10 +125,10 @@ export function dessinerPointRoute(ctx: CanvasRenderingContext2D, d: DonneesDess
     ctx.lineWidth = 3;
     ctx.stroke();
     ctx.textAlign = "center";
-    ctx.font = `700 72px ${TITRE}`;
+    ctx.font = `700 72px ${TITRE()}`;
     ctx.fillStyle = c.n > 0 ? c.couleur : C.mistDim;
     ctx.fillText(String(c.n), x + lBoite / 2, y + 74);
-    ctx.font = `500 28px ${TEXTE}`;
+    ctx.font = `500 28px ${TEXTE()}`;
     ctx.fillStyle = C.mistDim;
     ctx.fillText(c.texte, x + lBoite / 2, y + 114);
     ctx.textAlign = "left";
@@ -129,11 +140,11 @@ export function dessinerPointRoute(ctx: CanvasRenderingContext2D, d: DonneesDess
   const tuile = 84;
   if (vide) {
     y += 70;
-    ctx.font = `600 46px ${TEXTE}`;
+    ctx.font = `600 46px ${TEXTE()}`;
     ctx.fillStyle = C.mist;
     ctx.fillText("Rien de signalé pour l'instant.", M, y);
     y += 56;
-    ctx.font = `500 34px ${TEXTE}`;
+    ctx.font = `500 34px ${TEXTE()}`;
     ctx.fillStyle = C.mistDim;
     ctx.fillText("Bonne route ! Reste prudent :", M, y);
     y += 44;
@@ -151,17 +162,17 @@ export function dessinerPointRoute(ctx: CanvasRenderingContext2D, d: DonneesDess
 
     const xTexte = M + tuile + 28;
     const lTexte = L - M - xTexte;
-    ctx.font = `600 30px ${TEXTE}`;
+    ctx.font = `600 30px ${TEXTE()}`;
     const lFiab = ctx.measureText(l.fiabilite).width;
     ctx.fillStyle = l.couleurFiabilite;
     ctx.textAlign = "right";
     ctx.fillText(l.fiabilite, L - M, y + 46);
     ctx.textAlign = "left";
 
-    ctx.font = `600 42px ${TEXTE}`;
+    ctx.font = `600 42px ${TEXTE()}`;
     ctx.fillStyle = C.mist;
     ctx.fillText(couper(ctx, l.titre, lTexte - lFiab - 24), xTexte, y + 48);
-    ctx.font = `400 30px ${TEXTE}`;
+    ctx.font = `400 30px ${TEXTE()}`;
     ctx.fillStyle = C.mistDim;
     ctx.fillText(couper(ctx, l.detail, lTexte), xTexte, y + 88);
 
@@ -171,7 +182,7 @@ export function dessinerPointRoute(ctx: CanvasRenderingContext2D, d: DonneesDess
   }
   if (d.autres > 0) {
     y += 48;
-    ctx.font = `600 32px ${TEXTE}`;
+    ctx.font = `600 32px ${TEXTE()}`;
     ctx.fillStyle = C.lagon;
     ctx.fillText(`+ ${d.autres} autre${d.autres > 1 ? "s" : ""} signalement${d.autres > 1 ? "s" : ""} sur la carte`, M, y);
   }
@@ -180,13 +191,13 @@ export function dessinerPointRoute(ctx: CanvasRenderingContext2D, d: DonneesDess
   const yPied = H - 176;
   ctx.fillStyle = C.ligne;
   ctx.fillRect(M, yPied, L - 2 * M, 2);
-  ctx.font = `400 28px ${TEXTE}`;
+  ctx.font = `400 28px ${TEXTE()}`;
   ctx.fillStyle = C.mistDim;
   ctx.fillText("Infos signalées par les usagers : vérifie sur place.", M, yPied + 52);
-  ctx.font = `700 56px ${TITRE}`;
+  ctx.font = `700 56px ${TITRE()}`;
   ctx.fillStyle = C.lagon;
   ctx.fillText(d.site, M, yPied + 128);
-  ctx.font = `500 30px ${TEXTE}`;
+  ctx.font = `500 30px ${TEXTE()}`;
   ctx.fillStyle = C.mist;
   ctx.textAlign = "right";
   ctx.fillText("Gratuit · sans compte", L - M, yPied + 124);

@@ -18,7 +18,7 @@ export const RELIABILITY_LEVELS: {
   label: string;
   rule: string;
 }[] = [
-  { level: "signalement", label: "Signalement", rule: "1 personne" },
+  { level: "signalement", label: "Signalé", rule: "1 personne, pas encore confirmé" },
   { level: "a_confirmer", label: "À confirmer", rule: "2 à 3 personnes" },
   { level: "confirme", label: "Confirmé", rule: "4 personnes et +" },
   { level: "verifie", label: "Vérifié", rule: "Source officielle" },
@@ -68,5 +68,5 @@ export function getReliability(
   if (people >= 2) {
     return { level: "a_confirmer", label: "À confirmer", people, detail: `${people} personnes`, contested };
   }
-  return { level: "signalement", label: "Signalement", people, detail: "1 personne", contested };
+  return { level: "signalement", label: "Signalé", people, detail: "1 personne", contested };
 }

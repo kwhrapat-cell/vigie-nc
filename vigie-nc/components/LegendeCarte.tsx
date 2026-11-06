@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, type ReactNode } from "react";
 import { couleurSur } from "@/lib/contraste";
-import { LEGENDE, texteDerniereMiseAJour, texteTypesCategorie, TYPE_EXEMPLE } from "@/lib/legende";
+import { LEGENDE, SOS_EXPLICATION, texteDerniereMiseAJour, texteTypesCategorie, TYPE_EXEMPLE } from "@/lib/legende";
 import { RELIABILITY_HEX, RELIABILITY_LEVELS } from "@/lib/reliability";
 import { Category, CATEGORY_HEX, CATEGORY_LABELS, REPORT_TYPE_ICON } from "@/lib/types";
 import { PIN_ZONE_SVG } from "./LiveMap";
@@ -54,10 +54,20 @@ function PastilleSos({ taille = 30 }: { taille?: number }) {
 }
 
 /** Repère de la carte (mêmes classes que LiveMap : vigie-marker, ring, core). */
-function Repere({ categorie, recent = false, pale = false }: { categorie: Category; recent?: boolean; pale?: boolean }) {
+function Repere({
+  categorie,
+  recent = false,
+  pale = false,
+  ancien = false,
+}: {
+  categorie: Category;
+  recent?: boolean;
+  pale?: boolean;
+  ancien?: boolean;
+}) {
   const color = CATEGORY_HEX[categorie];
   return (
-    <span aria-hidden="true" className={`vigie-marker block ${pale ? "is-faint" : ""}`}>
+    <span aria-hidden="true" className={`vigie-marker block ${pale ? "is-faint" : ""} ${ancien ? "is-ancien" : ""}`}>
       {recent && <span className="ring" style={{ background: `${color}22`, border: `1px solid ${color}` }} />}
       <span className="core" style={{ background: color, color: couleurSur(color) }}>
         <svg
@@ -184,6 +194,7 @@ export function LegendeCarte({
           <ul className="flex flex-col gap-2.5">
             <Ligne visuel={<Repere categorie="danger" recent />}>{LEGENDE.reperes.recent}</Ligne>
             <Ligne visuel={<Repere categorie="perturbation" pale />}>{LEGENDE.reperes.pale}</Ligne>
+            <Ligne visuel={<Repere categorie="danger" ancien />}>{LEGENDE.reperes.ancien}</Ligne>
             <Ligne
               visuel={
                 <span
@@ -223,6 +234,9 @@ export function LegendeCarte({
             {[
               { label: "Relayé", couleur: RELIABILITY_HEX.signalement, regle: LEGENDE.fiabilite.relaye },
               ...RELIABILITY_LEVELS.map((n) => ({ label: n.label, couleur: RELIABILITY_HEX[n.level], regle: n.rule })),
+              // Gris neutre (mist-dim) : ni danger ni « tout va bien ».
+              { label: "Ancien", couleur: "#93B0AD", regle: LEGENDE.fiabilite.ancien },
+              { label: "Terminé", couleur: "#93B0AD", regle: LEGENDE.fiabilite.termine },
             ].map((n) => (
               <li key={n.label} className="contents">
                 <span
@@ -238,13 +252,27 @@ export function LegendeCarte({
           </ul>
         </Section>
 
+        <Section titre={LEGENDE.confiance.titre}>
+          <ul className="flex flex-col gap-1.5 text-[14px] leading-relaxed text-mist-dim list-disc pl-5 marker:text-lagoon">
+            {LEGENDE.confiance.lignes.map((l) => (
+              <li key={l}>{l}</li>
+            ))}
+          </ul>
+        </Section>
+
         <Section titre={LEGENDE.sos.titre}>
           <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 p-3">
             <PastilleSos taille={36} />
-            <div className="flex-1 min-w-0 flex flex-col gap-1.5 text-[14px] leading-relaxed text-mist">
-              {LEGENDE.sos.lignes.map((l) => (
-                <p key={l}>{l}</p>
-              ))}
+            <div className="flex-1 min-w-0 text-[14px] leading-relaxed text-mist">
+              <p className="font-medium">{LEGENDE.sos.ouvre}</p>
+              <dl className="mt-1.5 flex flex-col gap-1.5">
+                {SOS_EXPLICATION.map((q) => (
+                  <div key={q.titre}>
+                    <dt className="font-semibold">{q.titre}</dt>
+                    <dd className="text-mist-dim">{q.texte}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
           </div>
         </Section>

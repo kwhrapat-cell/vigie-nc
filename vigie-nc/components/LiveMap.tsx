@@ -8,6 +8,7 @@ import { couleurSur } from "@/lib/contraste";
 import { distanceM, LatLng } from "@/lib/geo";
 import { DEMO_EMPRISE, demoActive } from "@/lib/demo";
 import { signalerErreur } from "@/lib/erreurs";
+import { estAncien } from "@/lib/fraicheur";
 import { REPERE_RECENT_MIN } from "@/lib/legende";
 import { useLenteur } from "@/lib/useLenteur";
 import { BACKUP_PLAN_LAYER, MAP_STYLES, NC_BOUNDS } from "@/lib/map-styles";
@@ -341,9 +342,12 @@ export function LiveMap({
         const pulse = isSos || ageMin <= RECENT_THRESHOLD_MIN;
         const rel = getReliability(r);
         const ahead = Boolean(devant?.has(r.id));
+        // Pas de nouvelle depuis la moitié de sa durée : grisé (lib/fraicheur.ts)
+        const ancien = !ahead && estAncien(r, now);
         const classes = [
           "vigie-marker",
           (rel.level === "signalement" || rel.contested) && !ahead ? "is-faint" : "",
+          ancien ? "is-ancien" : "",
           r.id === selId ? "is-selected" : "",
           ahead ? "is-ahead" : "",
         ].join(" ");
@@ -362,7 +366,7 @@ export function LiveMap({
             iconAnchor: [15, 15],
           }),
           keyboard: true,
-          title: ahead ? `${r.label} — devant toi` : r.label,
+          title: ahead ? `${r.label} — devant toi` : ancien ? `${r.label} — ancien, à revérifier` : r.label,
           zIndexOffset: r.id === selId ? 1000 : isSos ? 500 : ahead ? 400 : 0,
         })
           .on("click", () => {
@@ -377,6 +381,14 @@ export function LiveMap({
     drawRef.current = draw;
     draw();
   }, [ready, reports, selectedId, highlightIds]);
+
+  // Un repère peut devenir « ancien » sans que la liste change : on redessine
+  // chaque minute (halo des récents, repères grisés).
+  useEffect(() => {
+    if (!ready) return;
+    const t = window.setInterval(() => drawRef.current(), 60_000);
+    return () => window.clearInterval(t);
+  }, [ready]);
 
   // Niveau du cagou qui change (ou réglage du Profil) : nouveau dessin.
   useEffect(() => {

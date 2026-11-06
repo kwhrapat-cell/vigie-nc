@@ -244,7 +244,24 @@ vigie-nc/
                      ajouté aux rechargements déclenchés par le direct
                      (refusé par Patrice : les signalements doivent arriver
                      tout de suite)
-    reliability.ts   4 niveaux : Signalement / À confirmer / Confirmé / Vérifié
+    reliability.ts   4 niveaux : Signalé / À confirmer / Confirmé / Vérifié
+                     (+ « Relayé » ; « Signalement » renommé « Signalé » le
+                     06/11/2026 : un statut, demandé par les retours)
+    fraicheur.ts     fraîcheur : dernière nouvelle = création ou last_confirmed_at
+                     (« Toujours là » ou doublon fusionné) ; « ancien » = plus de
+                     la moitié de sa durée (REPORT_TYPE_LIFETIME_MIN) sans
+                     nouvelle, 30 min au moins, jamais SOS ni source officielle :
+                     repère grisé (LiveMap .is-ancien, redessiné chaque minute),
+                     « · ancien » dans la liste, ligne « Ancien » dans la fiche ;
+                     fiche : heure exacte (heureSignalement), dernière
+                     confirmation, et statutFin (expiré / terminé / retiré)
+    sos.ts           SOS : lien de position (Google Maps), message avec ou sans
+                     position, lien sms: vers les contacts (null sans numéro).
+                     Écran /sos : phrase sous le bouton + « Comment marche le
+                     SOS » (SOS_EXPLICATION de legende.ts, aussi dans la
+                     légende) ; position introuvable → « Prévenir mes contacts
+                     sans position » ; sans contact → le dit. ⚠️ À tester sur
+                     iPhone avec 2 contacts (lien sms: à plusieurs numéros)
     cagou.ts         dessin SVG du cagou (composant Cagou + image du point route)
     impact.ts        « Mon impact », SUR LE TÉLÉPHONE seulement (localStorage
                      « vigie-nc:impact-v1 ») : mes 30 derniers signalements,
@@ -316,7 +333,13 @@ vigie-nc/
                      au code), REPERE_RECENT_MIN (halo de LiveMap),
                      CHARGEMENT_LENT_MS, libellé « Mis à jour à », astuce
                      « vigie-nc:astuce-carte » (après ACCUEIL_KEY de tuto.ts et
-                     l'astuce du « + »). useLenteur.ts : vrai après ce délai
+                     l'astuce du « + »), LEGENDE.confiance (qui publie, comment
+                     c'est vérifié et corrigé), LEGENDE.position (ce qui part
+                     vraiment : base au moment de la recherche, tuiles = zone
+                     affichée, Nominatim à l'ouverture de Signaler ; vérifié par
+                     un audit réseau de vigie-nc.com le 06/11/2026, à garder
+                     conforme avec /confidentialite). useLenteur.ts : vrai après
+                     ce délai
     relay-parser.ts  lecture d'un message collé → type + lieu (sur le téléphone)
     legal.ts         éditeur (Tramea Solutions, entreprise individuelle, RIDET
                      0 726 331.003, adresse et téléphone de l'avis RIDET du
@@ -383,6 +406,10 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   jour est commité avec elle.
 
 - Textes de l'interface et commentaires **en français**, tutoiement.
+- **Polices servies par le site** (`next/font/google` dans app/layout.tsx,
+  variables `--police-texte` / `--police-titre` / `--police-mono`) : jamais
+  de lien vers Google Fonts (le téléphone enverrait son adresse IP à Google).
+  Canvas : `famillePolice()` de lib/point-route-dessin.ts.
 - Mobile d'abord (largeur 380 px), cibles tactiles ≥ 44 px.
 - **Tablette et ordinateur** (le téléphone ne doit pas changer) :
   `components/AppShell.tsx` + `.app-shell` de `globals.css`. Dès 768 px

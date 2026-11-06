@@ -34,9 +34,10 @@ const config: Config = {
         "mist-dim": "#93B0AD",
       },
       fontFamily: {
-        display: ["Space Grotesk", "sans-serif"],
-        body: ["Inter", "sans-serif"],
-        mono: ["IBM Plex Mono", "monospace"],
+        // Polices servies par le site (next/font, app/layout.tsx)
+        display: ["var(--police-titre)", "Space Grotesk", "sans-serif"],
+        body: ["var(--police-texte)", "Inter", "sans-serif"],
+        mono: ["var(--police-mono)", "IBM Plex Mono", "monospace"],
       },
       keyframes: {
         blink: {

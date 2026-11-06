@@ -57,7 +57,8 @@ export default function ConfidentialitePage() {
         <p>Ces informations sont publiques : tout le monde peut les voir sur la carte. Jamais qui les a envoyées.</p>
         <p>
           Le <strong>SOS ne publie rien</strong> : ta position est seulement mise dans le message que tu envoies
-          toi-même à tes contacts (SMS ou autre appli). Vigie NC ne la reçoit pas.
+          toi-même à tes contacts (SMS ou autre appli), sous forme de lien Google Maps. Vigie NC ne la reçoit pas ;
+          Google la voit si quelqu&apos;un ouvre ce lien.
         </p>
       </LegalSection>
 
@@ -106,6 +107,12 @@ export default function ConfidentialitePage() {
           recherche. Quand tu confirmes ou déclares terminé un signalement, elle est envoyée pour vérifier que tu es à
           moins de 5 km. Dans les deux cas, elle n&apos;est <strong>pas enregistrée</strong>. Seule la position
           d&apos;un signalement que tu publies est conservée.
+        </p>
+        <p>
+          Comme pour toute carte en ligne, les fonds de carte (OpenStreetMap, ou Esri en satellite) reçoivent les
+          morceaux de carte affichés, donc <strong>la zone que tu regardes</strong>, avec ton adresse IP. Sur
+          l&apos;écran Signaler, la position du repère est envoyée à OpenStreetMap (Nominatim) dès l&apos;ouverture,
+          pour afficher le nom du lieu, même si tu ne publies rien. Ni l&apos;un ni l&apos;autre ne sait qui tu es.
         </p>
         <p>
           Si ta position est refusée ou introuvable, tu peux <strong>choisir ta zone sur la carte</strong>. Ce repère
@@ -329,17 +336,23 @@ export default function ConfidentialitePage() {
       <LegalSection title="Services extérieurs utilisés par l'appli">
         <LegalList>
           <li>
-            OpenStreetMap (ou MapTiler) : fonds de carte, et nom du lieu à partir de la position du repère
-            (OpenStreetMap).
+            OpenStreetMap (ou MapTiler) : fonds de carte (ils voient la zone affichée), et nom du lieu à partir de
+            la position du repère de l&apos;écran Signaler, dès son ouverture (OpenStreetMap).
           </li>
           <li>Esri : fond de carte satellite si tu le choisis, et plan de secours si le plan habituel ne répond plus.</li>
-          <li>Météo-France Nouvelle-Calédonie : vignette de vigilance sur l&apos;écran Alertes.</li>
+          <li>
+            Météo-France Nouvelle-Calédonie : vignette de vigilance sur l&apos;écran Alertes et sur la carte (ordinateur).
+            Elle ne reçoit aucune position.
+          </li>
           <li>
             L&apos;outil de floutage des visages est téléchargé depuis Vigie NC la première fois que tu ajoutes une
             photo ; seulement s&apos;il n&apos;y est pas disponible, depuis jsDelivr et Google. La photo, elle, est
             floutée sur ton téléphone et ne leur est jamais envoyée.
           </li>
-          <li>Google Maps : seulement si tu touches « Voir dans Maps ».</li>
+          <li>
+            Google Maps : seulement si tu touches « Voir dans Maps » ou « Voir ma position » (SOS), ou si quelqu&apos;un
+            ouvre le lien de position d&apos;un SMS SOS.
+          </li>
           <li>
             Services Google du téléphone (appli Android) : détection « en voiture », seulement si tu actives le
             démarrage tout seul du mode conduite.
@@ -351,6 +364,7 @@ export default function ConfidentialitePage() {
             trajet, si tu en ajoutes un, à partir de positions arrondies à 100 m, sans savoir qui tu es.
           </li>
           <li>Cloudflare (Turnstile) : vérifie qu&apos;une vraie personne ouvre la session anonyme, si cette protection est active.</li>
+          <li>Les polices de caractères sont servies par Vigie NC : ton téléphone ne contacte pas Google Fonts.</li>
           <li>
             Anthropic (intelligence artificielle Claude) : écrit le résumé automatique à partir des textes des témoins,
             et le point route du mode conduite à partir des signalements devant toi, sans savoir qui tu es ni où tu

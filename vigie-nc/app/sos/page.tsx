@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ScreenHeader } from "@/components/ui";
 import { getEmergencyContacts } from "@/lib/emergency-contacts";
+import { SOS_EXPLICATION } from "@/lib/legende";
+import { lienPosition, lienSms, messageSos } from "@/lib/sos";
 import { useGeolocation } from "@/lib/useGeolocation";
 
 const HOLD_MS = 3000;
@@ -12,7 +14,6 @@ const RING_LEN = 2 * Math.PI * RING_R;
 
 type Phase = "idle" | "holding" | "sending" | "done" | "error";
 
-const messageFor = (link: string) => `SOS — j'ai besoin d'aide, voici ma position : ${link}`;
 
 /**
  * Écran SOS — « Je suis en danger ». Appui long de 3 secondes pour éviter
@@ -29,6 +30,7 @@ export default function SosPage() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [progress, setProgress] = useState(0);
   const [contactsCount, setContactsCount] = useState(0);
+  const [numeros, setNumeros] = useState<string[]>([]);
   const [mapsLink, setMapsLink] = useState<string | null>(null);
   const [smsHref, setSmsHref] = useState<string | null>(null);
   const [canShare, setCanShare] = useState(false);
@@ -36,7 +38,9 @@ export default function SosPage() {
   const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    setContactsCount(getEmergencyContacts().length);
+    const contacts = getEmergencyContacts();
+    setContactsCount(contacts.length);
+    setNumeros(contacts.map((c) => c.phone));
     setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
   }, []);
 
@@ -44,12 +48,14 @@ export default function SosPage() {
     setPhase("sending");
     try {
       const pos = await locate();
-      const link = `https://maps.google.com/?q=${pos.lat.toFixed(6)},${pos.lng.toFixed(6)}`;
+      const link = lienPosition(pos.lat, pos.lng);
       setMapsLink(link);
 
-      const contacts = getEmergencyContacts();
-      if (contacts.length > 0) {
-        const href = `sms:${contacts.map((c) => c.phone).join(",")}?body=${encodeURIComponent(messageFor(link))}`;
+      const href = lienSms(
+        getEmergencyContacts().map((c) => c.phone),
+        messageSos(link),
+      );
+      if (href) {
         setSmsHref(href);
         // Ouvre l'appli SMS, message pré-rempli : l'envoi reste un geste
         // volontaire de la personne, jamais automatique.
@@ -64,7 +70,7 @@ export default function SosPage() {
   const sharePosition = useCallback(async () => {
     if (!mapsLink) return;
     try {
-      await navigator.share({ title: "SOS", text: messageFor(mapsLink) });
+      await navigator.share({ title: "SOS", text: messageSos(mapsLink) });
     } catch {
       // partage annulé : rien à faire
     }
@@ -150,9 +156,37 @@ export default function SosPage() {
           </button>
         </div>
 
+        {/* Ce que fait le bouton, dit AVANT de l'utiliser (détails plus bas) */}
+        {phase === "idle" || phase === "holding" ? (
+          <p className="mt-3 max-w-[320px] text-center text-[14px] leading-relaxed text-mist-dim">
+            Prépare un SMS avec ta position pour tes contacts d&apos;urgence. Ne prévient pas les secours : pour
+            eux, appelle ci-dessous.
+          </p>
+        ) : null}
+
         {phase === "error" && (
-          <p className="mt-4 text-center text-[14.5px] text-danger" role="alert">
-            {geoError ?? "Impossible d'obtenir ta position."} Appelle directement les secours ci-dessous.
+          <div className="mt-4 w-full text-center" role="alert">
+            <p className="text-[14.5px] text-danger">
+              {geoError ?? "Impossible d'obtenir ta position."} Appelle directement les secours ci-dessous.
+            </p>
+            {/* Sans position, les contacts peuvent quand même être prévenus */}
+            {lienSms(numeros, messageSos(null)) && (
+              <a
+                href={lienSms(numeros, messageSos(null)) ?? undefined}
+                className="mt-2 inline-flex min-h-[44px] items-center rounded-xl border border-danger/40 bg-danger/10 px-4 text-[14.5px] font-semibold text-mist"
+              >
+                Prévenir mes contacts sans position
+              </a>
+            )}
+            <p className="mt-1.5 text-[13px] text-mist-dim">Tu peux aussi réessayer : garde le doigt 3 secondes.</p>
+          </div>
+        )}
+
+        {phase === "done" && (
+          <p className="mt-4 max-w-[340px] text-center text-[14px] leading-relaxed text-mist" role="status">
+            {smsHref
+              ? "Le SMS est prêt : vérifie qu'il est bien parti. S'il ne s'est pas ouvert, rouvre-le ci-dessous. Pas de réponse ? Appelle les secours."
+              : "Aucun SMS préparé : tu n'as pas de contact d'urgence. Envoie ta position à quelqu'un ci-dessous, ou appelle les secours."}
           </p>
         )}
 
@@ -204,10 +238,20 @@ export default function SosPage() {
           )}
         </ul>
 
-        <p className="mt-5 text-center text-[13px] text-mist-dim leading-relaxed">
-          Vigie NC ne prévient pas les secours à ta place : appelle-les. Ta position n&apos;est jamais publiée sur la
-          carte : elle ne va qu&apos;aux personnes à qui tu envoies le message.
-        </p>
+        {/* Le parcours complet, sans ambiguïté (mêmes textes que la légende de la carte) */}
+        <section aria-labelledby="sos-comment" className="mt-5 w-full rounded-xl border border-line bg-panel px-3 py-3">
+          <h2 id="sos-comment" className="font-display font-semibold text-[15px]">
+            Comment marche le SOS
+          </h2>
+          <dl className="mt-2 flex flex-col gap-2.5 text-[14px] leading-relaxed">
+            {SOS_EXPLICATION.map((q) => (
+              <div key={q.titre}>
+                <dt className="font-semibold text-mist">{q.titre}</dt>
+                <dd className="text-mist-dim">{q.texte}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
       </section>
     </main>
   );

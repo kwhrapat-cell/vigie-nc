@@ -8,7 +8,7 @@ import { analyzeRelayText } from "../lib/relay-parser";
 const base = { confirmations: 0, infirmations: 0, officialSource: null, relaySource: null };
 
 test("fiabilité : 4 niveaux", () => {
-  assert.equal(getReliability(base).label, "Signalement");
+  assert.equal(getReliability(base).label, "Signalé");
   assert.equal(getReliability({ ...base, confirmations: 1 }).label, "À confirmer");
   assert.equal(getReliability({ ...base, confirmations: 3 }).label, "Confirmé");
   assert.equal(getReliability({ ...base, officialSource: "Mairie" }).label, "Vérifié");

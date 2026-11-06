@@ -14,6 +14,7 @@ import {
   DonneesDessin,
   IMAGE_H,
   IMAGE_L,
+  famillePolice,
   IMAGE_LIGNES_MAX,
   LigneDessin,
 } from "./point-route-dessin";
@@ -126,10 +127,12 @@ function iconeSvg(type: Report["type"]): string {
 export async function imagePointRoute(reports: Report[], zone: string): Promise<Blob> {
   // Les polices de l'appli, si elles sont là (sinon celles du téléphone).
   try {
+    const titre = famillePolice("--police-titre", '"Space Grotesk"');
+    const texte = famillePolice("--police-texte", '"Inter"');
     await Promise.all([
-      document.fonts.load('700 96px "Space Grotesk"'),
-      document.fonts.load('600 42px "Inter"'),
-      document.fonts.load('400 30px "Inter"'),
+      document.fonts.load(`700 96px ${titre}`),
+      document.fonts.load(`600 42px ${texte}`),
+      document.fonts.load(`400 30px ${texte}`),
     ]);
   } catch {
     // pas grave : polices du téléphone

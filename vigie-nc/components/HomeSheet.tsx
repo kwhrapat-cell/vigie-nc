@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode, type TouchEvent } from "re
 import { estChantier, libelleFinChantier } from "@/lib/chantier";
 import { formatAgeShort, formatDistance } from "@/lib/geo";
 import { readListeRepliee, saveListeRepliee, sensGlisseListe, suiviGlisseListe } from "@/lib/preferences";
+import { aEteReconfirme, estAncien } from "@/lib/fraicheur";
 import { libelleMiseAJour } from "@/lib/legende";
 import { getReliability } from "@/lib/reliability";
 import { useLenteur } from "@/lib/useLenteur";
@@ -322,6 +323,9 @@ export function HomeSheet({
       <ul className="flex flex-col gap-1.5 max-h-[26vh] overflow-y-auto -mx-1 px-1 pb-1 lg:max-h-none lg:overflow-visible">
         {reports.map((r) => {
           const rel = getReliability(r);
+          // Fraîcheur (lib/fraicheur.ts) : dernière confirmation, ou « ancien »
+          const ancien = estAncien(r);
+          const reconfirme = aEteReconfirme(r) && r.lastConfirmedAt;
           const dist = formatDistance(r.distanceM);
           const where = r.place ?? (dist ? dist.replace(/^à /, "À ") : null);
           return (
@@ -340,10 +344,15 @@ export function HomeSheet({
                   <span className="block text-[13px] text-mist-dim truncate">
                     {[where, r.place && dist ? dist : null].filter(Boolean).join(" · ")}
                   </span>
-                  <span className="block font-mono text-[12px] text-mist-dim opacity-70">
-                    {estChantier(r) && r.endDate
-                      ? `chantier ${libelleFinChantier(r.endDate)}`
-                      : `il y a ${formatAgeShort(r.createdAt)}`}
+                  <span className="block font-mono text-[12px] text-mist-dim">
+                    <span className="opacity-70">
+                      {estChantier(r) && r.endDate
+                        ? `chantier ${libelleFinChantier(r.endDate)}`
+                        : `il y a ${formatAgeShort(r.createdAt)}${
+                            reconfirme ? ` · confirmé il y a ${formatAgeShort(reconfirme)}` : ""
+                          }`}
+                    </span>
+                    {ancien && <span className="font-sans font-medium text-warn"> · ancien</span>}
                   </span>
                 </span>
                 {r.type !== "sos" && rel.people > 0 && (

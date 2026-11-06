@@ -6,6 +6,7 @@ import { errorMessage, flagReport, FlagResult, voteOnReport, VoteResult } from "
 import { idsBadges, nouveauxBadges, texteNouveauxBadges } from "@/lib/impact";
 import { libelleFinChantier } from "@/lib/chantier";
 import { distanceM, formatAge, formatDistance, formatDuration, LatLng } from "@/lib/geo";
+import { aEteReconfirme, estAncien, heureSignalement, statutFin, texteAncien, TEXTE_FIN } from "@/lib/fraicheur";
 import { getReliability, RELIABILITY_HEX } from "@/lib/reliability";
 import {
   FlagReason,
@@ -125,6 +126,9 @@ export function ReportDetail({
   const minutesLeft = (new Date(report.expiresAt).getTime() - Date.now()) / 60_000;
   const myDistanceM = userPosition ? distanceM(userPosition, report) : null;
   const isWitness = myDistanceM !== null && myDistanceM <= MAX_WITNESS_DISTANCE_M;
+  // Fraîcheur (lib/fraicheur.ts) : ancien, dernière confirmation, ou pourquoi il n'est plus sur la carte
+  const fin = statutFin(report);
+  const ancien = active && estAncien(report);
 
   async function vote(v: Vote) {
     if (busy) return;
@@ -253,7 +257,7 @@ export function ReportDetail({
 
         {!active && (
           <p className="mt-3 rounded-xl border border-line bg-panel-2 px-3 py-2 text-[14px] text-mist-dim">
-            Ce signalement est terminé ou a expiré.
+            {fin ? TEXTE_FIN[fin] : TEXTE_FIN.retire}
           </p>
         )}
 
@@ -273,8 +277,8 @@ export function ReportDetail({
 
         <p className="mt-3 text-[13px] text-mist-dim">
           {report.relaySource
-            ? `Info relayée depuis ${RELAY_SOURCE_LABELS[report.relaySource]} · ${formatAge(report.createdAt)}`
-            : `Signalé anonymement · ${formatAge(report.createdAt)}`}
+            ? `Info relayée depuis ${RELAY_SOURCE_LABELS[report.relaySource]} ${heureSignalement(report.createdAt)} (${formatAge(report.createdAt)})`
+            : `Signalé anonymement ${heureSignalement(report.createdAt)} (${formatAge(report.createdAt)})`}
         </p>
         {report.aiSummary && <AiSummary text={report.aiSummary} count={report.aiSummaryCount} />}
         {report.description &&
@@ -329,6 +333,30 @@ export function ReportDetail({
                 }
               >
                 Source officielle ({report.officialSource})
+              </Row>
+            )}
+            {ancien && (
+              <Row
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round">
+                    <path d="M4.5 12a7.5 7.5 0 0 1 12.9-5.2L19.5 9M19.5 4.5V9H15M19.5 12a7.5 7.5 0 0 1-12.9 5.2L4.5 15M4.5 19.5V15H9" />
+                  </svg>
+                }
+              >
+                <span className="font-medium text-warn">Ancien</span>
+                <span className="block text-[13px] text-mist-dim">{texteAncien(report)}</span>
+              </Row>
+            )}
+            {active && !ancien && aEteReconfirme(report) && report.lastConfirmedAt && (
+              <Row
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round">
+                    <path d="M4.5 12a7.5 7.5 0 0 1 12.9-5.2L19.5 9M19.5 4.5V9H15M19.5 12a7.5 7.5 0 0 1-12.9 5.2L4.5 15M4.5 19.5V15H9" />
+                  </svg>
+                }
+              >
+                Dernière confirmation sur place {heureSignalement(report.lastConfirmedAt)} (
+                {formatAge(report.lastConfirmedAt)})
               </Row>
             )}
             {active && report.endDate && report.type === "travaux" && (

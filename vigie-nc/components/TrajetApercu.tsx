@@ -10,7 +10,7 @@ import type { Point } from "@/lib/trajet";
 function repere(L: typeof Leaflet, lettre: string, fond: string): Leaflet.DivIcon {
   return L.divIcon({
     className: "",
-    html: `<div style="width:28px;height:28px;border-radius:9999px;background:${fond};border:3px solid #081317;color:${couleurSur(fond)};font:600 13px/22px Inter,sans-serif;text-align:center;box-shadow:0 4px 10px -3px rgba(0,0,0,.6)">${lettre}</div>`,
+    html: `<div style="width:28px;height:28px;border-radius:9999px;background:${fond};border:3px solid #081317;color:${couleurSur(fond)};font:600 13px/22px var(--police-texte),Inter,sans-serif;text-align:center;box-shadow:0 4px 10px -3px rgba(0,0,0,.6)">${lettre}</div>`,
     iconSize: [28, 28],
     iconAnchor: [14, 14],
   });
