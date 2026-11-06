@@ -1,0 +1,32 @@
+44	accueil	vigie-nc.com			
+1	accueil	fonts.googleapis.com			
+3	accueil	fonts.gstatic.com			
+3	accueil	challenges.cloudflare.com	TUILE		
+2	accueil	erprhuqbodtsmvuknfrv.supabase.co			
+2	accueil	erprhuqbodtsmvuknfrv.supabase.co			POSITION-CORPS
+22	accueil	tile.openstreetmap.org	TUILE		
+4	accueil	challenges.cloudflare.com			
+1	accueil	brunhild.challenges.cloudflare.com			
+49	alertes	vigie-nc.com			
+1	alertes	fonts.googleapis.com			
+2	alertes	fonts.gstatic.com			
+49	alertes	meteo.nc			
+3	alertes	challenges.cloudflare.com	TUILE		
+1	alertes	erprhuqbodtsmvuknfrv.supabase.co			
+1	alertes	erprhuqbodtsmvuknfrv.supabase.co			POSITION-CORPS
+4	alertes	challenges.cloudflare.com			
+1	alertes	brunhild.challenges.cloudflare.com			
+4	alertes	rpcache.meteo.nc			
+24	signaler	vigie-nc.com			
+1	signaler	fonts.googleapis.com			
+2	signaler	fonts.gstatic.com			
+3	signaler	challenges.cloudflare.com	TUILE		
+4	signaler	challenges.cloudflare.com			
+1	signaler	brunhild.challenges.cloudflare.com			
+25	sos	vigie-nc.com			
+1	sos	fonts.googleapis.com			
+2	sos	fonts.gstatic.com			
+3	sos	challenges.cloudflare.com	TUILE		
+4	sos	challenges.cloudflare.com			
+1	sos	brunhild.challenges.cloudflare.com			
+1	sos-declenche			POSITION-URL	
