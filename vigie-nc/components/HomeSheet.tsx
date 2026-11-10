@@ -21,6 +21,7 @@ import type { WatchStatus } from "@/lib/useWatchPosition";
 import { ReliabilityBadge, TypeTile } from "./ui";
 import { Cagou } from "./Cagou";
 import { PartagePointRoute } from "./PartagePointRoute";
+import { EnAttenteCarte } from "./EnAttenteCarte";
 
 const CATEGORIES: Category[] = ["danger", "perturbation", "meteo"];
 
@@ -224,6 +225,9 @@ export function HomeSheet({
       {astuce}
 
       {trajet}
+
+      {/* Signalements faits sans réseau, encore sur le téléphone */}
+      {!demo && <EnAttenteCarte />}
 
       {!hasCenter && scope === "zone" && (geoStatus === "denied" || geoStatus === "unsupported" || geoStatus === "unavailable") && (
         <div className="mt-2.5 rounded-xl border border-warn/30 bg-warn/10 px-3 py-2 text-[13.5px] text-mist">

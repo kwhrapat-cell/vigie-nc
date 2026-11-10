@@ -15,6 +15,8 @@ import {
   VERIFICATION_MS,
 } from "./rafraichissement";
 import { Report } from "./types";
+import { estErreurReseau } from "./en-attente";
+import { heureCourte } from "./legende";
 
 // Filet de sécurité en plus du temps réel (lib/rafraichissement.ts) :
 // rechargement complet chaque minute si le direct est coupé, toutes les
@@ -106,6 +108,13 @@ export function useLiveReports(center: LatLng | null, radiusM: number) {
         setUpdatedAt(new Date(cached.savedAt));
         setStatus("ready");
         setError("Pas de réseau : voici les derniers signalements connus, peut-être dépassés.");
+        return;
+      }
+      if (hasLiveData.current && estErreurReseau(e, navigator.onLine)) {
+        // Le réseau a lâché en cours de route : la carte reste, avec son heure.
+        setError(
+          `Pas de réseau : la carte date de ${heureCourte(new Date(dernierChargement.current))} et peut être dépassée.`,
+        );
         return;
       }
       setError(errorMessage(e, "Impossible de charger les signalements — vérifie ta connexion."));

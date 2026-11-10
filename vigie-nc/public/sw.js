@@ -8,6 +8,11 @@
 //     ligne) ; copie des dernières tuiles vues pour les afficher sans réseau.
 //   - Données (Supabase, /api) : jamais mises en cache ici ; la dernière
 //     carte est gardée par l'appli (lib/useLiveReports.ts) avec son heure.
+//   - Préparation (message « prechauffer » de components/ServiceWorkerRegister,
+//     une fois par version du site et par jour au plus) : l'accueil, Signaler
+//     et SOS sont copiés avec leurs fichiers, pour s'ouvrir sans réseau même
+//     si on ne les a jamais ouverts (un signalement fait sans réseau est
+//     gardé sur le téléphone : lib/en-attente.ts).
 
 const VERSION = "v2";
 const PAGES = `vigie-pages-${VERSION}`;
@@ -15,6 +20,9 @@ const STATIQUE = `vigie-statique-${VERSION}`;
 const TUILES = `vigie-tuiles-${VERSION}`;
 const MAX_STATIQUE = 200;
 const MAX_TUILES = 300;
+const A_PREPARER = ["/", "/signaler", "/sos"];
+// Fichiers de l'appli cités dans une page (scripts, styles, polices).
+const FICHIER_APPLI = /\/_next\/static\/[^"'\s<>\\)]+/g;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -51,7 +59,12 @@ async function networkFirstPage(request) {
     if (response.ok) cache.put(request, response.clone());
     return response;
   } catch {
-    return (await cache.match(request)) || (await cache.match("/")) || Response.error();
+    return (
+      (await cache.match(request)) ||
+      (await cache.match(request, { ignoreSearch: true })) ||
+      (await cache.match("/")) ||
+      Response.error()
+    );
   }
 }
 
@@ -82,6 +95,38 @@ async function cacheFirst(request, cacheName, max) {
   }
   return response;
 }
+
+async function preparer() {
+  const pages = await caches.open(PAGES);
+  const statique = await caches.open(STATIQUE);
+  const fichiers = new Set();
+  for (const chemin of A_PREPARER) {
+    try {
+      const response = await fetch(chemin, { credentials: "same-origin" });
+      if (!response.ok) continue;
+      const html = await response.clone().text();
+      await pages.put(chemin, response);
+      for (const m of html.matchAll(FICHIER_APPLI)) fichiers.add(m[0]);
+    } catch {
+      // pas de réseau : on réessaiera à la prochaine ouverture
+    }
+  }
+  for (const fichier of fichiers) {
+    try {
+      if (await statique.match(fichier)) continue;
+      const response = await fetch(fichier);
+      if (response.ok) await statique.put(fichier, response);
+    } catch {
+      // un fichier manquant n'empêche pas les autres
+    }
+  }
+  // Les fichiers préparés sont les plus récents : le tri garde ceux-là.
+  await trim(STATIQUE, MAX_STATIQUE);
+}
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "prechauffer") event.waitUntil(preparer());
+});
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;

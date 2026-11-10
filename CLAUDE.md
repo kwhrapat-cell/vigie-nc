@@ -152,7 +152,19 @@ vigie-nc/
                   dans LiveMap, prop ligne/cadrerLigne ; ses signalements ajoutés à la
                   carte) ; lien ?trajet=1 = déplié + ligne cadrée ; sans trajet,
                   invitation fermable « vigie-nc:trajet-invite »),
-                  ServiceWorkerRegister (enregistre public/sw.js),
+                  ServiceWorkerRegister (enregistre public/sw.js, puis 15 s après
+                  l'ouverture lui demande de préparer l'ouverture sans réseau :
+                  message « prechauffer », une fois par version du site et par
+                  jour au plus, « vigie-nc:prechauffe », jamais en démo ni en
+                  économie de données),
+                  EnvoiEnAttente (dans le layout, rien à l'écran : envoie les
+                  signalements faits sans réseau, lib/en-attente.ts, un par
+                  minute au plus — limite de la base —, au retour du réseau, en
+                  revenant sur l'appli ou toutes les 30 s ; jamais en démo),
+                  EnAttenteCarte (accueil, dans HomeSheet sous le trajet :
+                  « Gardé sur ton téléphone · vu à 14:05 », « Pas parti dans les
+                  15 minutes… » + « C'est encore là, publier », refusé par la
+                  base + message, « Effacer » ; « Parti : … est sur la carte »),
                   SessionInit (ouvre la session anonyme au démarrage),
                   ServiceIndisponible (affiché en prod si la base n'est pas
                   branchée : JAMAIS de mode démo en production, sauf la
@@ -245,7 +257,28 @@ vigie-nc/
                      ni de trajet personnel. useDemo() pour l'affichage (faux au
                      premier rendu, comme le serveur). Testé par tests/demo.test.ts
     useLiveReports.ts carte en direct (temps réel vigie_signal) + dernière
-                     carte gardée pour l'affichage sans réseau
+                     carte gardée pour l'affichage sans réseau (réseau perdu en
+                     cours de route : « Pas de réseau : la carte date de… »)
+    en-attente.ts    signalements faits SANS RÉSEAU, gardés sur le téléphone
+                     (« vigie-nc:en-attente-v1 », 5 au plus, sans la photo) :
+                     envoi tout seul dans les ENVOI_AUTO_MAX_MIN (15) minutes,
+                     ensuite on demande si c'est encore là (la base date le
+                     signalement à sa réception : jamais un vieux signalement
+                     publié comme tout frais), effacé après 2 h ou la durée du
+                     type si elle est plus courte. estErreurReseau (panne de
+                     réseau ≠ refus de la base ; connexion_requise = réseau),
+                     avecDelai (20 s : réseau saturé). Testé par
+                     tests/en-attente.test.ts. /signaler : hors ligne ou panne
+                     → gardé + écran « Gardé sur ton téléphone » ; s'il passe
+                     après le délai, il est retiré de la file
+    en-attente-envoi.ts envoi d'un signalement de la file (lieu cherché s'il
+                     manque ; rate_limit = attendre ; refus = message gardé)
+    trajet-hors-ligne.ts dernier point du trajet favori gardé
+                     (« vigie-nc:trajet-dernier-point », 12 h, même trajet) :
+                     sans réseau, TrajetResume montre la liste d'alors avec son
+                     heure et la mémoire des inondations, pastille « Hors
+                     ligne », JAMAIS « Rien de signalé » ni « en ce moment »
+                     d'après la copie (tests/trajet-hors-ligne.test.ts)
     useAnnonces.ts   annonces générales en direct (temps réel
                      vigie_annonce_signal) + copie pour l'affichage sans réseau
     rafraichissement.ts rythme du filet de sécurité de ces deux-là (sobriété,
@@ -382,7 +415,11 @@ vigie-nc/
                    notifications sur iPhone ; là, l'appli de l'écran d'accueil a
                    ses propres données, à part de Safari) ; icônes dans public/icons/
   public/sw.js     service worker : notifications + ouverture sans réseau
-                   (pages réseau d'abord, fichiers /_next/static, tuiles OSM)
+                   (pages réseau d'abord, fichiers /_next/static, tuiles OSM
+                   vues — jamais de téléchargement en masse, interdit par
+                   OpenStreetMap) ; « prechauffer » copie /, /signaler et /sos
+                   avec leurs fichiers (A_PREPARER) pour qu'ils s'ouvrent sans
+                   réseau même jamais ouverts. VERSION inchangée = tuiles gardées
   assets/fonts/    Inter réduite aux caractères latins (image d'aperçu de /s/[id]), licence OFL.txt
   tests/           tests de la logique (node:test, Node 22, AUCUNE dépendance :
                    « npm test », chargeur tests/chargeur.mjs pour « @/ » et les

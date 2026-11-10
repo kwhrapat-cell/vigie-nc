@@ -272,9 +272,16 @@ export default function ConfidentialitePage() {
             montre ni nom, ni photo, ni ta position. C&apos;est toi qui choisis à qui l&apos;envoyer.
           </li>
           <li>
-            Les derniers signalements et annonces affichés et quelques morceaux de carte, pour pouvoir les revoir
-            sans réseau (ce sont des informations publiques), les annonces que tu as réduites et les travaux
-            déjà montrés aujourd&apos;hui dans le bandeau (pour ne pas te les remontrer avant demain).
+            Les derniers signalements et annonces affichés, le dernier point sur ton trajet favori et quelques
+            morceaux de carte, pour pouvoir les revoir sans réseau (ce sont des informations publiques), les
+            annonces que tu as réduites et les travaux déjà montrés aujourd&apos;hui dans le bandeau (pour ne pas
+            te les remontrer avant demain).
+          </li>
+          <li>
+            Un signalement fait sans réseau (type, position, lieu, texte et niveau de risque, sans la photo) : il
+            reste sur ton téléphone jusqu&apos;à son envoi. Il part tout seul dès que ça capte s&apos;il a moins de
+            15 minutes ; après, l&apos;appli te demande s&apos;il est encore d&apos;actualité. Il est effacé au bout de
+            2 heures au plus (1 heure pour le trafic dense), ou quand tu touches « Effacer ».
           </li>
           <li>
             Sur iPhone, l&apos;appli ajoutée à l&apos;écran d&apos;accueil garde ses propres réglages et contacts, à
