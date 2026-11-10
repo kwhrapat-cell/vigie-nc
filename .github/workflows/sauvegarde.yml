@@ -15,7 +15,9 @@
 # Deux secrets à créer (Settings › Secrets and variables › Actions) :
 #   SUPABASE_DB_URL          adresse « Session pooler » de Supabase (bouton
 #                            « Connect »), avec le mot de passe de la base à
-#                            la place de [YOUR-PASSWORD]
+#                            la place de [YOUR-PASSWORD], tel quel (sans
+#                            l'encoder) : l'adresse est découpée ici et le mot
+#                            de passe ne passe jamais dans une adresse
 #   SAUVEGARDE_MOT_DE_PASSE  phrase de chiffrement, 20 caractères au moins
 #
 # Restaurer : voir « Sauvegardes » dans CLAUDE.md.
@@ -61,9 +63,24 @@ jobs:
 
       - name: Copier la base
         run: |
-          # L'adresse reste dans le conteneur (variable), jamais dans le journal.
-          docker run --rm -e SUPABASE_DB_URL postgres:17 sh -c \
-            'pg_dump "$SUPABASE_DB_URL" --schema=public --no-owner --format=custom --compress=9' \
+          # L'adresse est découpée ICI et passée en variables (PGHOST,
+          # PGPASSWORD…) : pg_dump ne lit jamais d'adresse, donc un mot de
+          # passe avec %, @, : ou # ne peut ni la casser ni apparaître dans un
+          # message d'erreur (le journal d'un dépôt public est public).
+          re='^postgres(ql)?://([^:/@]+):(.+)@([^@:/]+):([0-9]+)/([^?]+)'
+          if [[ ! "$SUPABASE_DB_URL" =~ $re ]]; then
+            echo "::error::SUPABASE_DB_URL n'a pas la forme postgresql://utilisateur:motdepasse@hôte:port/base (copie l'adresse « Session pooler » de Supabase)."
+            exit 1
+          fi
+          export PGUSER="${BASH_REMATCH[2]}"
+          export PGPASSWORD="${BASH_REMATCH[3]}"
+          export PGHOST="${BASH_REMATCH[4]}"
+          export PGPORT="${BASH_REMATCH[5]}"
+          export PGDATABASE="${BASH_REMATCH[6]}"
+          export PGSSLMODE=require
+          echo "::add-mask::$PGPASSWORD"
+          docker run --rm -e PGUSER -e PGPASSWORD -e PGHOST -e PGPORT -e PGDATABASE -e PGSSLMODE postgres:17 \
+            pg_dump --schema=public --no-owner --format=custom --compress=9 \
             > sauvegarde.dump
 
       - name: Vérifier la copie
