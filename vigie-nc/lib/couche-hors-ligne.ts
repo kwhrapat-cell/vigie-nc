@@ -59,7 +59,10 @@ async function dessiner(canvas: HTMLCanvasElement, z: number, x: number, y: numb
 
 /** Nouvelle couche (à ajouter sous le plan, `bringToBack`). */
 export function creerCoucheHorsLigne(L: typeof Leaflet): Leaflet.GridLayer {
+  // Options données dans `extend` (Leaflet les fusionne avec celles de
+  // GridLayer) : le constructeur créé n'accepte pas d'arguments pour TypeScript.
   const Couche = L.GridLayer.extend({
+    options: { attribution: ATTRIBUTION, maxZoom: 20, zIndex: 0, className: "couche-hors-ligne" },
     createTile(coords: Leaflet.Coords, done: Leaflet.DoneCallback): HTMLElement {
       const canvas = document.createElement("canvas");
       const densite = Math.min(2, window.devicePixelRatio || 1);
@@ -72,7 +75,7 @@ export function creerCoucheHorsLigne(L: typeof Leaflet): Leaflet.GridLayer {
       return canvas;
     },
   });
-  return new Couche({ attribution: ATTRIBUTION, maxZoom: 20, zIndex: 0, className: "couche-hors-ligne" }) as Leaflet.GridLayer;
+  return new Couche() as Leaflet.GridLayer;
 }
 
 /**
