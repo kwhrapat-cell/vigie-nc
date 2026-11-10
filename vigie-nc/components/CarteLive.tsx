@@ -12,7 +12,7 @@ import { WelcomeNotice } from "./WelcomeNotice";
 import { AnnonceBanner } from "./AnnonceBanner";
 import { TravauxBanner } from "./TravauxBanner";
 import { ImpactBanner } from "./ImpactBanner";
-import { TrajetResume } from "./TrajetResume";
+import { InvitationTrajet, TrajetResume } from "./TrajetResume";
 import { AidePosition } from "./AidePosition";
 import { AstuceCarte, BoutonLegende, LegendeCarte } from "./LegendeCarte";
 import { PIN_ZONE_SVG } from "./LiveMap";
@@ -429,7 +429,7 @@ export function CarteLive() {
   return (
     <div
       className={`h-[calc(100dvh_-_var(--demo-h))] flex flex-col ${
-        enConduite ? "" : `${choixZone ? "" : "pb-nav"} lg:!pb-0 lg:grid ${grille} lg:grid-rows-[auto_minmax(0,1fr)]`
+        enConduite ? "" : `${choixZone ? "" : "pb-nav-carte"} lg:!pb-0 lg:grid ${grille} lg:grid-rows-[auto_minmax(0,1fr)]`
       }`}
     >
       {enConduite && (
@@ -717,9 +717,10 @@ export function CarteLive() {
         onEnableLocation={retry}
         onRetry={refresh}
         replieOrdi={panneauReplie}
-        astuce={
-          montrerAstuce ? <AstuceCarte variante="liste" onLegende={ouvrirLegende} onFermer={fermerAstuce} /> : null
-        }
+        /* Astuce « cercle + SOS » : sur la carte, à côté du SOS, à toutes les
+           tailles (la carte du téléphone est assez grande depuis que la liste
+           est repliée par défaut). */
+        apresListe={demo ? null : <InvitationTrajet />}
         trajet={
           demo ? null : (
             <TrajetResume

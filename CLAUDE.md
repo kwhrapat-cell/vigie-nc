@@ -98,9 +98,19 @@ vigie-nc/
   components/     AppShell (cadre de l'appli : largeur selon l'écran et la page),
                   BandeauPanneauReplie (accueil sur ordinateur, panneau replié),
                   CarteLive (accueil), LiveMap, HomeSheet (liste « À proximité » ;
-                  se replie aux compteurs — barre du haut ou glissement vers le
-                  bas — pour agrandir la carte, choix gardé sur le téléphone :
-                  readListeRepliee de lib/preferences.ts), ReportDetail,
+                  REPLIÉE PAR DÉFAUT sur téléphone (la carte d'abord, revue de
+                  design du 11/11/2026) : titre, compteurs, trajet, signalements
+                  en attente, puis un bouton « Voir la liste (N signalements) » ;
+                  toucher un compteur déplie aussi ; barre du haut ou glissement ;
+                  choix gardé : readListeRepliee de lib/preferences.ts, « 0 » =
+                  dépliée. Lignes : l'heure d'abord, en clair (« Il y a 5 min »),
+                  puis le lieu ; plus de compteur de personnes (redite de la
+                  pastille). Sous la liste : InvitationTrajet), ReportDetail
+                  (fiche : en-tête, texte, puis TOUT DE SUITE « Tu es sur place ?
+                  Dis-le aux autres » — Toujours là / C'est terminé, 52 px —, puis
+                  les détails ; le nombre de téléphones n'est plus répété (ligne
+                  seulement en cas de désaccord) ; « Voir dans Maps » en bouton
+                  secondaire, jamais rouge),
                   PositionPicker, BottomNav, ui.tsx (Logo, TypeTile, boutons…),
                   AidePosition (position bloquée ou introuvable, ouverte par
                   « Activer ma position » ou un rayon touché sans position :
@@ -110,9 +120,9 @@ vigie-nc/
                   carte » : NC / 1-3-5 km et le cercle, couleurs, repères
                   (récent, pâle, pastille, toi, Ma zone), fiabilité, SOS, ta
                   position, heure de mise à jour ; AstuceCarte = astuce
-                  « cercle + SOS » (à côté du bouton SOS dès 960 px, dans
-                  HomeSheet en dessous : la carte du téléphone est trop
-                  petite pour être recouverte), montrée une fois
+                  « cercle + SOS » (sur la carte, à côté du bouton SOS, à
+                  toutes les tailles depuis que la liste est repliée par
+                  défaut ; la variante « liste » n'est plus utilisée), montrée une fois
                   après l'accueil et la bulle du « + », jamais en démo,
                   conduite, choix de zone ni fiche ouverte ; textes et
                   logique dans lib/legende.ts). LiveMap affiche « Chargement
@@ -154,13 +164,13 @@ vigie-nc/
                   tracé, pointillés = extrémités gardées sur le téléphone ; renvoie le
                   trajet à la base s'il manque ou diffère quand les alertes sont actives),
                   TrajetResume (accueil, dans HomeSheet sous les compteurs, visible liste
-                  repliée : « Mon trajet · Rien de signalé / 1 à surveiller / 2 dangers »,
+                  repliée, rien sans trajet : « Mon trajet · Rien de signalé / 1 à surveiller / 2 dangers »,
                   ligne orange « Pluie près de ta route : N endroits déjà inondés » s'il
                   pleut à 10 km (textePluieTrajet), déplié = liste dans l'ordre de la
                   route + « Déjà inondé ces 12 derniers mois » + « Voir sur la carte » (ligne
                   dans LiveMap, prop ligne/cadrerLigne ; ses signalements ajoutés à la
                   carte) ; lien ?trajet=1 = déplié + ligne cadrée ; sans trajet,
-                  invitation fermable « vigie-nc:trajet-invite »),
+                  InvitationTrajet SOUS la liste, fermable « vigie-nc:trajet-invite »),
                   ServiceWorkerRegister (enregistre public/sw.js, puis 15 s après
                   l'ouverture lui demande de préparer l'ouverture sans réseau :
                   message « prechauffer », une fois par version du site et par
@@ -530,7 +540,12 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   Une seule région possible sur l'offre gratuite de Vercel. Écrit dans
   `LEGAL.hebergeur.lieuServeur` (/confidentialite).
   Canvas : `famillePolice()` de lib/point-route-dessin.ts.
-- Mobile d'abord (largeur 380 px), cibles tactiles ≥ 44 px.
+- Mobile d'abord (largeur 380 px), cibles tactiles ≥ 44 px. `.pb-nav`
+  (globals.css) garde la place de la barre du bas ET du « + » qui dépasse
+  (rien ne se cache dessous) ; l'accueil utilise `.pb-nav-carte` (HomeSheet
+  garde elle-même la place du « + »).
+- Profil : d'abord les réglages qui comptent (Ma zone, Contacts SOS, Carte
+  sans réseau, Fond de carte), puis Mon impact (le jeu), puis le reste.
 - **Tablette et ordinateur** (le téléphone ne doit pas changer) :
   `components/AppShell.tsx` + `.app-shell` de `globals.css`. Dès 768 px
   (`md:`) : colonne de 672 px pour les écrans de lecture et de saisie, la
@@ -565,8 +580,16 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   affiche). Signaler = 2 étapes : le type, puis « Publier » (position
   automatique, photo et détails repliés en option).
 - Couleurs : jetons Tailwind (`void`, `panel`, `panel-2`, `line`, `primary`,
-  `lagoon`, `danger`, `warn`, `info`, `ok`, `mist`, `mist-dim`). Couleurs
-  par type/catégorie dans `lib/types.ts`. Texte ou icône posé sur une de ces
+  `lagoon`, `danger`, `warn`, `info`, `ok`, `mist`, `mist-dim`). **Un seul
+  code couleur** (revue de design du 11/11/2026) : rouge = danger (et SOS),
+  orange = perturbation, bleu = météo, partout (carte, compteurs, tuiles,
+  fiche, Signaler rangé par catégorie, images partagées) :
+  `REPORT_TYPE_HEX` = couleur de la catégorie, les types se distinguent par
+  l'icône. Le rouge n'est utilisé que pour le danger et le SOS : fiabilité
+  en couleurs neutres (`RELIABILITY_HEX` : gris → clair → lagon pour
+  « Vérifié »), boutons d'action jamais rouges (sauf SOS et 15/17/18),
+  mois chargés de l'historique en jaune (`ochre`). Couleurs par
+  type/catégorie dans `lib/types.ts`. Texte ou icône posé sur une de ces
   couleurs : `couleurSur()` de `lib/contraste.ts`, jamais `text-white` en dur.
   Texte blanc sur `primary` ≥ 4,5:1 (vérifié par tests/contraste.test.ts).
 - Toute lecture/écriture de données passe par `lib/reports-api.ts`, qui gère

@@ -32,6 +32,18 @@ const PAGES = [
 
 const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Téléphone : la liste de l'accueil est repliée par défaut (la carte
+// d'abord) ; « Voir la liste » la déplie avant de toucher un signalement.
+async function deplierListe(page) {
+  const bouton = page.getByRole("button", { name: /Voir la liste/ });
+  if (await bouton.isVisible().catch(() => false)) {
+    await bouton.click().catch(() => {});
+    await attendre(700);
+    return true;
+  }
+  return false;
+}
+
 const browser = await chromium.launch();
 for (const e of ECRANS) {
   const context = await browser.newContext({
@@ -84,10 +96,13 @@ for (const e of ECRANS) {
         await page.getByRole("button", { name: "Fermer la légende" }).click().catch(() => {});
         await attendre(500);
       }
-      // Fiche d'un signalement ouverte depuis la liste
+      // Liste dépliée, puis fiche d'un signalement ouverte depuis la liste
+      if (await deplierListe(page)) {
+        await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-accueil-liste.png` });
+      }
       const bouton = page.locator("#liste-proximite ul button").first();
       if (await bouton.count()) {
-        await bouton.click();
+        await bouton.click({ timeout: 8000 }).catch(() => {});
         await attendre(1200);
         await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-accueil-fiche.png` });
       }
@@ -124,9 +139,12 @@ for (const e of ECRANS) {
     await page.waitForURL(BASE + "/", { timeout: 15000 }).catch(() => {});
     await attendre(4500);
     await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-demo-accueil.png` });
+    if (await deplierListe(page)) {
+      await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-demo-liste.png` });
+    }
     const fiche = page.locator("#liste-proximite ul button").first();
     if (await fiche.count()) {
-      await fiche.click();
+      await fiche.click({ timeout: 8000 }).catch(() => {});
       await attendre(1200);
       await page.screenshot({ path: `${OUT}/${e.nom}-${e.width}-demo-fiche.png` });
     }

@@ -26,8 +26,14 @@ html.mode-demo {
   --demo-h: 30px;
 }
 
-/* Espace pour la barre de navigation du bas (+ encoche iPhone) */
+/* Espace pour la barre de navigation du bas (+ encoche iPhone), et pour
+   le bouton « + » qui dépasse au-dessus d'elle : rien ne se cache dessous
+   en bas des pages. */
 .pb-nav {
+  padding-bottom: calc(62px + 32px + min(env(safe-area-inset-bottom, 0px), 34px));
+}
+/* Accueil : la liste du bas garde elle-même la place du « + » (HomeSheet). */
+.pb-nav-carte {
   padding-bottom: calc(62px + min(env(safe-area-inset-bottom, 0px), 34px));
 }
 

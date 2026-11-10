@@ -138,11 +138,12 @@ export function saveMapStyle(style: MapStyle): void {
 }
 
 // Liste « À proximité » de l'accueil repliée (la carte prend la place) ou
-// dépliée. Dépliée par défaut ; le choix est gardé sur le téléphone.
+// dépliée. Repliée par défaut (la carte d'abord, revue de design du
+// 11/11/2026) ; le choix est gardé sur le téléphone.
 const LISTE_KEY = "vigie-nc:liste-repliee";
 
 export function readListeRepliee(): boolean {
-  return read(LISTE_KEY) === "1";
+  return read(LISTE_KEY) !== "0";
 }
 
 export function saveListeRepliee(repliee: boolean): void {

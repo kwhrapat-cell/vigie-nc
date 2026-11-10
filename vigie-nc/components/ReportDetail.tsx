@@ -299,6 +299,72 @@ export function ReportDetail({
           </p>
         )}
 
+        {active && report.isMine && (
+          <div className="mt-4">
+            <p className="text-[13.5px] text-mist-dim mb-2">C&apos;est ton signalement. Préviens les autres quand c&apos;est fini :</p>
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => vote("termine")}
+              className="w-full rounded-xl border border-line bg-panel-2 py-3 text-[15.5px] font-semibold disabled:opacity-50"
+            >
+              {busy ? "Envoi…" : isSos ? "Je n'ai plus besoin d'aide" : "C'est terminé"}
+            </button>
+          </div>
+        )}
+
+        {active && !report.isMine && !isSos && !isWitness && (
+          <p className="mt-4 rounded-xl border border-line bg-panel-2 px-3 py-2.5 text-[13.5px] text-mist-dim leading-relaxed">
+            {myDistanceM === null
+              ? "Pour confirmer ou déclarer terminé, active ta position : seules les personnes à moins de 5 km peuvent voter."
+              : `Tu es ${formatDistance(myDistanceM)} : seules les personnes à moins de 5 km peuvent confirmer ou déclarer terminé.`}
+          </p>
+        )}
+
+        {active && !report.isMine && !isSos && isWitness && (
+          <div className="mt-4">
+            <p className="text-[14px] font-medium text-mist mb-2">Tu es sur place ? Dis-le aux autres :</p>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                disabled={busy !== null}
+                aria-pressed={report.myVote === "present"}
+                onClick={() => vote("present")}
+                className={`min-h-[52px] rounded-xl py-3 text-[15.5px] font-semibold disabled:opacity-50 border ${
+                  report.myVote === "present"
+                    ? "bg-ok text-void border-ok"
+                    : "bg-ok/10 text-ok border-ok/40"
+                }`}
+              >
+                {busy === "present" ? "Envoi…" : "Toujours là"}
+              </button>
+              <button
+                type="button"
+                disabled={busy !== null}
+                aria-pressed={report.myVote === "termine"}
+                onClick={() => vote("termine")}
+                className={`min-h-[52px] rounded-xl py-3 text-[15.5px] font-semibold disabled:opacity-50 border ${
+                  report.myVote === "termine" ? "bg-mist text-void border-mist" : "border-line bg-panel-2 text-mist"
+                }`}
+              >
+                {busy === "termine" ? "Envoi…" : "C'est terminé"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Réponse au vote, juste sous les boutons */}
+        {message && (
+          <p className="mt-3 text-[14px] text-lagoon" role="status">
+            {message}
+          </p>
+        )}
+        {error && (
+          <p className="mt-3 text-[14px] text-danger" role="alert">
+            {error}
+          </p>
+        )}
+
         {isSos ? (
           <div className="mt-3 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-[14px] leading-relaxed">
             Quelqu&apos;un a demandé de l&apos;aide ici. Si tu es à proximité et en sécurité, préviens les secours :{" "}
@@ -308,24 +374,19 @@ export function ReportDetail({
           </div>
         ) : (
           <div className="mt-2 divide-y divide-line border-y border-line">
-            <Row
-              icon={
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
-                  <circle cx="9" cy="8" r="3.2" />
-                  <path d="M3 19a6 6 0 0 1 12 0M16 5.5a3 3 0 0 1 0 5.6M18 19a6 6 0 0 0-2.5-4.9" />
-                </svg>
-              }
-            >
-              {/* On dit ce qu'on sait : des téléphones, pas des personnes vérifiées. */}
-              {report.relaySource
-                ? rel.people > 0
-                  ? `Signalé sur place depuis ${rel.people} téléphone${rel.people > 1 ? "s" : ""}`
-                  : "Personne ne l'a encore signalé sur place"
-                : rel.people > 1
-                  ? `Signalé depuis ${rel.people} téléphones (« Toujours là » compris)`
-                  : "Signalé depuis 1 téléphone"}
-              {rel.contested && <span className="block text-[13px] text-warn">{rel.contested}</span>}
-            </Row>
+            {/* Le nombre de signalements est déjà dans l'en-tête : ici, seulement un désaccord. */}
+            {rel.contested && (
+              <Row
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+                    <circle cx="9" cy="8" r="3.2" />
+                    <path d="M3 19a6 6 0 0 1 12 0M16 5.5a3 3 0 0 1 0 5.6M18 19a6 6 0 0 0-2.5-4.9" />
+                  </svg>
+                }
+              >
+                <span className="text-warn">{rel.contested}</span>
+              </Row>
+            )}
             {report.officialSource && (
               <Row
                 icon={
@@ -392,71 +453,6 @@ export function ReportDetail({
           </div>
         )}
 
-        {active && report.isMine && (
-          <div className="mt-4">
-            <p className="text-[13.5px] text-mist-dim mb-2">C&apos;est ton signalement. Préviens les autres quand c&apos;est fini :</p>
-            <button
-              type="button"
-              disabled={busy !== null}
-              onClick={() => vote("termine")}
-              className="w-full rounded-xl border border-line bg-panel-2 py-3 text-[15.5px] font-semibold disabled:opacity-50"
-            >
-              {busy ? "Envoi…" : isSos ? "Je n'ai plus besoin d'aide" : "C'est terminé"}
-            </button>
-          </div>
-        )}
-
-        {active && !report.isMine && !isSos && !isWitness && (
-          <p className="mt-4 rounded-xl border border-line bg-panel-2 px-3 py-2.5 text-[13.5px] text-mist-dim leading-relaxed">
-            {myDistanceM === null
-              ? "Pour confirmer ou déclarer terminé, active ta position : seules les personnes à moins de 5 km peuvent voter."
-              : `Tu es ${formatDistance(myDistanceM)} : seules les personnes à moins de 5 km peuvent confirmer ou déclarer terminé.`}
-          </p>
-        )}
-
-        {active && !report.isMine && !isSos && isWitness && (
-          <div className="mt-4">
-            <p className="text-[13.5px] text-mist-dim mb-2">Tu es sur place ?</p>
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                disabled={busy !== null}
-                aria-pressed={report.myVote === "present"}
-                onClick={() => vote("present")}
-                className={`rounded-xl py-3 text-[15.5px] font-semibold disabled:opacity-50 border ${
-                  report.myVote === "present"
-                    ? "bg-ok text-void border-ok"
-                    : "bg-ok/10 text-ok border-ok/40"
-                }`}
-              >
-                {busy === "present" ? "Envoi…" : "Toujours là"}
-              </button>
-              <button
-                type="button"
-                disabled={busy !== null}
-                aria-pressed={report.myVote === "termine"}
-                onClick={() => vote("termine")}
-                className={`rounded-xl py-3 text-[15.5px] font-semibold disabled:opacity-50 border ${
-                  report.myVote === "termine" ? "bg-mist text-void border-mist" : "border-line bg-panel-2 text-mist"
-                }`}
-              >
-                {busy === "termine" ? "Envoi…" : "C'est terminé"}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {message && (
-          <p className="mt-3 text-[14px] text-lagoon" role="status">
-            {message}
-          </p>
-        )}
-        {error && (
-          <p className="mt-3 text-[14px] text-danger" role="alert">
-            {error}
-          </p>
-        )}
-
         {!isSos && (
           <div className="mt-4 grid grid-cols-2 gap-2.5">
             <button
@@ -470,7 +466,7 @@ export function ReportDetail({
               href={mapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-xl bg-danger py-3 text-center text-[15.5px] font-semibold text-white"
+              className="rounded-xl border border-line bg-panel-2 py-3 text-center text-[15.5px] font-semibold text-mist"
             >
               Voir dans Maps
             </a>

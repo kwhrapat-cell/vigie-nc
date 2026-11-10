@@ -29,7 +29,10 @@ import {
   retirerEnAttente,
 } from "@/lib/en-attente";
 import {
+  Category,
+  CATEGORY_HEX,
   MAX_WITNESS_DISTANCE_M,
+  REPORT_TYPE_CATEGORY,
   ReportType,
   REPORT_TYPE_HEX,
   REPORT_TYPE_LABELS,
@@ -54,6 +57,15 @@ const DESCRIPTION_MAX = 200;
 // Photo : délai plus court que le signalement (il compte plus que l'image).
 const DELAI_PHOTO_MS = 15_000;
 const RISK_COLORS: Record<RiskLevel, string> = { faible: "#2BB673", moyen: "#F0912E", eleve: "#E5484D" };
+
+// Écran « Que se passe-t-il ? » : les types rangés par catégorie.
+const GROUPES_SIGNALER: { categorie: Category; titre: string; types: Exclude<ReportType, "sos">[] }[] = (
+  [
+    { categorie: "danger", titre: "Danger" },
+    { categorie: "meteo", titre: "Météo" },
+    { categorie: "perturbation", titre: "Perturbation" },
+  ] as const
+).map((g) => ({ ...g, types: SIGNALABLE_TYPES.filter((t) => REPORT_TYPE_CATEGORY[t] === g.categorie) }));
 
 const RESULT_TEXT: Record<CreateResult, { title: string; text: string }> = {
   cree: {
@@ -373,18 +385,29 @@ export default function SignalerPage() {
       {s === 1 && (
         <section className="flex-1 px-4 pb-6">
           <h2 className="font-display font-semibold text-[19px] mb-3">Tu es sur place : que se passe-t-il ?</h2>
-          <div className="grid grid-cols-2 gap-2.5" role="group" aria-label="Type de signalement">
-            {SIGNALABLE_TYPES.map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => choisirType(t)}
-                className="h-[80px] rounded-2xl flex flex-col items-center justify-center gap-1.5 text-[15px] font-semibold active:scale-[0.97] transition-transform"
-                style={{ background: REPORT_TYPE_HEX[t], color: couleurSur(REPORT_TYPE_HEX[t]) }}
-              >
-                <TypeIcon type={t} className="w-8 h-8" />
-                {REPORT_TYPE_SHORT[t]}
-              </button>
+          {/* Rangés par catégorie, avec la couleur de la carte : rouge = danger,
+              bleu = météo, orange = perturbation (un seul code couleur). */}
+          <div className="flex flex-col gap-3">
+            {GROUPES_SIGNALER.map((g) => (
+              <div key={g.categorie} role="group" aria-label={g.titre}>
+                <h3 className="mb-1.5 text-[13px] font-semibold uppercase tracking-wide" style={{ color: CATEGORY_HEX[g.categorie] }}>
+                  {g.titre}
+                </h3>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {g.types.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => choisirType(t)}
+                      className="h-[72px] rounded-2xl flex flex-col items-center justify-center gap-1 text-[15px] font-semibold active:scale-[0.97] transition-transform"
+                      style={{ background: REPORT_TYPE_HEX[t], color: couleurSur(REPORT_TYPE_HEX[t]) }}
+                    >
+                      <TypeIcon type={t} className="w-7 h-7" />
+                      {REPORT_TYPE_SHORT[t]}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
           <p className="mt-4 text-[13px] text-mist-dim">

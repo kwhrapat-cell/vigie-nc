@@ -333,7 +333,7 @@ export function AstuceCarte({
       aria-label="Astuce pour lire la carte"
       className={
         variante === "carte"
-          ? "hidden lg:block absolute left-[4.5rem] right-3 bottom-7 z-[11] max-w-[380px] rounded-2xl border border-line bg-panel/95 backdrop-blur px-3 pt-2.5 pb-2 shadow-[0_16px_36px_-14px_rgba(0,0,0,0.9)] animate-pop-in"
+          ? "absolute left-[4.5rem] right-3 bottom-7 z-[11] max-w-[380px] rounded-2xl border border-line bg-panel/95 backdrop-blur px-3 pt-2.5 pb-2 shadow-[0_16px_36px_-14px_rgba(0,0,0,0.9)] animate-pop-in"
           : "lg:hidden mt-2.5 rounded-xl border border-lagoon/30 bg-lagoon/10 px-3 pt-2.5 pb-1.5"
       }
     >
