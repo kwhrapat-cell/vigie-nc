@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { carteHorsLigneDisponible, CARTE_EVENT } from "@/lib/carte-hors-ligne";
+import { demoActive } from "@/lib/demo";
 import { annoncesPourMoi, destinataires, libelleZone } from "@/lib/annonces-zone";
 import { formatAge, type LatLng } from "@/lib/geo";
 import { useAnnonces } from "@/lib/useAnnonces";
@@ -54,6 +57,71 @@ function saveHidden(ids: string[]): void {
   }
 }
 
+// Rappel « garde la carte sur ton téléphone » sous une annonce Vigilance ou
+// Urgence (décision de Patrice du 11/11/2026) : seulement s'il n'y a pas
+// encore de carte sans réseau, et plus pour cette annonce après « Plus tard ».
+const RAPPEL_PLUS_TARD_KEY = "vigie-nc:rappel-carte-plus-tard";
+
+function lireListe(cle: string): string[] {
+  try {
+    const raw = window.localStorage.getItem(cle);
+    const list = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(list) ? list.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function RappelCarte({ annonceId }: { annonceId: string }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const verifier = () =>
+      setVisible(
+        !demoActive() && navigator.onLine && !carteHorsLigneDisponible() && !lireListe(RAPPEL_PLUS_TARD_KEY).includes(annonceId),
+      );
+    verifier();
+    window.addEventListener(CARTE_EVENT, verifier);
+    window.addEventListener("online", verifier);
+    window.addEventListener("offline", verifier);
+    return () => {
+      window.removeEventListener(CARTE_EVENT, verifier);
+      window.removeEventListener("online", verifier);
+      window.removeEventListener("offline", verifier);
+    };
+  }, [annonceId]);
+  if (!visible) return null;
+  return (
+    <div className="mt-1 mb-1 border-t border-white/10 pt-2.5 pl-[38px]">
+      <p className="text-[14px] leading-snug text-mist">
+        Le réseau peut couper : garde la carte de ta zone sur ton téléphone, tant que ça capte.
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Link
+          href="/carte-hors-ligne?auto=zone"
+          className="flex min-h-[44px] items-center rounded-lg bg-primary px-3.5 text-[14px] font-semibold text-white"
+        >
+          Télécharger la carte
+        </Link>
+        <button
+          type="button"
+          onClick={() => {
+            const liste = [...lireListe(RAPPEL_PLUS_TARD_KEY).filter((x) => x !== annonceId), annonceId].slice(-20);
+            try {
+              window.localStorage.setItem(RAPPEL_PLUS_TARD_KEY, JSON.stringify(liste));
+            } catch {
+              // sans stockage : caché pour cette visite seulement
+            }
+            setVisible(false);
+          }}
+          className="min-h-[44px] rounded-lg border border-white/15 px-3.5 text-[14px] font-medium text-mist-dim"
+        >
+          Plus tard
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function MegaphoneIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className} aria-hidden>
@@ -70,12 +138,15 @@ export function AnnonceCard({
   onNext,
   onHide,
   defaultOpen = false,
+  rappelCarte = false,
 }: {
   annonce: Annonce;
   position?: { index: number; total: number };
   onNext?: () => void;
   onHide?: () => void;
   defaultOpen?: boolean;
+  /** Proposer la carte sans réseau (vigilance, urgence ; pas dans les aperçus). */
+  rappelCarte?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const s = STYLES[annonce.niveau];
@@ -136,6 +207,7 @@ export function AnnonceCard({
           </button>
         )}
       </div>
+      {rappelCarte && annonce.niveau !== "info" && <RappelCarte annonceId={annonce.id} />}
     </section>
   );
 }
@@ -249,6 +321,7 @@ export function AnnonceBanner({
         key={annonce.id}
         annonce={annonce}
         defaultOpen={annonce.id === opened}
+        rappelCarte
         position={{ index: i, total: visibles.length }}
         onNext={() => setIndex((i + 1) % visibles.length)}
         onHide={() => {

@@ -57,6 +57,15 @@ vigie-nc/
                     au format réel marquée « Essai », lib/alerte-exemple.ts, bouton
                     « Recevoir un exemple d'alerte » de l'écran Alertes : montre connectée)
                   + /api/sante (moniteur : site + base ; RPC vigie_sante)
+                  + /api/carte (carte sans réseau : ?fiche=1 = version en cours,
+                    ?f=nc-AAAAMMJJ.pmtiles&debut&fin = octets du fichier, 4 Mo au plus,
+                    lus dans la pré-version GitHub « carte-nc » ; morceaux gardés en
+                    cache par le CDN de Vercel : un fichier daté ne change jamais)
+                  + /carte-hors-ligne (Profil › Carte sans réseau : choisir Autour de moi
+                    10 km / Mon trajet / Toute la Calédonie avec la taille exacte,
+                    téléchargement avec progression, reprise toute seule si le réseau
+                    coupe, « Carte prête », Mettre à jour, Supprimer ; ?auto=zone depuis
+                    le rappel des annonces ; maquette validée par Patrice le 11/11/2026)
                   + /api/alerte-securite (appelé par la base : liste des modérateurs modifiée)
                   + /api/annonce (appelé par la base : annonce générale avec notification)
                   + /api/resumer (appelé par la base : résumé IA des témoignages) et
@@ -157,6 +166,11 @@ vigie-nc/
                   message « prechauffer », une fois par version du site et par
                   jour au plus, « vigie-nc:prechauffe », jamais en démo ni en
                   économie de données),
+                  MajCarteHorsLigne (dans le layout, rien à l'écran : 1 min après
+                  l'ouverture, au plus une fois par jour, en Wi-Fi seulement
+                  (navigator.connection, Android), remplace une carte sans réseau
+                  de plus de 25 jours si une version plus récente existe ; réglage
+                  « vigie-nc:carte-maj-auto »),
                   EnvoiEnAttente (dans le layout, rien à l'écran : envoie les
                   signalements faits sans réseau, lib/en-attente.ts, un par
                   minute au plus — limite de la base —, au retour du réseau, en
@@ -178,7 +192,12 @@ vigie-nc/
                   jamais « confirmé » ni « personnes », appareils),
                   ModIaPanel (onglet IA de /moderation : essai du résumé, rien n'est publié),
                   AnnonceBanner (bandeau des annonces générales sur l'accueil ;
-                  AnnonceCard sert aussi d'aperçu), ModAnnoncesPanel (onglet
+                  AnnonceCard sert aussi d'aperçu ; sous une annonce Vigilance
+                  ou Urgence, RappelCarte propose « Télécharger la carte » s'il
+                  n'y a pas encore de carte sans réseau — décision de Patrice du
+                  11/11/2026, dans l'annonce elle-même pour garder un seul
+                  bandeau ; « Plus tard » = plus pour cette annonce,
+                  « vigie-nc:rappel-carte-plus-tard »), ModAnnoncesPanel (onglet
                   Annonces de /moderation),
                   TravauxBanner (bandeau « Travaux à X km » à l'ouverture :
                   travaux en cours à 10 km, une recherche par ouverture,
@@ -273,6 +292,29 @@ vigie-nc/
                      après le délai, il est retiré de la file
     en-attente-envoi.ts envoi d'un signalement de la file (lieu cherché s'il
                      manque ; rate_limit = attendre ; refus = message gardé)
+    pmtiles.ts       lecture d'un fichier PMTiles v3 sans dépendance (en-tête,
+                     répertoires, numéros de tuiles Hilbert, gzip par
+                     DecompressionStream)
+    mvt.ts           lecture d'une tuile vectorielle (protobuf) sans dépendance
+    carte-dessin.ts  dessin d'une tuile Protomaps sur un canvas (terre, sols, eau,
+                     récifs, routes, bâtiments dès z14, noms des communes et
+                     quartiers) ; couleurs du plan OSM, « Nuit » par le filtre CSS
+    carte-plan.ts    logique pure de la carte sans réseau : tuiles d'un cercle
+                     (zone 10 km) ou le long d'un trajet (1,5 km de chaque côté),
+                     zooms 6 à 15, morceaux de 4 Mo au plus, index gardé sur le
+                     téléphone (Float64Array), tailles affichées
+    carte-hors-ligne.ts carte sans réseau côté téléphone : fiche (/api/carte),
+                     plan (taille exacte avant téléchargement), téléchargement
+                     (morceaux déjà gardés sautés = reprise), Cache Storage
+                     « carte-hors-ligne-v1 » (PAS « vigie-… » : le service worker
+                     efface ces caches-là), liste « vigie-nc:carte-hors-ligne-v1 »,
+                     lecture d'une tuile (zone, puis trajet, puis NC).
+                     Mesuré le 11/11/2026 : zone 10 km ≈ 1,5 Mo, trajet ≈ 2 Mo,
+                     toute la Calédonie ≈ 23 Mo (zoom 15)
+    couche-hors-ligne.ts couche Leaflet (GridLayer + canvas, sur-zoom net au-delà
+                     de z15) ; brancherCarteHorsLigne l'ajoute SOUS le plan dès que
+                     le téléphone est hors ligne ou que 2 tuiles du plan échouent
+                     en 20 s (LiveMap, PositionPicker ; jamais en démo)
     trajet-hors-ligne.ts dernier point du trajet favori gardé
                      (« vigie-nc:trajet-dernier-point », 12 h, même trajet) :
                      sans réseau, TrajetResume montre la liste d'alors avec son
@@ -437,6 +479,12 @@ vigie-nc/
 .github/workflows/verification.yml  à chaque PR : tests de la logique (Node 22),
                    build + types, schema.sql deux fois puis essais.sql sur
                    Postgres + PostGIS
+.github/workflows/carte.yml  carte sans réseau : chaque mois (le 3, et à la demande),
+                   découpe la Calédonie (163.5,-22.9,168.2,-19.4, zoom 15) dans la
+                   carte du monde Protomaps du jour avec l'outil pmtiles (version
+                   figée), contrôle, puis publie nc-AAAAMMJJ.pmtiles et nc.json
+                   (la fiche, après le fichier) dans la pré-version « carte-nc » ;
+                   garde les 2 dernières cartes. Données © OpenStreetMap (ODbL)
 .github/workflows/sauvegarde.yml  sauvegarde chiffrée de la base chaque nuit
                    (voir « Sauvegardes » dans Base de données)
 .github/dependabot.yml  mises à jour groupées une fois par mois (npm du site,
