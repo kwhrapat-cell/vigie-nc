@@ -1,0 +1,44 @@
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator('#liste-proximite ul button').first()
+    - locator resolved to <button type="button" class="w-full flex items-center gap-3 rounded-xl bg-panel-2/70 border border-line px-2.5 py-2 text-left lg:hover:border-lagoon/50 lg:hover:bg-panel-2">…</button>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is not visible
+    - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is not visible
+    - retrying click action
+      - waiting 100ms
+    56 × waiting for element to be visible, enabled and stable
+       - element is not visible
+     - retrying click action
+       - waiting 500ms
+
+    at /tmp/pw/captures.mjs:90:22 {
+  log: [
+    "  - waiting for locator('#liste-proximite ul button').first()",
+    '    - locator resolved to <button type="button" class="w-full flex items-center gap-3 rounded-xl bg-panel-2/70 border border-line px-2.5 py-2 text-left lg:hover:border-lagoon/50 lg:hover:bg-panel-2">…</button>',
+    '  - attempting click action',
+    '    2 × waiting for element to be visible, enabled and stable',
+    '      - element is not visible',
+    '    - retrying click action',
+    '    - waiting 20ms',
+    '    2 × waiting for element to be visible, enabled and stable',
+    '      - element is not visible',
+    '    - retrying click action',
+    '      - waiting 100ms',
+    '    56 × waiting for element to be visible, enabled and stable',
+    '       - element is not visible',
+    '     - retrying click action',
+    '       - waiting 500ms'
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v22.23.4
