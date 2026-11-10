@@ -39,7 +39,9 @@ export default function ConditionsPage() {
         </p>
         <p>
           Les annonces pour toute la Calédonie (bandeau en haut de la carte) sont publiées par l&apos;équipe de
-          Vigie NC. Quand elles citent une source, suis d&apos;abord les consignes de cette source.
+          Vigie NC. Celles d&apos;une commune partenaire sont publiées par ses agents et ne s&apos;affichent que près
+          de cette commune (le tri se fait sur ton téléphone, avec ta position ou la zone que tu as choisie). Quand
+          elles citent une source, suis d&apos;abord les consignes de cette source.
         </p>
         <p>
           Quand plusieurs personnes décrivent le même événement, la fiche peut afficher un{" "}

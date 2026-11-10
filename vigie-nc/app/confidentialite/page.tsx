@@ -168,7 +168,9 @@ export default function ConfidentialitePage() {
           </li>
           <li>
             Rarement, une <strong>annonce importante pour toute la Calédonie</strong>{" "}(cyclone, évacuation…) part
-            vers tous les téléphones abonnés : ton lieu n&apos;est pas utilisé pour elle.
+            vers tous les téléphones abonnés : ton lieu n&apos;est pas utilisé pour elle. Une annonce d&apos;une{" "}
+            <strong>commune partenaire</strong>{" "}ne part que vers les abonnés dont le lieu choisi (arrondi, comme
+            pour les alertes) est près de cette commune.
           </li>
           <li>
             Tout est effacé dès que tu touches « Désactiver », ou quand ton téléphone n&apos;accepte plus les

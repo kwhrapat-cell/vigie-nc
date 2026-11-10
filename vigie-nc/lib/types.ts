@@ -251,8 +251,10 @@ export interface EmergencyContact {
 
 // ---------------------------------------------------------------------
 // Annonces générales : message vu par tout le monde, dans toute la
-// Calédonie (bandeau en haut de la carte). Publiées depuis /moderation.
-// ⚠️ Limites alignées sur moderation_annonce_publier() dans supabase/schema.sql.
+// Calédonie (bandeau en haut de la carte), ou seulement dans le périmètre
+// d'une commune quand c'est son agent qui publie. Publiées depuis /moderation.
+// ⚠️ Limites alignées sur moderation_annonce_publier() dans supabase/schema.sql
+// (comptées par périmètre : toute la Calédonie à part, chaque commune à part).
 // ---------------------------------------------------------------------
 export type AnnonceNiveau = "info" | "vigilance" | "urgence";
 
@@ -271,6 +273,19 @@ export const ANNONCE_DUREES_H = [2, 6, 12, 24, 48] as const;
 // Notifications à tous les abonnés : 3 annonces par 24 h au plus.
 export const ANNONCE_NOTIF_MAX_24H = 3;
 
+/**
+ * Périmètre d'une commune partenaire (cercle : centre + rayon). Une annonce
+ * qui en a un n'est montrée que dans ce cercle (lib/annonces-zone.ts) ; le
+ * modérateur qui en a un ne voit que ce cercle. Voir « Périmètres » dans le SQL.
+ */
+export interface Perimetre {
+  id: string;
+  nom: string; // « Ville du Mont-Dore »
+  lat: number;
+  lng: number;
+  rayonM: number;
+}
+
 export interface Annonce {
   id: string;
   niveau: AnnonceNiveau;
@@ -278,4 +293,6 @@ export interface Annonce {
   source: string | null;
   createdAt: string; // ISO
   expiresAt: string; // ISO — disparaît toute seule à cette heure
+  /** Nulle (ou absente dans une ancienne copie du téléphone) = toute la Calédonie. */
+  zone?: Perimetre | null;
 }

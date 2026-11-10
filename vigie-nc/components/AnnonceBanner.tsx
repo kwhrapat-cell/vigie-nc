@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { formatAge } from "@/lib/geo";
+import { annoncesPourMoi, destinataires, libelleZone } from "@/lib/annonces-zone";
+import { formatAge, type LatLng } from "@/lib/geo";
 import { useAnnonces } from "@/lib/useAnnonces";
-import { useDemo } from "@/lib/useDemo";
 import { Annonce, ANNONCE_NIVEAU_LABELS, AnnonceNiveau } from "@/lib/types";
 
 // Bandeau des annonces générales, en haut de la carte : vu par tout le
-// monde, quelle que soit la zone choisie. « Masquer » le réduit à une
+// monde, quelle que soit la zone choisie. Une annonce de commune n'est
+// montrée que dans son périmètre (position, sinon « Ma zone » : tri fait
+// sur le téléphone, lib/annonces-zone.ts). « Masquer » le réduit à une
 // petite pastille (sur ce téléphone seulement), jamais plus : une annonce
 // en cours reste toujours visible.
 
@@ -76,14 +78,12 @@ export function AnnonceCard({
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
-  // Démonstration Mont-Dore (lib/demo.ts) : l'annonce du scénario vise la commune.
-  const demo = useDemo();
   const s = STYLES[annonce.niveau];
   const long = annonce.texte.length > LONG_TEXT || annonce.texte.split("\n").length > 3;
 
   return (
     <section
-      aria-label={`Annonce pour toute la Calédonie : ${ANNONCE_NIVEAU_LABELS[annonce.niveau]}`}
+      aria-label={`Annonce ${destinataires(annonce)} : ${ANNONCE_NIVEAU_LABELS[annonce.niveau]}`}
       className={`rounded-xl border px-3 pt-2.5 pb-1.5 ${s.box}`}
     >
       <div className="flex items-start gap-2.5">
@@ -118,7 +118,7 @@ export function AnnonceCard({
 
       <div className="mt-0.5 flex items-center gap-2 pl-[38px] text-[12.5px] text-mist-dim">
         <span className="flex-1 min-w-0 truncate">
-          {demo ? "Mont-Dore" : "Toute la NC"} · {formatAge(annonce.createdAt)} · {finAnnonce(annonce.expiresAt)}
+          {libelleZone(annonce)} · {formatAge(annonce.createdAt)} · {finAnnonce(annonce.expiresAt)}
         </span>
         {long && (
           <button type="button" onClick={() => setOpen((o) => !o)} className={`py-2 font-medium ${s.accent}`}>
@@ -141,7 +141,8 @@ export function AnnonceCard({
 }
 
 /**
- * Bandeau de l'accueil : annonces en cours pour toute la Calédonie.
+ * Bandeau de l'accueil : annonces en cours pour toute la Calédonie, et
+ * celles de la commune où se trouve `centre` (position, sinon « Ma zone »).
  * `masque` : un bandeau plus important est affiché (lib/bandeaux.ts) —
  * l'annonce reste alors visible en petite pastille. `onPresence` dit à
  * l'accueil s'il y a une annonce à montrer, et de quel niveau.
@@ -149,11 +150,13 @@ export function AnnonceCard({
 export function AnnonceBanner({
   masque = false,
   onPresence,
+  centre = null,
 }: {
   masque?: boolean;
   onPresence?: (niveau: "alerte" | "info" | null) => void;
+  centre?: LatLng | null;
 } = {}) {
-  const annonces = useAnnonces();
+  const toutes = useAnnonces();
   const [hidden, setHidden] = useState<string[]>([]);
   const [index, setIndex] = useState(0);
   const [opened, setOpened] = useState<string | null>(null);
@@ -173,6 +176,19 @@ export function AnnonceBanner({
     }
     setHidden(list);
   }, []);
+
+  // Arrondi à ~100 m : la liste n'est pas recalculée à chaque pas.
+  const centreLat = centre ? Math.round(centre.lat * 1000) / 1000 : null;
+  const centreLng = centre ? Math.round(centre.lng * 1000) / 1000 : null;
+  const annonces = useMemo(
+    () =>
+      annoncesPourMoi(
+        toutes,
+        centreLat !== null && centreLng !== null ? { lat: centreLat, lng: centreLng } : null,
+        opened,
+      ),
+    [toutes, centreLat, centreLng, opened],
+  );
 
   const visibles = useMemo(() => annonces.filter((a) => !hidden.includes(a.id)), [annonces, hidden]);
 

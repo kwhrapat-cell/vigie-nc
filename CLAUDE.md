@@ -76,7 +76,9 @@ vigie-nc/
                     onglet « Historique » : tout ce qui a été publié (300 au plus), bouton
                     « Effacer (essai) » = suppression DÉFINITIVE (moderation_action
                     'effacer', décision de Patrice du 06/11/2026, pour les essais) ;
-                    onglet « Annonces » : message pour toute la Calédonie ;
+                    onglet « Annonces » : message pour toute la Calédonie, ou pour la commune
+                    de l'agent ; agent d'une commune : bandeau « Tu modères pour… », ni
+                    Chiffres, ni IA, ni alarme de sécurité, ni « Effacer » ;
                     onglet « Chiffres » : utilisateurs actifs, connectés en direct, provenances ;
                     onglet « IA » : essai du résumé automatique avec des témoignages inventés)
                   + /s/[id] (lien partagé d'un signalement : aperçu WhatsApp/Facebook via
@@ -356,6 +358,11 @@ vigie-nc/
                      un audit réseau de vigie-nc.com le 06/11/2026, à garder
                      conforme avec /confidentialite). useLenteur.ts : vrai après
                      ce délai
+    annonces-zone.ts annonces d'une commune : annoncesPourMoi (le téléphone garde
+                     celles dont le périmètre contient sa position, sinon « Ma
+                     zone » ; sans centre, seulement toute la Calédonie ; l'annonce
+                     ouverte depuis une notification reste), libelleZone, textePerimetre
+                     (tests/annonces-zone.test.ts). Rien de plus n'est envoyé à la base
     relay-parser.ts  lecture d'un message collé → type + lieu (sur le téléphone)
     legal.ts         éditeur (Tramea Solutions, entreprise individuelle, RIDET
                      0 726 331.003, adresse et téléphone de l'avis RIDET du
@@ -385,10 +392,11 @@ vigie-nc/
   supabase/schema.sql  schéma complet, ré-exécutable
   supabase/functions/purge-photos  fonction Supabase (Deno) : photos > 7 jours
   supabase/tests/  shim-supabase.sql (faux Supabase pour Postgres + PostGIS)
-                   et essais.sql (44 essais : identité, votes, SOS, photos, droits,
+                   et essais.sql (45 essais : identité, votes, SOS, photos, droits,
                    type « feu », chiffres d'utilisation, annonces générales, chantiers,
                    témoignages et résumé IA, point route, erreurs des téléphones,
-                   trajet favori, historique et effacement, appareils de l'équipe)
+                   trajet favori, historique et effacement, appareils de l'équipe,
+                   périmètre d'une commune)
 .github/workflows/verification.yml  à chaque PR : tests de la logique (Node 22),
                    build + types, schema.sql deux fois puis essais.sql sur
                    Postgres + PostGIS
@@ -537,9 +545,23 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   (`vigie_moderateur`, empreinte dans la table privée `moderateurs`) et
   note l'action dans `moderation_journal`. Les codes ne vont jamais dans le
   dépôt : `select vigie_ajouter_moderateur('Nom', '<code>')` dans l'éditeur SQL.
+- **Périmètres des communes** (décision de Patrice du 10/11/2026) : table
+  privée `perimetres` (cercle : `lat`, `lng`, `rayon_m` de 1 à 60 km),
+  `moderateurs.perimetre_id` (nul = équipe Vigie NC, toute la Calédonie).
+  Éditeur SQL : `vigie_ajouter_perimetre(id, nom, lat, lng, rayon_km)`,
+  `vigie_ajouter_agent(nom, code, perimetre)` (créé directement limité),
+  `vigie_limiter_moderateur(nom, perimetre ou null)`. Un agent : ne voit
+  (`moderation_liste`) et ne modère (`moderation_action`,
+  `moderation_chantier` → `hors_perimetre`) que dans son cercle ; jamais
+  `effacer` ; chiffres, erreurs, essai IA et alarme refusés
+  (`vigie_moderateur_equipe` → `reserve_equipe`). `moderation_verifier`
+  renvoie `perimetre` (affiché par /moderation). Un périmètre utilisé ne
+  peut pas être supprimé (sinon l'agent passerait à toute la Calédonie).
 - Alarme de sécurité : tout changement de la table `moderateurs` (ajout,
-  code, accès retiré/rétabli, renommage, suppression, vidage ; pas les
-  connexions) est noté dans `moderation_journal` et envoyé par `pg_net` à
+  code, accès retiré/rétabli, renommage, périmètre changé, suppression,
+  vidage ; pas les connexions), et le centre ou le rayon d'un périmètre
+  utilisé (`trg_vigie_alarme_perimetres`) : `vigie_envoyer_alarme` le note
+  dans `moderation_journal` et l'envoie par `pg_net` à
   `/api/alerte-securite` (déclencheurs `trg_vigie_alarme_moderateurs*`). Les
   téléphones s'inscrivent depuis /moderation (`moderation_alertes_activer`,
   table privée `moderation_alertes`, indépendante de l'état du modérateur).
@@ -608,7 +630,13 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   est renvoyée par `signalements_proches_v3` / `signalement_detail_v3`
   (colonne `fin_annoncee`, ajoutée en fin de liste : l'appli Android l'ignore).
 - Annonces générales (vues par tout le monde, quelle que soit la zone) :
-  table privée `annonces`, lecture par `annonces_actives()` (sans session),
+  table privée `annonces`, lecture par `annonces_actives()` (sans session ;
+  5 pour toute la Calédonie + 30 des communes, chacune avec `zone` = le
+  périmètre ou null). Annonce publiée par un agent = `perimetre_id` de son
+  périmètre (choisi par la base) : le téléphone trie lui-même
+  (lib/annonces-zone.ts), la notification ne part qu'aux abonnements dont
+  la zone d'alerte touche le cercle (`vigie_zone_touche_perimetre`), l'agent
+  ne voit et ne retire que les siennes, garde-fous comptés par périmètre.
   temps réel sans contenu par `vigie_annonce_signal`. Publication et retrait
   depuis /moderation (`moderation_annonce_publier` / `_retirer` /
   `moderation_annonces`, code du modérateur, noté dans `moderation_journal`,

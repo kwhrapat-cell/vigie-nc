@@ -120,7 +120,15 @@ export function alertPayload(report: AlertReport, target: AlertTarget): PushPayl
 // Texte factuel, sans emoji (voir alertPayload).
 // ---------------------------------------------------------------------
 
-export type SecurityEvent = "ajout" | "code" | "retrait" | "retabli" | "renomme" | "suppression" | "vidage";
+export type SecurityEvent =
+  | "ajout"
+  | "code"
+  | "retrait"
+  | "retabli"
+  | "renomme"
+  | "perimetre"
+  | "suppression"
+  | "vidage";
 
 const SECURITY_TEXT: Record<SecurityEvent, (nom: string) => string> = {
   ajout: (n) => `Nouveau modérateur ajouté : ${n}.`,
@@ -128,6 +136,8 @@ const SECURITY_TEXT: Record<SecurityEvent, (nom: string) => string> = {
   retrait: (n) => `Accès de modération retiré : ${n}.`,
   retabli: (n) => `Accès de modération rétabli : ${n}.`,
   renomme: (n) => `Modérateur renommé : ${n}.`,
+  // agent d'une commune limité, remis sur toute la Calédonie, ou périmètre agrandi
+  perimetre: (n) => `Périmètre de modération changé : ${n}.`,
   suppression: (n) => `Modérateur supprimé : ${n}.`,
   vidage: () => "La liste des modérateurs a été entièrement effacée.",
 };
@@ -154,7 +164,9 @@ export function securityPayload(evenement: SecurityEvent, nom: unknown): PushPay
 // ---------------------------------------------------------------------
 // Annonce générale (toute la Calédonie) : envoyée par /api/annonce à tous
 // les téléphones abonnés aux alertes, quel que soit leur lieu, quand le
-// modérateur l'a demandé (vigilance ou urgence seulement).
+// modérateur l'a demandé (vigilance ou urgence seulement). Annonce d'une
+// commune : seulement aux zones d'alerte qui touchent son périmètre (la
+// base fait le tri, annonce_destinataires).
 // Texte factuel, sans emoji (voir alertPayload).
 // ---------------------------------------------------------------------
 
@@ -164,12 +176,21 @@ export interface AnnonceAlerte {
   texte: string;
   source: string | null;
   expires_at: string;
+  /** Annonce d'une commune : son périmètre (sinon nul). */
+  zone?: { nom: string } | null;
 }
 
-/** Ex. « Urgence · Sécurité civile » / « Cyclone : restez chez vous jusqu'à la levée de l'alerte. » */
+/**
+ * Ex. « Urgence · Sécurité civile » / « Cyclone : restez chez vous jusqu'à la levée de l'alerte. »
+ * Sans source : « Vigie NC », ou le nom de la commune pour une annonce de commune.
+ */
 export function annoncePayload(a: AnnonceAlerte): PushPayload {
   const nettoye = (t: string) => t.replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, " ").trim();
-  const source = a.source ? nettoye(a.source).slice(0, 60) : "Vigie NC";
+  const source = a.source
+    ? nettoye(a.source).slice(0, 60)
+    : a.zone?.nom
+      ? nettoye(a.zone.nom).slice(0, 60)
+      : "Vigie NC";
   const texte = nettoye(a.texte).replace(/\s*\n\s*/g, " ");
   return {
     title: `${ANNONCE_NIVEAU_LABELS[a.niveau] ?? "Annonce"} · ${source}`,

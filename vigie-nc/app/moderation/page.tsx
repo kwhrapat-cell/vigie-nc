@@ -7,6 +7,7 @@ import { ModIaPanel } from "@/components/ModIaPanel";
 import { ModStatsPanel } from "@/components/ModStatsPanel";
 import { SecurityAlarm } from "@/components/SecurityAlarm";
 import { PrimaryButton, ScreenHeader, TypeTile } from "@/components/ui";
+import { textePerimetre } from "@/lib/annonces-zone";
 import { ajouterJours, aujourdhuiNoumea, CHANTIER_JOURS_MAX, libelleFinChantier } from "@/lib/chantier";
 import { formatAge } from "@/lib/geo";
 import {
@@ -19,12 +20,26 @@ import {
   modList,
   modVerify,
 } from "@/lib/reports-api";
-import { FlagReason, RELAY_SOURCE_LABELS, REPORT_TYPE_LABELS } from "@/lib/types";
+import { FlagReason, Perimetre, RELAY_SOURCE_LABELS, REPORT_TYPE_LABELS } from "@/lib/types";
 
 // Le code reste sur ce téléphone, jamais affiché.
 const CODE_KEY = "vigie-nc:code-moderation";
 
 type Onglet = ModFilter | "annonces" | "chiffres" | "ia";
+
+const ONGLETS: [Onglet, string][] = [
+  ["signales", "Signalés"],
+  ["recents", "Récents"],
+  ["travaux", "Travaux"],
+  ["historique", "Historique"],
+  ["annonces", "Annonces"],
+  ["chiffres", "Chiffres"],
+  ["ia", "IA"],
+];
+
+// Réservés à l'équipe Vigie NC : un agent de commune ne les voit pas (la
+// base les lui refuse aussi : vigie_moderateur_equipe dans le SQL).
+const ONGLETS_EQUIPE: Onglet[] = ["chiffres", "ia"];
 
 const MOTIFS_COURTS: Record<FlagReason, string> = {
   donnee_personnelle: "visage, plaque ou nom",
@@ -53,6 +68,8 @@ function saveCode(code: string | null): void {
 export default function ModerationPage() {
   const [code, setCode] = useState<string | null>(null);
   const [nom, setNom] = useState<string | null>(null);
+  // Agent d'une commune : seulement ce périmètre. Nul = équipe Vigie NC.
+  const [perimetre, setPerimetre] = useState<Perimetre | null>(null);
   const [checking, setChecking] = useState(true);
   const [input, setInput] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -74,9 +91,10 @@ export default function ModerationPage() {
       return;
     }
     modVerify(saved)
-      .then((n) => {
+      .then((m) => {
         setCode(saved);
-        setNom(n);
+        setNom(m.nom);
+        setPerimetre(m.perimetre);
       })
       .catch(() => saveCode(null))
       .finally(() => setChecking(false));
@@ -105,10 +123,12 @@ export default function ModerationPage() {
     setChecking(true);
     setLoginError(null);
     try {
-      const n = await modVerify(c);
+      const m = await modVerify(c);
       saveCode(c);
       setCode(c);
-      setNom(n);
+      setNom(m.nom);
+      setPerimetre(m.perimetre);
+      if (m.perimetre && ONGLETS_EQUIPE.includes(filter)) setFilter("signales");
       setInput("");
     } catch (e) {
       setLoginError(errorMessage(e, "Vérification impossible — vérifie ta connexion."));
@@ -121,6 +141,7 @@ export default function ModerationPage() {
     saveCode(null);
     setCode(null);
     setNom(null);
+    setPerimetre(null);
     setItems([]);
   }
 
@@ -169,7 +190,7 @@ export default function ModerationPage() {
     <main className="min-h-[100dvh] pb-10">
       <ScreenHeader
         title="Modération"
-        subtitle={nom ? `Connecté : ${nom}` : undefined}
+        subtitle={nom ? `Connecté : ${nom}${perimetre ? ` · ${perimetre.nom}` : ""}` : undefined}
         backHref="/profil"
         right={
           <button type="button" onClick={logout} className="px-3 h-10 text-[12px] text-mist-dim underline">
@@ -178,20 +199,20 @@ export default function ModerationPage() {
         }
       />
 
-      <SecurityAlarm code={code} />
+      {perimetre ? (
+        <p className="mx-4 mb-2 rounded-lg border border-lagoon/35 bg-lagoon/10 px-3 py-2 text-[12px] leading-relaxed text-mist">
+          Tu modères pour <strong>{perimetre.nom}</strong> ({textePerimetre(perimetre)}) : tu vois seulement les
+          signalements de ce périmètre, et tes annonces ne vont qu&apos;aux personnes qui s&apos;y trouvent.
+        </p>
+      ) : (
+        <SecurityAlarm code={code} />
+      )}
 
-      <div className="mx-4 grid grid-cols-4 md:grid-cols-7 gap-1" role="tablist">
-        {(
-          [
-            ["signales", "Signalés"],
-            ["recents", "Récents"],
-            ["travaux", "Travaux"],
-            ["historique", "Historique"],
-            ["annonces", "Annonces"],
-            ["chiffres", "Chiffres"],
-            ["ia", "IA"],
-          ] as [Onglet, string][]
-        ).map(([f, label]) => (
+      <div
+        className={`mx-4 grid gap-1 ${perimetre ? "grid-cols-5" : "grid-cols-4 md:grid-cols-7"}`}
+        role="tablist"
+      >
+        {ONGLETS.filter(([f]) => !perimetre || !ONGLETS_EQUIPE.includes(f)).map(([f, label]) => (
           <button
             key={f}
             type="button"
@@ -207,11 +228,11 @@ export default function ModerationPage() {
         ))}
       </div>
 
-      {filter === "chiffres" && <ModStatsPanel code={code} />}
+      {filter === "chiffres" && !perimetre && <ModStatsPanel code={code} />}
 
-      {filter === "annonces" && <ModAnnoncesPanel code={code} />}
+      {filter === "annonces" && <ModAnnoncesPanel code={code} perimetre={perimetre} />}
 
-      {filter === "ia" && <ModIaPanel code={code} />}
+      {filter === "ia" && !perimetre && <ModIaPanel code={code} />}
 
       {(filter === "signales" || filter === "recents" || filter === "travaux" || filter === "historique") && (
         <>
@@ -242,7 +263,14 @@ export default function ModerationPage() {
             </p>
           )}
 
-          {filter === "historique" && (
+          {filter === "historique" && perimetre && (
+            <p className="mx-4 mt-2 rounded-lg border border-line bg-panel px-3 py-2 text-[11.5px] leading-relaxed text-mist-dim">
+              Tout ce qui a été publié dans ton périmètre, du plus récent au plus ancien. Pour effacer un essai,
+              demande à l&apos;équipe Vigie NC.
+            </p>
+          )}
+
+          {filter === "historique" && !perimetre && (
             <p className="mx-4 mt-2 rounded-lg border border-line bg-panel px-3 py-2 text-[11.5px] leading-relaxed text-mist-dim">
               Tout ce qui a été publié sur la carte, du plus récent au plus ancien. Efface ici tes essais : ils
               disparaissent de la carte, de l&apos;historique des zones, de la mémoire des trajets et des chiffres.
@@ -270,7 +298,14 @@ export default function ModerationPage() {
 
           <div className="mt-3 flex flex-col gap-3">
             {items.map((item) => (
-              <ModCard key={item.id} item={item} code={code} onDone={load} historique={filter === "historique"} />
+              <ModCard
+                key={item.id}
+                item={item}
+                code={code}
+                onDone={load}
+                historique={filter === "historique"}
+                peutEffacer={!perimetre}
+              />
             ))}
           </div>
         </>
@@ -301,12 +336,15 @@ function ModCard({
   code,
   onDone,
   historique = false,
+  peutEffacer = true,
 }: {
   item: ModItem;
   code: string;
   onDone: () => void;
   /** Onglet « Historique » : date complète, et seulement « Effacer » + « Voir sur la carte ». */
   historique?: boolean;
+  /** Faux pour un agent de commune : « Effacer » est réservé à l'équipe. */
+  peutEffacer?: boolean;
 }) {
   const [busy, setBusy] = useState<ModAction | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -512,9 +550,11 @@ function ModCard({
 
       {historique ? (
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <ActionButton tone="danger" busy={busy === "effacer"} disabled={busy !== null} onClick={() => act("effacer")}>
-            Effacer (essai)
-          </ActionButton>
+          {peutEffacer && (
+            <ActionButton tone="danger" busy={busy === "effacer"} disabled={busy !== null} onClick={() => act("effacer")}>
+              Effacer (essai)
+            </ActionButton>
+          )}
           {item.actif && (
             <Link
               href={`/?signalement=${item.id}`}
