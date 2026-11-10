@@ -432,9 +432,18 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   jour est commité avec elle.
 
 - Textes de l'interface et commentaires **en français**, tutoiement.
-- **Polices servies par le site** (`next/font/google` dans app/layout.tsx,
-  variables `--police-texte` / `--police-titre` / `--police-mono`) : jamais
-  de lien vers Google Fonts (le téléphone enverrait son adresse IP à Google).
+- **Polices rangées dans le site** (`next/font/local` dans app/layout.tsx,
+  fichiers woff2 « latin » d'Inter, Space Grotesk et IBM Plex Mono dans
+  assets/fonts/, licences OFL ; variables `--police-texte` / `--police-titre`
+  / `--police-mono`) : jamais de lien vers Google Fonts (le téléphone
+  enverrait son adresse IP à Google), et plus de `next/font/google` (la
+  construction téléchargeait chez Google : mise en ligne ratée le
+  10/11/2026 quand Google n'a pas répondu).
+- **Serveur de l'appli à Sydney** (`vigie-nc/vercel.json`, `regions` =
+  `syd1`, décision de Patrice du 10/11/2026) : près de la base Supabase
+  (Sydney) et de la Calédonie, au lieu de Washington (`iad1` par défaut).
+  Une seule région possible sur l'offre gratuite de Vercel. Écrit dans
+  `LEGAL.hebergeur.lieuServeur` (/confidentialite).
   Canvas : `famillePolice()` de lib/point-route-dessin.ts.
 - Mobile d'abord (largeur 380 px), cibles tactiles ≥ 44 px.
 - **Tablette et ordinateur** (le téléphone ne doit pas changer) :

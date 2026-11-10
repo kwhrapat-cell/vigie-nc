@@ -28,6 +28,8 @@ export const LEGAL = {
     nom: "Vercel Inc.",
     adresse: "440 N Barranca Avenue #4133, Covina, CA 91723, États-Unis",
     site: "https://vercel.com",
+    // Où tourne le serveur de l'appli (vercel.json, « regions ») : près de la base.
+    lieuServeur: "Sydney (Australie)",
   },
   base: {
     nom: "Supabase, Inc.",

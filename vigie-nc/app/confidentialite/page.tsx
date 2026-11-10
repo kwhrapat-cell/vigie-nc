@@ -334,8 +334,8 @@ export default function ConfidentialitePage() {
       <LegalSection title="Où sont les données ?">
         <p>
           Signalements et photos : {LEGAL.base.nom}, serveurs à {LEGAL.base.lieu}. Site : {LEGAL.hebergeur.nom}{" "}
-          (États-Unis). Comme pour tout site web, ces hébergeurs voient techniquement ton adresse IP pour
-          t&apos;afficher les pages.
+          (États-Unis), dont le serveur de l&apos;appli tourne à {LEGAL.hebergeur.lieuServeur}. Comme pour tout
+          site web, ces hébergeurs voient techniquement ton adresse IP pour t&apos;afficher les pages.
         </p>
       </LegalSection>
 
