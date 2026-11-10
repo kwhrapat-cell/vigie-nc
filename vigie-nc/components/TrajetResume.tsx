@@ -19,6 +19,8 @@ import {
   verdictTrajet,
 } from "@/lib/trajet";
 import type { Report } from "@/lib/types";
+import { heureCourte } from "@/lib/legende";
+import { cleTrajet, DernierPointTrajet, garderDernierPoint, lireDernierPoint } from "@/lib/trajet-hors-ligne";
 import { ReliabilityBadge, TypeTile } from "./ui";
 
 // Relecture : toutes les 2 min tant que l'appli est à l'écran, au retour
@@ -74,6 +76,8 @@ export function TrajetResume({
   const [liste, setListe] = useState<TrajetSignalement[] | null>(null);
   const [memoire, setMemoire] = useState<MemoireInondations | null>(null);
   const [erreur, setErreur] = useState(false);
+  // Sans réseau à l'ouverture : le dernier point gardé sur le téléphone.
+  const [garde, setGarde] = useState<DernierPointTrajet | null>(null);
   const [deplie, setDeplie] = useState(false);
   const derniereLecture = useRef(0);
   const ouvertureFaite = useRef(false);
@@ -85,6 +89,7 @@ export function TrajetResume({
       setTrajet(t);
       setListe(null);
       setMemoire(null);
+      setGarde(null);
       if (!t) onLigne(null, false);
     };
     relire();
@@ -108,11 +113,16 @@ export function TrajetResume({
         fetchTrajetReports(trajet.points),
         fetchTrajetMemoire(trajet.points),
       ]);
+      const cle = cleTrajet(trajet.points);
       if (signalements.status === "fulfilled") {
         setListe(signalements.value);
         setErreur(false);
+        setGarde(null);
+        garderDernierPoint(cle, signalements.value, inondations.status === "fulfilled" ? inondations.value : null);
       } else {
         setErreur(true);
+        // Rien de lu depuis l'ouverture : le dernier point gardé, s'il y en a un.
+        setGarde((g) => g ?? lireDernierPoint(cle));
       }
       // mémoire des inondations : en cas d'échec, on garde la dernière lue
       if (inondations.status === "fulfilled") setMemoire(inondations.value);
@@ -141,7 +151,12 @@ export function TrajetResume({
     if (actualisation) void lire(false);
   }, [actualisation, lire]);
 
-  const reports = useMemo(() => (liste ?? []).map((x) => x.report), [liste]);
+  // Liste affichée : celle du réseau, sinon le dernier point gardé (jamais
+  // pour dire « Rien de signalé » : la pastille reste « Hors ligne »).
+  const depuisGarde = liste === null && garde !== null;
+  const source = liste ?? garde?.liste ?? null;
+  const memoireAffichee = memoire ?? garde?.memoire ?? null;
+  const reports = useMemo(() => (source ?? []).map((x) => x.report), [source]);
   useEffect(() => onReports(reports), [reports, onReports]);
 
   // Ouverture demandée par un lien (?trajet=1) : une fois le trajet lu
@@ -153,10 +168,10 @@ export function TrajetResume({
   }, [demandeOuverture, trajet, onLigne]);
 
   const verdict = useMemo(() => verdictTrajet(reports), [reports]);
-  const pluie = textePluieTrajet(memoire);
+  const pluie = textePluieTrajet(memoireAffichee);
   const positions = useMemo(
-    () => new Map<string, number>((liste ?? []).map((x) => [x.report.id, x.positionM] as [string, number])),
-    [liste],
+    () => new Map<string, number>((source ?? []).map((x) => [x.report.id, x.positionM] as [string, number])),
+    [source],
   );
 
   if (!pret) return null;
@@ -241,6 +256,11 @@ export function TrajetResume({
 
       {deplie && (
         <div id="trajet-detail" className="border-t border-line px-3 pb-2 pt-1">
+          {depuisGarde && garde && ordonnes.length > 0 && (
+            <p className="pt-1.5 text-[13px] text-warn">
+              Pas de réseau : voici le dernier point, à {heureCourte(new Date(garde.at))}. Il est peut-être dépassé.
+            </p>
+          )}
           {ordonnes.length > 0 ? (
             <ul className="flex flex-col">
               {ordonnes.map((r) => {
@@ -274,11 +294,11 @@ export function TrajetResume({
                 : "Rien de signalé sur ton trajet. L'absence de signalement ne garantit pas que la route est dégagée."}
             </p>
           )}
-          {memoire && memoire.zones.length > 0 && (
+          {memoireAffichee && memoireAffichee.zones.length > 0 && (
             <div className="mt-1.5 border-t border-line pt-1.5">
               <p className="text-[13px] font-semibold text-mist-dim">Déjà inondé ces 12 derniers mois</p>
               <ul className="mt-0.5 flex flex-col">
-                {memoire.zones.map((z, i) => (
+                {memoireAffichee.zones.map((z, i) => (
                   <li key={`${z.lat},${z.lng},${i}`} className="py-1.5">
                     <span className={`block text-[14px] ${z.enCours ? "font-semibold text-warn" : ""}`}>
                       {z.lieu ?? "Endroit sans nom"}

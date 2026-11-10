@@ -12,12 +12,22 @@ import { distanceM, formatDuration, LatLng } from "@/lib/geo";
 import { GeoPosition, useGeolocation } from "@/lib/useGeolocation";
 import { reversePlace } from "@/lib/place";
 import { preparePhoto } from "@/lib/face-blur";
+import { supabase } from "@/lib/supabase";
+import { demoActive } from "@/lib/demo";
 import {
   createReport,
   CreateResult,
   errorMessage,
   uploadReportPhoto,
 } from "@/lib/reports-api";
+import {
+  ajouterEnAttente,
+  avecDelai,
+  DELAI_RESEAU_MS,
+  ENVOI_AUTO_MAX_MIN,
+  estErreurReseau,
+  retirerEnAttente,
+} from "@/lib/en-attente";
 import {
   MAX_WITNESS_DISTANCE_M,
   ReportType,
@@ -41,6 +51,8 @@ const STEP_NAMES: Record<1 | 2, string> = { 1: "Que se passe-t-il ?", 2: "Vérif
 const MAX_PIN_DISTANCE_M = MAX_WITNESS_DISTANCE_M;
 const POOR_ACCURACY_M = 300;
 const DESCRIPTION_MAX = 200;
+// Photo : délai plus court que le signalement (il compte plus que l'image).
+const DELAI_PHOTO_MS = 15_000;
 const RISK_COLORS: Record<RiskLevel, string> = { faible: "#2BB673", moyen: "#F0912E", eleve: "#E5484D" };
 
 const RESULT_TEXT: Record<CreateResult, { title: string; text: string }> = {
@@ -83,6 +95,8 @@ export default function SignalerPage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ id: string; resultat: CreateResult } | null>(null);
   const [badgesGagnes, setBadgesGagnes] = useState("");
+  // Pas de réseau : gardé sur le téléphone (lib/en-attente.ts) ; sans la photo.
+  const [enAttente, setEnAttente] = useState<{ photoLaissee: boolean } | null>(null);
   const pinTouched = useRef(false);
 
   const relocate = useCallback(() => {
@@ -178,17 +192,41 @@ export default function SignalerPage() {
     if (!type || !pin || submitting) return;
     setSubmitting(true);
     setError(null);
+    const typeChoisi = type;
+    const position = pin;
+    // Démonstration (données fictives) : jamais dans la file des vrais signalements.
+    const peutGarder = Boolean(supabase) && !demoActive();
+    const garder = () => {
+      const s = ajouterEnAttente({
+        type: typeChoisi,
+        lat: position.lat,
+        lng: position.lng,
+        description: description.trim() || null,
+        riskLevel: risk,
+        place,
+        vuA: Date.now(),
+      });
+      setEnAttente({ photoLaissee: Boolean(photo) });
+      setStep(3);
+      window.scrollTo(0, 0);
+      return s;
+    };
     try {
+      // Aucun réseau du tout : inutile d'attendre, on le garde tout de suite.
+      if (peutGarder && !navigator.onLine) {
+        garder();
+        return;
+      }
       let photoUrl: string | null = null;
       if (photo) {
         try {
-          photoUrl = await uploadReportPhoto(photo);
+          photoUrl = await avecDelai(uploadReportPhoto(photo), DELAI_PHOTO_MS);
         } catch {
           photoUrl = null; // l'info route compte plus que l'image
         }
       }
       const avant = idsBadges();
-      const res = await createReport({
+      const envoi = createReport({
         type,
         lat: pin.lat,
         lng: pin.lng,
@@ -197,9 +235,17 @@ export default function SignalerPage() {
         riskLevel: risk,
         place,
       });
-      setResult(res);
-      setBadgesGagnes(texteNouveauxBadges(nouveauxBadges(avant)));
-      setStep(3);
+      try {
+        const res = await avecDelai(envoi, DELAI_RESEAU_MS);
+        setResult(res);
+        setBadgesGagnes(texteNouveauxBadges(nouveauxBadges(avant)));
+        setStep(3);
+      } catch (e) {
+        if (!peutGarder || !estErreurReseau(e, navigator.onLine)) throw e;
+        const garde = garder();
+        // Réseau saturé : l'envoi a peut-être fini par passer après le délai.
+        envoi.then(() => retirerEnAttente(garde.id)).catch(() => undefined);
+      }
     } catch (e) {
       setError(errorMessage(e, "Impossible de publier pour le moment — vérifie ta connexion."));
     } finally {
@@ -211,6 +257,48 @@ export default function SignalerPage() {
     setError(null);
     if (step === 1 || step === 3) router.push("/");
     else setStep(1);
+  }
+
+  // ------------------------------------------------------------------
+  // Étape 3 — pas de réseau : gardé sur le téléphone
+  // ------------------------------------------------------------------
+  if (step === 3 && enAttente && type) {
+    return (
+      <main className="min-h-[100dvh] flex flex-col px-5 pt-16 pb-8">
+        <div className="flex-1 flex flex-col items-center text-center">
+          <div className="w-28 h-28 rounded-full bg-panel-2 border border-line flex items-center justify-center animate-pop-in">
+            <Cagou size={70} />
+          </div>
+          <h1 className="mt-8 font-display font-bold text-[24px]">Gardé sur ton téléphone</h1>
+          <p className="mt-2 text-[15px] text-mist-dim leading-relaxed max-w-[320px]">
+            Pas de réseau pour l&apos;instant. Ton signalement partira tout seul dès que ça capte, dans les{" "}
+            {ENVOI_AUTO_MAX_MIN} minutes. Après, Vigie NC te demandera s&apos;il est encore d&apos;actualité.
+          </p>
+          {enAttente.photoLaissee && (
+            <p className="mt-2 text-[14px] text-warn max-w-[320px]">
+              La photo ne part pas sans réseau : seul le signalement est gardé.
+            </p>
+          )}
+
+          <div className="mt-6 w-full flex items-center gap-3 rounded-xl border border-line bg-panel px-3 py-2.5 text-left">
+            <TypeTile type={type} size={40} />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-[15px]">{REPORT_TYPE_LABELS[type]}</p>
+              <p className="text-[13px] text-mist-dim truncate">
+                {place ?? "Position enregistrée"} · vu à{" "}
+                {new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+              </p>
+            </div>
+          </div>
+          <p className="mt-3 text-[13.5px] text-mist-dim">
+            Tu le retrouves sur l&apos;accueil, sous les compteurs, tant qu&apos;il n&apos;est pas parti.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2.5">
+          <PrimaryButton onClick={() => router.push("/")}>Retour à l&apos;accueil</PrimaryButton>
+        </div>
+      </main>
+    );
   }
 
   // ------------------------------------------------------------------

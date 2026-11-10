@@ -127,7 +127,11 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 export class ReportsApiError extends Error {
-  constructor(public code: string) {
+  /** `detail` : message d'origine (sert à reconnaître une panne de réseau, lib/en-attente.ts). */
+  constructor(
+    public code: string,
+    public detail?: string,
+  ) {
     super(code);
   }
 }
@@ -226,7 +230,7 @@ export async function fetchNearby(center: LatLng | null, radiusM: number): Promi
     p_lng: center?.lng ?? null,
     p_rayon_m: Math.round(radiusM),
   });
-  if (error) throw new ReportsApiError(codeFromMessage(error.message));
+  if (error) throw new ReportsApiError(codeFromMessage(error.message), error.message);
   return ((data ?? []) as ReportRow[]).map(mapRow);
 }
 
@@ -319,7 +323,7 @@ async function creerSignalement(input: NewReport): Promise<{ id: string; resulta
     p_niveau_risque: input.riskLevel ?? null,
     p_lieu: input.place ?? null,
   });
-  if (error) throw new ReportsApiError(codeFromMessage(error.message));
+  if (error) throw new ReportsApiError(codeFromMessage(error.message), error.message);
   const result = data as { id: string; resultat: CreateResult };
   return { id: result.id, resultat: result.resultat };
 }
