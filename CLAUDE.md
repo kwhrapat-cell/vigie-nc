@@ -400,6 +400,8 @@ vigie-nc/
 .github/workflows/verification.yml  à chaque PR : tests de la logique (Node 22),
                    build + types, schema.sql deux fois puis essais.sql sur
                    Postgres + PostGIS
+.github/workflows/sauvegarde.yml  sauvegarde chiffrée de la base chaque nuit
+                   (voir « Sauvegardes » dans Base de données)
 .github/dependabot.yml  mises à jour groupées une fois par mois (npm du site,
                    actions GitHub, Gradle) ; pas de version majeure automatique
 android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le site
@@ -655,6 +657,23 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   Erreurs du navigateur ignorées (`__firefox__`, `window.ethereum`,
   `user-script:`) des deux côtés : `IGNOREES` de lib/erreurs-texte.ts
   (message ET pile) et `vigie_erreur_signaler` — listes alignées.
+- **Sauvegardes** (décision de Patrice du 10/11/2026 : l'offre gratuite de
+  Supabase n'en garde aucune) : `.github/workflows/sauvegarde.yml`, chaque
+  nuit à 2 h 41 (Nouméa) et à la demande. `pg_dump` 17 du schéma public
+  (tables, fonctions, droits, données ; sans propriétaire), par l'adresse
+  « Session pooler » (secret `SUPABASE_DB_URL`), vérifiée (`pg_restore
+  --list` : 20 tables et 50 fonctions au moins), chiffrée AES-256 par gpg
+  (secret `SAUVEGARDE_MOT_DE_PASSE`, 20 caractères au moins, jamais dans le
+  dépôt), contrôlée par déchiffrement, puis gardée 30 jours en artifact. Le
+  dépôt est public : **jamais de copie en clair** (ni artifact, ni commit,
+  ni journal). Pas les photos (7 jours), ni les sessions anonymes, ni les
+  tâches pg_cron (schéma cron). Restaurer, à faire avec Claude, d'abord dans
+  un projet Supabase neuf : télécharger l'artifact, `gpg -d
+  vigie-nc-….dump.gpg > sauvegarde.dump`, activer postgis (schéma
+  extensions), pg_net et pg_cron, `pg_restore --no-owner -d "<adresse>"
+  sauvegarde.dump` (les déclencheurs sont créés après les données : rien
+  n'est envoyé pendant la restauration), puis relancer la partie pg_cron de
+  schema.sql.
 - Les pages `/confidentialite` et `/conditions` décrivent ce que fait
   vraiment le code (données envoyées, durées, purge `pg_cron`) : les mettre
   à jour (et `miseAJour` dans `lib/legal.ts`) si ça change.

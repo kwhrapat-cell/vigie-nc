@@ -1,0 +1,100 @@
+# Sauvegarde de la base Supabase chaque nuit (2 h 41 à Nouméa, avant la
+# purge de 3 h 15) et à la demande (Actions › Sauvegarde de la base › Run
+# workflow). L'offre gratuite de Supabase ne garde AUCUNE sauvegarde.
+#
+# Ce qui est copié : le schéma public, tables et données (signalements,
+# historique, annonces, modérateurs, abonnements…), avec pg_dump 17 (même
+# version que Supabase). Pas les photos (effacées après 7 jours de toute
+# façon), ni les sessions anonymes.
+#
+# La copie est CHIFFRÉE (AES-256, gpg) avant d'être gardée 30 jours comme
+# « artifact » : le dépôt est public, une copie en clair serait lisible par
+# n'importe qui. Sans la phrase de chiffrement, la copie est inutilisable :
+# la garder précieusement, hors du téléphone aussi.
+#
+# Deux secrets à créer (Settings › Secrets and variables › Actions) :
+#   SUPABASE_DB_URL          adresse « Session pooler » de Supabase (bouton
+#                            « Connect »), avec le mot de passe de la base à
+#                            la place de [YOUR-PASSWORD]
+#   SAUVEGARDE_MOT_DE_PASSE  phrase de chiffrement, 20 caractères au moins
+#
+# Restaurer : voir « Sauvegardes » dans CLAUDE.md.
+name: Sauvegarde de la base
+
+on:
+  schedule:
+    - cron: "41 15 * * *" # 2 h 41 à Nouméa (UTC+11)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sauvegarde
+  cancel-in-progress: false
+
+jobs:
+  sauvegarde:
+    name: Sauvegarde chiffrée
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SAUVEGARDE_MOT_DE_PASSE: ${{ secrets.SAUVEGARDE_MOT_DE_PASSE }}
+    steps:
+      - name: Vérifier les secrets
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ] || [ -z "$SAUVEGARDE_MOT_DE_PASSE" ]; then
+            echo "::error::Secrets manquants : SUPABASE_DB_URL et SAUVEGARDE_MOT_DE_PASSE (voir le haut de .github/workflows/sauvegarde.yml)."
+            exit 1
+          fi
+          if [ "${#SAUVEGARDE_MOT_DE_PASSE}" -lt 20 ]; then
+            echo "::error::SAUVEGARDE_MOT_DE_PASSE doit faire 20 caractères au moins."
+            exit 1
+          fi
+          case "$SUPABASE_DB_URL" in
+            *YOUR-PASSWORD*)
+              echo "::error::SUPABASE_DB_URL contient encore [YOUR-PASSWORD] : remplace-le par le mot de passe de la base."
+              exit 1
+              ;;
+          esac
+
+      - name: Copier la base
+        run: |
+          # L'adresse reste dans le conteneur (variable), jamais dans le journal.
+          docker run --rm -e SUPABASE_DB_URL postgres:17 sh -c \
+            'pg_dump "$SUPABASE_DB_URL" --schema=public --no-owner --format=custom --compress=9' \
+            > sauvegarde.dump
+
+      - name: Vérifier la copie
+        run: |
+          taille=$(stat -c %s sauvegarde.dump)
+          docker run --rm -v "$PWD:/w:ro" postgres:17 pg_restore --list /w/sauvegarde.dump > liste.txt
+          tables=$(grep -c " TABLE public " liste.txt || true)
+          donnees=$(grep -c " TABLE DATA public " liste.txt || true)
+          fonctions=$(grep -c " FUNCTION public " liste.txt || true)
+          echo "Copie : $taille octets · $tables tables · $donnees contenus de tables · $fonctions fonctions"
+          if [ "$tables" -lt 20 ] || [ "$donnees" -lt 20 ] || [ "$fonctions" -lt 50 ]; then
+            echo "::error::Copie incomplète : la sauvegarde n'est pas gardée."
+            exit 1
+          fi
+
+      - name: Chiffrer
+        run: |
+          nom="vigie-nc-$(TZ=Pacific/Noumea date +%Y-%m-%d-%Hh%M)"
+          printf '%s' "$SAUVEGARDE_MOT_DE_PASSE" | gpg --batch --yes --quiet --pinentry-mode loopback \
+            --passphrase-fd 0 --symmetric --cipher-algo AES256 --output "$nom.dump.gpg" sauvegarde.dump
+          # Contrôle : la copie chiffrée redonne exactement le même fichier.
+          printf '%s' "$SAUVEGARDE_MOT_DE_PASSE" | gpg --batch --quiet --pinentry-mode loopback \
+            --passphrase-fd 0 --decrypt "$nom.dump.gpg" | cmp - sauvegarde.dump
+          rm -f sauvegarde.dump liste.txt
+          echo "NOM=$nom" >> "$GITHUB_ENV"
+
+      - name: Garder 30 jours
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.NOM }}
+          path: ${{ env.NOM }}.dump.gpg
+          retention-days: 30
+          if-no-files-found: error
+          compression-level: 0
