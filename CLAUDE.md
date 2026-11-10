@@ -157,7 +157,18 @@ vigie-nc/
                   lib/navigateur-integre.ts ; affiché par InstallApp et
                   AlertSettings, car ni installation ni alertes n'y marchent),
                   ShareAffiche (partager le lien de l'affiche),
-                  AlertSettings (écran Alertes : activer les notifications ; prévient
+                  Écran Alertes (revue de design du 11/11/2026) : DEUX ONGLETS
+                  (lib/alertes-ecran.ts, testé). « En cours » : une ligne « Alertes
+                  actives · 5 km autour de « Maison » » ou « Être prévenu… [Activer] »
+                  (useEtatAlertes), la vigilance Météo-France, puis le fil du plus
+                  récent au plus ancien (Dernière heure / Plus tôt / Chantiers
+                  annoncés ; Ma zone = position, sinon « Ma zone » choisie sur la
+                  carte). « Être prévenu » (#prevenir, #trajet) : AlertSettings,
+                  TrajetSettings, « Quand reçois-tu une alerte ? ». Lignes de
+                  signalement partagées avec l'accueil : ContenuLigneSignalement
+                  (components/LigneSignalement.tsx : l'heure en clair d'abord),
+                  AlertSettings (onglet « Être prévenu » : activer les notifications ;
+                  `demarrer` ouvre l'éditeur tout de suite ; prévient
                   ALERTES_EVENT de lib/push.ts quand elles changent),
                   TrajetSettings (écran Alertes, carte « Mon trajet », ancre #trajet :
                   départ → arrivée → horaires et jours ; TrajetApercu = petite carte du

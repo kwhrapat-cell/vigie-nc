@@ -15,19 +15,33 @@ export const VIGILANCE_PAGE_URL = "https://meteo.nc/fr/vigilance";
 export function VigilanceMeteo({ className = "" }: { className?: string }) {
   return (
     <section
-      className={`rounded-xl border border-line bg-panel px-3 pt-2.5 pb-1 ${className}`}
+      className={`rounded-xl border border-line bg-panel px-3 pb-3 ${className}`}
       aria-labelledby="vigilance-titre"
     >
-      {/* Sur la carte (ordinateur), la vignette est plus étroite : la source
-          passe proprement à la ligne au lieu de couper le titre. */}
-      <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-        <h2 id="vigilance-titre" className="font-display font-semibold text-[15.5px]">
-          Vigilance météo
-        </h2>
-        <span className="text-[12.5px] text-mist-dim">Source officielle · Météo-France</span>
+      {/* Le lien vers meteo.nc est dans l'en-tête : la vignette prend moins
+          de place (écran Alertes, carte sur ordinateur). */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 py-1.5">
+          <h2 id="vigilance-titre" className="font-display font-semibold text-[15.5px] leading-tight">
+            Vigilance météo
+          </h2>
+          <p className="text-[12.5px] text-mist-dim">Source officielle · Météo-France</p>
+        </div>
+        <a
+          href={VIGILANCE_PAGE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Détail par phénomène et conseils sur meteo.nc (ouvre le site de Météo-France)"
+          className="flex min-h-[44px] shrink-0 items-center gap-1.5 text-[14px] font-medium text-lagoon"
+        >
+          Détail et conseils
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 shrink-0" aria-hidden>
+            <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </a>
       </div>
 
-      <div className="mt-2 flex justify-center">
+      <div className="flex justify-center">
         {/* Fond clair : la vignette est faite pour des pages blanches. */}
         <div className="w-[302px] max-w-full h-[122px] overflow-hidden rounded-lg bg-white">
           <iframe
@@ -44,18 +58,6 @@ export function VigilanceMeteo({ className = "" }: { className?: string }) {
           />
         </div>
       </div>
-
-      <a
-        href={VIGILANCE_PAGE_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-1 flex min-h-[44px] items-center justify-between gap-2 text-[14px] font-medium text-lagoon"
-      >
-        <span>Détail par phénomène et conseils sur meteo.nc</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 shrink-0" aria-hidden>
-          <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </a>
     </section>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { InstallApp } from "@/components/InstallApp";
 import { OuvrirDansNavigateur } from "@/components/OuvrirDansNavigateur";
 import { appliIntegree } from "@/lib/navigateur-integre";
@@ -76,8 +76,8 @@ function Note({ children, className = "" }: { children: React.ReactNode; classNa
   return <p className={`mt-1.5 text-[13.5px] text-mist-dim leading-relaxed ${className}`}>{children}</p>;
 }
 
-/** Ce qui déclenche une alerte (rappel dans l'éditeur). */
-function WhatTriggers() {
+/** Ce qui déclenche une alerte (éditeur, et bas de l'onglet « Être prévenu »). */
+export function WhatTriggers() {
   return (
     <ul className="mt-2 flex flex-col gap-1 text-[13.5px] text-mist-dim leading-relaxed">
       <li>• Accident, route coupée, inondation, feu, danger, météo.</li>
@@ -92,8 +92,10 @@ function WhatTriggers() {
 /**
  * Notifications « danger confirmé » autour d'un lieu choisi (maison,
  * travail…), même l'appli fermée. Le lieu est enregistré arrondi à ~1 km.
+ * `demarrer` : ouvre directement l'éditeur si les alertes ne sont pas
+ * encore actives (bouton « Activer » de l'onglet « En cours »).
  */
-export function AlertSettings() {
+export function AlertSettings({ demarrer = false }: { demarrer?: boolean }) {
   const [support, setSupport] = useState<PushSupport | null>(null);
   const [phase, setPhase] = useState<Phase>("chargement");
   const [keys, setKeys] = useState<SubscriptionKeys | null>(null);
@@ -137,6 +139,16 @@ export function AlertSettings() {
       cancelled = true;
     };
   }, []);
+
+  // « Activer » touché dans l'onglet « En cours » : pas besoin de le toucher
+  // une deuxième fois ici.
+  const demarre = useRef(false);
+  useEffect(() => {
+    if (!demarrer || demarre.current || phase !== "inactif" || support !== "ok" || !notifAvailable) return;
+    if (appliIntegree()) return;
+    demarre.current = true;
+    startEdit();
+  }, [demarrer, phase, support]);
 
   function pickMyPosition() {
     setError(null);
