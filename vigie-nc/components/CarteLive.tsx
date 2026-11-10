@@ -717,9 +717,9 @@ export function CarteLive() {
         onEnableLocation={retry}
         onRetry={refresh}
         replieOrdi={panneauReplie}
-        astuce={
-          montrerAstuce ? <AstuceCarte variante="liste" onLegende={ouvrirLegende} onFermer={fermerAstuce} /> : null
-        }
+        /* Astuce « cercle + SOS » : sur la carte, à côté du SOS, à toutes les
+           tailles (la carte du téléphone est assez grande depuis que la liste
+           est repliée par défaut). */
         apresListe={demo ? null : <InvitationTrajet />}
         trajet={
           demo ? null : (

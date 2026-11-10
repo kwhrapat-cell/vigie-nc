@@ -120,9 +120,9 @@ vigie-nc/
                   carte » : NC / 1-3-5 km et le cercle, couleurs, repères
                   (récent, pâle, pastille, toi, Ma zone), fiabilité, SOS, ta
                   position, heure de mise à jour ; AstuceCarte = astuce
-                  « cercle + SOS » (à côté du bouton SOS dès 960 px, dans
-                  HomeSheet en dessous : la carte du téléphone est trop
-                  petite pour être recouverte), montrée une fois
+                  « cercle + SOS » (sur la carte, à côté du bouton SOS, à
+                  toutes les tailles depuis que la liste est repliée par
+                  défaut ; la variante « liste » n'est plus utilisée), montrée une fois
                   après l'accueil et la bulle du « + », jamais en démo,
                   conduite, choix de zone ni fiche ouverte ; textes et
                   logique dans lib/legende.ts). LiveMap affiche « Chargement
