@@ -1299,6 +1299,143 @@ create table if not exists moderation_journal (
 create index if not exists moderation_journal_created_idx
   on moderation_journal (created_at desc);
 
+-- ---------------------------------------------------------------------
+-- Périmètres des communes partenaires (décision de Patrice du 10/11/2026)
+--   Un modérateur peut être limité à un périmètre (ex. la Ville du
+--   Mont-Dore) : il ne voit et ne modère que les signalements de ce
+--   périmètre, et ses annonces ne vont qu'aux téléphones de ce périmètre.
+--   Sans périmètre (perimetre_id nul) : toute la Calédonie, comme avant
+--   (équipe Vigie NC). Réservé à l'équipe : chiffres, erreurs, essai de
+--   l'IA, alarme de sécurité et « Effacer (essai) ».
+--   Le périmètre est un cercle (centre + rayon de 1 à 60 km), comme les
+--   zones d'alerte. Un périmètre encore utilisé ne peut pas être supprimé :
+--   sinon ses modérateurs passeraient à toute la Calédonie. Changer son
+--   centre ou son rayon déclenche l'alarme de sécurité.
+--   Dans l'éditeur SQL :
+--     select vigie_ajouter_perimetre('mont-dore', 'Ville du Mont-Dore', -22.2312, 166.5262, 12);
+--     select vigie_ajouter_agent('Mont-Dore Sécurité', '<code>', 'mont-dore');
+--     select vigie_limiter_moderateur('Mont-Dore Sécurité', null);  -- toute la NC
+-- ---------------------------------------------------------------------
+create table if not exists perimetres (
+  id text primary key check (id ~ '^[a-z0-9][a-z0-9-]{1,39}$'),
+  nom text not null check (char_length(nom) between 2 and 60),
+  lat double precision not null,
+  lng double precision not null,
+  rayon_m int not null check (rayon_m between 1000 and 60000),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table moderateurs add column if not exists perimetre_id text
+  references perimetres(id) on update cascade;
+
+-- Périmètre d'un modérateur (nul = toute la Calédonie ; fonction interne).
+create or replace function vigie_perimetre_moderateur(p_nom text)
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select perimetre_id from moderateurs where nom = p_nom;
+$$;
+
+-- Le périmètre tel que l'appli l'affiche (nul si pas de périmètre).
+create or replace function vigie_perimetre_json(p_perimetre text)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select jsonb_build_object('id', p.id, 'nom', p.nom, 'lat', p.lat, 'lng', p.lng, 'rayon_m', p.rayon_m)
+  from perimetres p
+  where p.id = p_perimetre;
+$$;
+
+-- Un point est-il dans le périmètre ? Nul = toute la Calédonie : oui.
+create or replace function vigie_dans_perimetre(p_perimetre text, p_lat double precision, p_lng double precision)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, extensions
+as $$
+  select p_perimetre is null
+      or exists (
+        select 1 from perimetres p
+        where p.id = p_perimetre
+          and p_lat is not null and p_lng is not null
+          and st_dwithin(st_setsrid(st_makepoint(p.lng, p.lat), 4326)::geography,
+                         st_setsrid(st_makepoint(p_lng, p_lat), 4326)::geography,
+                         p.rayon_m)
+      );
+$$;
+
+-- Une zone d'alerte (lieu + rayon) touche-t-elle le périmètre ? Sert à
+-- choisir les abonnés qui reçoivent l'annonce d'une commune.
+create or replace function vigie_zone_touche_perimetre(
+  p_perimetre text, p_lat double precision, p_lng double precision, p_rayon_m int
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, extensions
+as $$
+  select p_perimetre is null
+      or exists (
+        select 1 from perimetres p
+        where p.id = p_perimetre
+          and p_lat is not null and p_lng is not null
+          and st_dwithin(st_setsrid(st_makepoint(p.lng, p.lat), 4326)::geography,
+                         st_setsrid(st_makepoint(p_lng, p_lat), 4326)::geography,
+                         p.rayon_m + greatest(coalesce(p_rayon_m, 0), 0))
+      );
+$$;
+
+-- Créer ou changer un périmètre (éditeur SQL seulement).
+create or replace function vigie_ajouter_perimetre(
+  p_id text, p_nom text, p_lat double precision, p_lng double precision, p_rayon_km numeric
+)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_lat is null or p_lng is null or not vigie_dans_nc(p_lat, p_lng) then
+    raise exception 'position_hors_nc';
+  end if;
+  if p_rayon_km is null or p_rayon_km < 1 or p_rayon_km > 60 then
+    raise exception 'perimetre_rayon_invalide';
+  end if;
+  insert into perimetres (id, nom, lat, lng, rayon_m)
+  values (lower(btrim(p_id)), btrim(p_nom), p_lat, p_lng, round(p_rayon_km * 1000)::int)
+  on conflict (id) do update
+    set nom = excluded.nom, lat = excluded.lat, lng = excluded.lng,
+        rayon_m = excluded.rayon_m, updated_at = now();
+  return 'ok';
+end;
+$$;
+
+-- Limiter un modérateur à un périmètre, ou le remettre sur toute la
+-- Calédonie (p_perimetre nul). Éditeur SQL seulement.
+create or replace function vigie_limiter_moderateur(p_nom text, p_perimetre text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update moderateurs set perimetre_id = p_perimetre where nom = p_nom;
+  if not found then
+    raise exception 'moderateur_introuvable';
+  end if;
+  return coalesce(p_perimetre, 'toute la Calédonie');
+end;
+$$;
+
 create or replace function vigie_code_moderation(p_code text)
 returns text
 language sql
@@ -1321,6 +1458,29 @@ begin
   insert into moderateurs (nom, code_hash)
   values (btrim(p_nom), vigie_code_moderation(p_code))
   on conflict (nom) do update set code_hash = excluded.code_hash, actif = true;
+  return 'ok';
+end;
+$$;
+
+-- Agent d'une commune : modérateur créé directement avec son périmètre
+-- (jamais un instant sur toute la Calédonie). Éditeur SQL seulement.
+create or replace function vigie_ajouter_agent(p_nom text, p_code text, p_perimetre text)
+returns text
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+begin
+  if p_code is null or char_length(p_code) < 16 then
+    raise exception 'code_trop_court';
+  end if;
+  if p_perimetre is null or not exists (select 1 from perimetres where id = p_perimetre) then
+    raise exception 'perimetre_introuvable';
+  end if;
+  insert into moderateurs (nom, code_hash, perimetre_id)
+  values (btrim(p_nom), vigie_code_moderation(p_code), p_perimetre)
+  on conflict (nom) do update
+    set code_hash = excluded.code_hash, actif = true, perimetre_id = excluded.perimetre_id;
   return 'ok';
 end;
 $$;
@@ -1360,8 +1520,28 @@ begin
 end;
 $$;
 
+-- Comme vigie_moderateur, mais refuse un agent de commune (périmètre) :
+-- chiffres, erreurs, essai de l'IA, alarme de sécurité (fonction interne).
+create or replace function vigie_moderateur_equipe(p_code text)
+returns text
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_nom text;
+begin
+  v_nom := vigie_moderateur(p_code);
+  if vigie_perimetre_moderateur(v_nom) is not null then
+    raise exception 'reserve_equipe';
+  end if;
+  return v_nom;
+end;
+$$;
+
 -- RPC : vérifier un code (connexion à l'écran de modération). L'appareil
 -- devient un appareil de l'équipe : il ne compte plus dans les chiffres.
+-- « perimetre » : nul pour l'équipe (toute la Calédonie), sinon la commune.
 create or replace function moderation_verifier(p_code text)
 returns jsonb
 language plpgsql
@@ -1373,7 +1553,10 @@ declare
 begin
   v_nom := vigie_moderateur(p_code);
   perform vigie_noter_appareil_equipe();
-  return jsonb_build_object('nom', v_nom);
+  return jsonb_build_object(
+    'nom', v_nom,
+    'perimetre', vigie_perimetre_json(vigie_perimetre_moderateur(v_nom))
+  );
 end;
 $$;
 
@@ -1387,6 +1570,7 @@ $$;
 --                du plus récent au plus ancien, 300 au plus (pour effacer
 --                les essais, décision de Patrice du 06/11/2026)
 -- Le contenu masqué reste visible ici (et seulement ici) pour juger.
+-- Agent d'une commune : seulement les signalements de son périmètre.
 create or replace function moderation_liste(p_code text, p_filtre text default 'signales')
 returns jsonb
 language plpgsql
@@ -1395,8 +1579,16 @@ set search_path = public, extensions
 as $$
 declare
   v_res jsonb;
+  v_perimetre text;
+  v_centre geography;
+  v_rayon int;
 begin
-  perform vigie_moderateur(p_code);
+  v_perimetre := vigie_perimetre_moderateur(vigie_moderateur(p_code));
+  if v_perimetre is not null then
+    select st_setsrid(st_makepoint(p.lng, p.lat), 4326)::geography, p.rayon_m
+      into v_centre, v_rayon
+      from perimetres p where p.id = v_perimetre;
+  end if;
 
   select coalesce(jsonb_agg(to_jsonb(t) - 'tri' order by t.tri desc), '[]'::jsonb)
   into v_res
@@ -1439,6 +1631,7 @@ begin
         or (r.fin_annoncee is not null and r.infirmations > 0
             and r.resolved_at is null and r.expires_at > now())
     end
+      and (v_perimetre is null or st_dwithin(r.geom, v_centre, v_rayon))
     order by tri desc
     limit case when p_filtre = 'historique' then 300 else 100 end
   ) t;
@@ -1472,10 +1665,22 @@ as $$
 declare
   v_nom text;
   v_source text := left(nullif(btrim(p_valeur), ''), 60);
+  v_perimetre text;
 begin
   v_nom := vigie_moderateur(p_code);
   if not exists (select 1 from reports where id = p_report_id) then
     raise exception 'signalement_introuvable';
+  end if;
+  -- Agent d'une commune : seulement dans son périmètre, et jamais « Effacer ».
+  v_perimetre := vigie_perimetre_moderateur(v_nom);
+  if v_perimetre is not null then
+    if not exists (select 1 from reports r
+                   where r.id = p_report_id and vigie_dans_perimetre(v_perimetre, r.lat, r.lng)) then
+      raise exception 'hors_perimetre';
+    end if;
+    if p_action = 'effacer' then
+      raise exception 'reserve_equipe';
+    end if;
   end if;
 
   if p_action = 'masquer' then
@@ -1552,6 +1757,11 @@ begin
   select type::text into v_type from reports where id = p_report_id;
   if v_type is null then
     raise exception 'signalement_introuvable';
+  end if;
+  if not exists (select 1 from reports r
+                 where r.id = p_report_id
+                   and vigie_dans_perimetre(vigie_perimetre_moderateur(v_nom), r.lat, r.lng)) then
+    raise exception 'hors_perimetre';
   end if;
   if v_type <> 'travaux' then
     raise exception 'chantier_type_invalide';
@@ -1932,7 +2142,7 @@ as $$
 declare
   v_nom text;
 begin
-  v_nom := vigie_moderateur(p_code);
+  v_nom := vigie_moderateur_equipe(p_code);
   if not vigie_endpoint_valide(p_endpoint)
      or p_p256dh is null or char_length(p_p256dh) > 200
      or p_auth is null or char_length(p_auth) > 100 then
@@ -1968,7 +2178,7 @@ security definer
 set search_path = public, extensions
 as $$
 begin
-  perform vigie_moderateur(p_code);
+  perform vigie_moderateur_equipe(p_code);
   return jsonb_build_object(
     'active', exists (select 1 from moderation_alertes where endpoint = p_endpoint)
   );
@@ -1983,7 +2193,7 @@ security definer
 set search_path = public, extensions
 as $$
 begin
-  perform vigie_moderateur(p_code);
+  perform vigie_moderateur_equipe(p_code);
   delete from moderation_alertes where endpoint = p_endpoint;
   return jsonb_build_object('ok', true);
 end;
@@ -2026,8 +2236,62 @@ begin
 end;
 $$;
 
--- Déclencheur : note le changement dans le journal et prévient le serveur
--- d'envoi. Sans configuration ou sans pg_net, il note seulement.
+-- Note un changement dans le journal et prévient le serveur d'envoi
+-- (fonction interne). Sans configuration ou sans pg_net, il note seulement.
+create or replace function vigie_envoyer_alarme(p_evenement text, p_nom text)
+returns void
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_url text;
+  v_secret text;
+begin
+  insert into moderation_journal (moderateur, report_id, action, detail)
+  values ('Supabase', null, 'moderateurs_' || p_evenement, left(p_nom, 85));
+
+  select valeur into v_url from vigie_config where cle = 'securite_url';
+  if v_url is null then
+    select regexp_replace(valeur, '/api/notifier/?$', '/api/alerte-securite')
+    into v_url from vigie_config where cle = 'notif_url';
+    if v_url !~ '/api/alerte-securite$' then
+      v_url := null;
+    end if;
+  end if;
+  select valeur into v_secret from vigie_config where cle = 'notif_secret';
+  if v_url is null or v_secret is null then
+    return;
+  end if;
+
+  begin
+    perform net.http_post(
+      url := v_url,
+      body := jsonb_build_object('evenement', p_evenement, 'nom', p_nom),
+      headers := jsonb_build_object('Content-Type', 'application/json', 'x-vigie-secret', v_secret),
+      timeout_milliseconds := 15000
+    );
+  exception when others then
+    -- pg_net absent ou en panne : le changement reste noté dans le journal.
+    null;
+  end;
+end;
+$$;
+
+-- Nom du périmètre pour l'alarme (« toute la Calédonie » si nul).
+create or replace function vigie_nom_perimetre(p_perimetre text)
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((select nom from perimetres where id = p_perimetre), 'toute la Calédonie');
+$$;
+
+-- Déclencheur de la table moderateurs. Un périmètre changé (agent d'une
+-- commune remis sur toute la Calédonie, par exemple) déclenche aussi
+-- l'alarme : c'est un changement de droits.
 create or replace function vigie_alarme_moderateurs()
 returns trigger
 language plpgsql
@@ -2037,14 +2301,12 @@ as $$
 declare
   v_evenement text;
   v_nom text;
-  v_url text;
-  v_secret text;
 begin
   if tg_op = 'TRUNCATE' then
     v_evenement := 'vidage';
   elsif tg_op = 'INSERT' then
     v_evenement := 'ajout';
-    v_nom := new.nom;
+    v_nom := new.nom || coalesce(' (' || (select nom from perimetres where id = new.perimetre_id) || ')', '');
   elsif tg_op = 'DELETE' then
     v_evenement := 'suppression';
     v_nom := old.nom;
@@ -2057,6 +2319,10 @@ begin
   elsif new.actif and not old.actif then
     v_evenement := 'retabli';
     v_nom := new.nom;
+  elsif old.perimetre_id is distinct from new.perimetre_id then
+    v_evenement := 'perimetre';
+    v_nom := new.nom || ' → ' || vigie_nom_perimetre(new.perimetre_id)
+             || case when old.code_hash is distinct from new.code_hash then ', code changé' else '' end;
   elsif old.code_hash is distinct from new.code_hash then
     v_evenement := 'code';
     v_nom := new.nom;
@@ -2064,33 +2330,7 @@ begin
     return null;
   end if;
 
-  insert into moderation_journal (moderateur, report_id, action, detail)
-  values ('Supabase', null, 'moderateurs_' || v_evenement, left(v_nom, 85));
-
-  select valeur into v_url from vigie_config where cle = 'securite_url';
-  if v_url is null then
-    select regexp_replace(valeur, '/api/notifier/?$', '/api/alerte-securite')
-    into v_url from vigie_config where cle = 'notif_url';
-    if v_url !~ '/api/alerte-securite$' then
-      v_url := null;
-    end if;
-  end if;
-  select valeur into v_secret from vigie_config where cle = 'notif_secret';
-  if v_url is null or v_secret is null then
-    return null;
-  end if;
-
-  begin
-    perform net.http_post(
-      url := v_url,
-      body := jsonb_build_object('evenement', v_evenement, 'nom', v_nom),
-      headers := jsonb_build_object('Content-Type', 'application/json', 'x-vigie-secret', v_secret),
-      timeout_milliseconds := 15000
-    );
-  exception when others then
-    -- pg_net absent ou en panne : le changement reste noté dans le journal.
-    null;
-  end;
+  perform vigie_envoyer_alarme(v_evenement, v_nom);
   return null;
 end;
 $$;
@@ -2102,12 +2342,41 @@ for each row execute function vigie_alarme_moderateurs();
 
 drop trigger if exists trg_vigie_alarme_moderateurs_maj on moderateurs;
 create trigger trg_vigie_alarme_moderateurs_maj
-after update of nom, code_hash, actif on moderateurs
+after update of nom, code_hash, actif, perimetre_id on moderateurs
 for each row
 when (old.nom is distinct from new.nom
       or old.code_hash is distinct from new.code_hash
-      or old.actif is distinct from new.actif)
+      or old.actif is distinct from new.actif
+      or old.perimetre_id is distinct from new.perimetre_id)
 execute function vigie_alarme_moderateurs();
+
+-- Déclencheur de la table perimetres : centre ou rayon changé alors qu'un
+-- modérateur l'utilise = ses droits changent.
+create or replace function vigie_alarme_perimetres()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+begin
+  if exists (select 1 from moderateurs where perimetre_id = new.id) then
+    perform vigie_envoyer_alarme(
+      'perimetre',
+      new.nom || ' : ' || to_char(new.rayon_m / 1000.0, 'FM990.0') || ' km autour de '
+        || to_char(new.lat, 'FM990.0000') || ', ' || to_char(new.lng, 'FM990.0000'));
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists trg_vigie_alarme_perimetres on perimetres;
+create trigger trg_vigie_alarme_perimetres
+after update of lat, lng, rayon_m on perimetres
+for each row
+when (old.lat is distinct from new.lat
+      or old.lng is distinct from new.lng
+      or old.rayon_m is distinct from new.rayon_m)
+execute function vigie_alarme_perimetres();
 
 drop trigger if exists trg_vigie_alarme_moderateurs_vidage on moderateurs;
 create trigger trg_vigie_alarme_moderateurs_vidage
@@ -2308,7 +2577,7 @@ declare
   v_jour date := vigie_jour_local();
   v_res jsonb;
 begin
-  perform vigie_moderateur(p_code);
+  perform vigie_moderateur_equipe(p_code);
 
   with
     jours as (
@@ -3348,6 +3617,11 @@ for each row execute function vigie_emettre_signal();
 -- ---------------------------------------------------------------------
 -- Annonces générales : un message vu par TOUT le monde, dans toute la
 -- Calédonie, quelle que soit la zone choisie (bandeau en haut de la carte).
+-- Annonce d'une commune (agent avec un périmètre, voir « Périmètres ») :
+-- même chose, mais seulement dans son périmètre ; le téléphone trie
+-- lui-même avec sa position (rien n'est envoyé), et la notification ne
+-- part qu'aux zones d'alerte qui touchent le périmètre. Garde-fous
+-- comptés par périmètre.
 --   - publiées depuis l'écran /moderation (onglet « Annonces »), avec le
 --     code d'un modérateur ; plus tard, un partenaire officiel (mairie,
 --     Sécurité civile…) pourra recevoir son propre code ;
@@ -3381,6 +3655,10 @@ create table if not exists annonces (
   envoyee_at timestamptz
 );
 create index if not exists annonces_created_idx on annonces (created_at desc);
+-- Annonce d'une commune (agent avec un périmètre) : vue et notifiée
+-- seulement dans ce périmètre. Nul = toute la Calédonie.
+alter table annonces add column if not exists perimetre_id text
+  references perimetres(id) on update cascade;
 
 create table if not exists vigie_annonce_signal (
   id bigint generated always as identity primary key,
@@ -3425,6 +3703,9 @@ $$;
 
 -- RPC : annonces en cours (tout le monde, sans session). Les plus graves
 -- d'abord, puis les plus récentes. Jamais qui les a publiées.
+-- « zone » : nulle = toute la Calédonie ; sinon le périmètre de la
+-- commune (centre + rayon), et le téléphone ne la montre que s'il est
+-- dedans. 5 annonces pour toute la Calédonie au plus, 30 des communes.
 create or replace function annonces_actives()
 returns jsonb
 language sql
@@ -3438,18 +3719,26 @@ as $$
       'texte', a.texte,
       'source', a.source,
       'created_at', a.created_at,
-      'expires_at', a.expires_at
+      'expires_at', a.expires_at,
+      'zone', vigie_perimetre_json(a.perimetre_id)
     ) order by case a.niveau when 'urgence' then 0 when 'vigilance' then 1 else 2 end, a.created_at desc),
     '[]'::jsonb)
   from (
-    select * from annonces
-    where retiree_at is null and expires_at > now()
-    order by created_at desc
-    limit 5
+    (select * from annonces
+     where retiree_at is null and expires_at > now() and perimetre_id is null
+     order by created_at desc
+     limit 5)
+    union all
+    (select * from annonces
+     where retiree_at is null and expires_at > now() and perimetre_id is not null
+     order by created_at desc
+     limit 30)
   ) a;
 $$;
 
--- RPC (modération) : publier une annonce pour toute la Calédonie
+-- RPC (modération) : publier une annonce pour toute la Calédonie, ou pour
+-- le périmètre de l'agent d'une commune (choisi par la base, jamais par
+-- l'appli)
 create or replace function moderation_annonce_publier(
   p_code text,
   p_niveau text,
@@ -3471,8 +3760,10 @@ declare
   v_id uuid;
   v_url text;
   v_secret text;
+  v_perimetre text;
 begin
   v_nom := vigie_moderateur(p_code);
+  v_perimetre := vigie_perimetre_moderateur(v_nom);
 
   if p_niveau is null or p_niveau not in ('info', 'vigilance', 'urgence') then
     raise exception 'annonce_niveau_invalide';
@@ -3490,16 +3781,21 @@ begin
     raise exception 'annonce_notif_info';
   end if;
 
-  if (select count(*) from annonces where created_at > now() - interval '24 hours') >= 10 then
+  -- Garde-fous comptés par périmètre (toute la Calédonie = nul)
+  if (select count(*) from annonces
+      where created_at > now() - interval '24 hours'
+        and perimetre_id is not distinct from v_perimetre) >= 10 then
     raise exception 'trop_d_annonces';
   end if;
   if v_notifier
-     and (select count(*) from annonces where notifier and created_at > now() - interval '24 hours') >= 3 then
+     and (select count(*) from annonces
+          where notifier and created_at > now() - interval '24 hours'
+            and perimetre_id is not distinct from v_perimetre) >= 3 then
     raise exception 'trop_de_notifications';
   end if;
 
-  insert into annonces (niveau, texte, source, expires_at, notifier)
-  values (p_niveau, v_texte, v_source, now() + make_interval(hours => p_duree_h), v_notifier)
+  insert into annonces (niveau, texte, source, expires_at, notifier, perimetre_id)
+  values (p_niveau, v_texte, v_source, now() + make_interval(hours => p_duree_h), v_notifier, v_perimetre)
   returning id into v_id;
 
   insert into moderation_journal (moderateur, report_id, action, detail)
@@ -3536,7 +3832,8 @@ begin
   return jsonb_build_object(
     'ok', true,
     'id', v_id,
-    'notifiee', exists (select 1 from annonces where id = v_id and notifie_at is not null)
+    'notifiee', exists (select 1 from annonces where id = v_id and notifie_at is not null),
+    'zone', vigie_perimetre_json(v_perimetre)
   );
 end;
 $$;
@@ -3550,11 +3847,15 @@ set search_path = public, extensions
 as $$
 declare
   v_nom text;
+  v_perimetre text;
 begin
   v_nom := vigie_moderateur(p_code);
+  v_perimetre := vigie_perimetre_moderateur(v_nom);
+  -- Agent d'une commune : seulement les annonces de son périmètre.
   update annonces
   set retiree_at = coalesce(retiree_at, now())
-  where id = p_annonce_id;
+  where id = p_annonce_id
+    and (v_perimetre is null or perimetre_id = v_perimetre);
   if not found then
     raise exception 'annonce_introuvable';
   end if;
@@ -3565,7 +3866,8 @@ end;
 $$;
 
 -- RPC (modération) : annonces des 7 derniers jours (et en cours), qui les
--- a publiées, et nombre de téléphones abonnés aux alertes.
+-- a publiées, et nombre de téléphones abonnés aux alertes. Agent d'une
+-- commune : seulement son périmètre, et les abonnés qui le touchent.
 create or replace function moderation_annonces(p_code text)
 returns jsonb
 language plpgsql
@@ -3574,8 +3876,9 @@ set search_path = public, extensions
 as $$
 declare
   v_liste jsonb;
+  v_perimetre text;
 begin
-  perform vigie_moderateur(p_code);
+  v_perimetre := vigie_perimetre_moderateur(vigie_moderateur(p_code));
 
   select coalesce(jsonb_agg(jsonb_build_object(
       'id', a.id,
@@ -3590,33 +3893,42 @@ begin
       'envoyee', (a.envoyee_at is not null),
       'auteur', (select j.moderateur from moderation_journal j
                  where j.action = 'annonce_publier' and j.detail = a.id::text
-                 order by j.created_at limit 1)
+                 order by j.created_at limit 1),
+      'zone', vigie_perimetre_json(a.perimetre_id)
     ) order by a.created_at desc), '[]'::jsonb)
   into v_liste
   from (
     select * from annonces
-    where created_at > now() - interval '7 days'
-       or (retiree_at is null and expires_at > now())
+    where (created_at > now() - interval '7 days'
+           or (retiree_at is null and expires_at > now()))
+      and (v_perimetre is null or perimetre_id = v_perimetre)
     order by created_at desc
     limit 50
   ) a;
 
   return jsonb_build_object(
     'annonces', v_liste,
-    'abonnes', (select count(*) from push_abonnements),
-    'notifiees_24h', (select count(*) from annonces where notifier and created_at > now() - interval '24 hours'),
-    'publiees_24h', (select count(*) from annonces where created_at > now() - interval '24 hours')
+    'perimetre', vigie_perimetre_json(v_perimetre),
+    'abonnes', (select count(*) from push_abonnements p
+                where vigie_zone_touche_perimetre(v_perimetre, p.lat, p.lng, p.rayon_km * 1000)),
+    'notifiees_24h', (select count(*) from annonces
+                      where notifier and created_at > now() - interval '24 hours'
+                        and perimetre_id is not distinct from v_perimetre),
+    'publiees_24h', (select count(*) from annonces
+                     where created_at > now() - interval '24 hours'
+                       and perimetre_id is not distinct from v_perimetre)
   );
 end;
 $$;
 
 -- RPC (serveur d'envoi) : l'annonce et TOUS les téléphones abonnés aux
--- alertes, quel que soit leur lieu. Remis une seule fois par annonce.
+-- alertes, quel que soit leur lieu (annonce d'une commune : ceux dont la
+-- zone d'alerte touche son périmètre). Remis une seule fois par annonce.
 create or replace function annonce_destinataires(p_secret text, p_annonce_id uuid)
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_a annonces%rowtype;
@@ -3643,11 +3955,13 @@ begin
       'texte', v_a.texte,
       'source', v_a.source,
       'expires_at', v_a.expires_at,
-      'actif', (v_a.retiree_at is null and v_a.expires_at > now())
+      'actif', (v_a.retiree_at is null and v_a.expires_at > now()),
+      'zone', vigie_perimetre_json(v_a.perimetre_id)
     ),
     'abonnements', case when coalesce(v_premiere, false) then coalesce(
       (select jsonb_agg(jsonb_build_object('endpoint', p.endpoint, 'p256dh', p.p256dh, 'auth', p.auth))
-       from push_abonnements p),
+       from push_abonnements p
+       where vigie_zone_touche_perimetre(v_a.perimetre_id, p.lat, p.lng, p.rayon_km * 1000)),
       '[]'::jsonb) else '[]'::jsonb end
   );
 end;
@@ -3932,7 +4246,7 @@ as $$
 declare
   v_nom text;
 begin
-  v_nom := vigie_moderateur(p_code);
+  v_nom := vigie_moderateur_equipe(p_code);
   if not vigie_ia_active() then
     raise exception 'ia_coupee';
   end if;
@@ -4135,7 +4449,7 @@ security definer
 set search_path = public, extensions
 as $$
 begin
-  perform vigie_moderateur(p_code);
+  perform vigie_moderateur_equipe(p_code);
   return coalesce((
     select jsonb_agg(
       jsonb_build_object(
@@ -4195,6 +4509,7 @@ alter table vigie_ia_appels enable row level security;
 alter table vigie_erreurs enable row level security;
 alter table push_trajets enable row level security;
 alter table vigie_itineraire_appels enable row level security;
+alter table perimetres enable row level security;
 
 drop policy if exists "zones lecture publique" on zones;
 create policy "zones lecture publique" on zones for select using (true);
@@ -4238,6 +4553,7 @@ revoke all on vigie_ia_appels from anon, authenticated;
 revoke all on vigie_erreurs from anon, authenticated;
 revoke all on push_trajets from anon, authenticated;
 revoke all on vigie_itineraire_appels from anon, authenticated;
+revoke all on perimetres from anon, authenticated;
 
 revoke execute on function vigie_appliquer_vote(uuid, text, text) from public, anon, authenticated;
 revoke execute on function vigie_masquer_contenu(uuid, text) from public, anon, authenticated;
@@ -4248,6 +4564,18 @@ revoke execute on function vigie_code_moderation(text) from public, anon, authen
 revoke execute on function vigie_ajouter_moderateur(text, text) from public, anon, authenticated;
 revoke execute on function vigie_retirer_moderateur(text) from public, anon, authenticated;
 revoke execute on function vigie_moderateur(text) from public, anon, authenticated;
+-- Périmètres des communes : fonctions internes ou de l'éditeur SQL.
+revoke execute on function vigie_moderateur_equipe(text) from public, anon, authenticated;
+revoke execute on function vigie_perimetre_moderateur(text) from public, anon, authenticated;
+revoke execute on function vigie_perimetre_json(text) from public, anon, authenticated;
+revoke execute on function vigie_dans_perimetre(text, double precision, double precision) from public, anon, authenticated;
+revoke execute on function vigie_zone_touche_perimetre(text, double precision, double precision, int) from public, anon, authenticated;
+revoke execute on function vigie_ajouter_perimetre(text, text, double precision, double precision, numeric) from public, anon, authenticated;
+revoke execute on function vigie_limiter_moderateur(text, text) from public, anon, authenticated;
+revoke execute on function vigie_ajouter_agent(text, text, text) from public, anon, authenticated;
+revoke execute on function vigie_envoyer_alarme(text, text) from public, anon, authenticated;
+revoke execute on function vigie_nom_perimetre(text) from public, anon, authenticated;
+revoke execute on function vigie_alarme_perimetres() from public, anon, authenticated;
 revoke execute on function vigie_secret_notif_ok(text) from public, anon, authenticated;
 revoke execute on function vigie_signal_notification() from public, anon, authenticated;
 revoke execute on function vigie_alarme_moderateurs() from public, anon, authenticated;

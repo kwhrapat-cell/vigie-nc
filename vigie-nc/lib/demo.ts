@@ -210,4 +210,6 @@ export const ANNONCE_DEMO = {
   /** Publiée il y a 30 min, visible 3 h. */
   ageMin: 30,
   dureeMin: 180,
+  /** Annonce de commune : périmètre fictif autour de la position simulée. */
+  zone: { id: "demo-mont-dore", nom: "Mont-Dore", lat: DEMO_POSITION.lat, lng: DEMO_POSITION.lng, rayonM: 12_000 },
 };

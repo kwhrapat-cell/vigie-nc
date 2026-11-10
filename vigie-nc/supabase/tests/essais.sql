@@ -5,7 +5,8 @@
 -- erreurs des téléphones, trajet favori (réglage, point sur le trajet,
 -- alertes pendant le trajet, avant le départ, « tout est calme », fin
 -- d'alerte du trajet et de la zone, itinéraire, mémoire des inondations),
--- historique de la modération (effacer un essai), appareils de l'équipe.
+-- historique de la modération (effacer un essai), appareils de l'équipe,
+-- périmètre d'une commune (agent, annonces de la commune).
 -- À lancer APRÈS schema.sql. Chaque essai qui échoue arrête tout avec un
 -- message « Ex échec : … ». Rien n'est envoyé : l'adresse d'envoi des
 -- alertes est retirée pendant l'essai.
@@ -78,6 +79,13 @@ declare
   v_cle text;
   code_historique constant text := 'code-essai-historique-00000000';
   code_equipe constant text := 'code-essai-equipe-000000000000';
+  -- Périmètre d'une commune (E45)
+  code_agent constant text := 'code-essai-agent-commune-0000';
+  code_national constant text := 'code-essai-national-000000000';
+  v_dedans uuid;
+  v_dehors uuid;
+  v_ann_c uuid;
+  v_ann_n uuid;
 begin
   delete from vigie_config where cle in ('notif_url', 'securite_url', 'ia_url');
   insert into vigie_config (cle, valeur) values ('photo_host', 'essai.supabase.co')
@@ -1175,6 +1183,192 @@ begin
   end if;
   delete from moderateurs where nom = 'Essai equipe';
 
-  raise notice 'ESSAIS OK (44)';
+  -- E45 : périmètre d'une commune — l'agent ne voit et ne modère que son
+  -- périmètre, ses annonces ne vont qu'aux zones qui le touchent, et ce qui
+  -- est réservé à l'équipe lui est refusé.
+  perform set_config('request.jwt.claims', '', true);
+  begin
+    perform vigie_ajouter_perimetre('essai-commune', 'Commune d''essai', 48.85, 2.35, 5);
+    raise exception 'E45 échec : périmètre hors de la Calédonie accepté';
+  exception when others then
+    if sqlerrm not like '%position_hors_nc%' then raise exception 'E45 échec : %', sqlerrm; end if;
+  end;
+  perform vigie_ajouter_perimetre('essai-commune', 'Commune d''essai', lat0, lng0, 5);
+  begin
+    perform vigie_ajouter_agent('Essai agent', code_agent, 'commune-inconnue');
+    raise exception 'E45 échec : agent créé avec un périmètre inconnu';
+  exception when others then
+    if sqlerrm not like '%perimetre_introuvable%' then raise exception 'E45 échec : %', sqlerrm; end if;
+  end;
+  perform vigie_ajouter_agent('Essai agent', code_agent, 'essai-commune');
+  perform vigie_ajouter_moderateur('Essai national', code_national);
+  if not exists (select 1 from moderation_journal
+                 where action = 'moderateurs_ajout' and detail = 'Essai agent (Commune d''essai)') then
+    raise exception 'E45 échec : ajout de l''agent sans sa commune dans le journal';
+  end if;
+  v_r := moderation_verifier(code_agent);
+  if v_r->'perimetre'->>'id' is distinct from 'essai-commune'
+     or (v_r->'perimetre'->>'rayon_m')::int <> 5000 then
+    raise exception 'E45 échec : périmètre de l''agent %', v_r;
+  end if;
+  if moderation_verifier(code_national)->'perimetre' <> 'null'::jsonb then
+    raise exception 'E45 échec : l''équipe a un périmètre';
+  end if;
+
+  -- Un danger dans le périmètre (à 1 km), des travaux dehors (≈ 20 km)
+  insert into reports (type, lat, lng, lieu) values ('danger', lat0 + 0.009, lng0, 'Essai dedans')
+  returning id into v_dedans;
+  insert into reports (type, lat, lng, lieu) values ('travaux', lat0 + 0.18, lng0, 'Essai dehors')
+  returning id into v_dehors;
+  v_r := moderation_liste(code_agent, 'recents');
+  if not (v_r @> jsonb_build_array(jsonb_build_object('id', v_dedans)))
+     or v_r @> jsonb_build_array(jsonb_build_object('id', v_dehors)) then
+    raise exception 'E45 échec : liste de l''agent hors périmètre';
+  end if;
+  v_r := moderation_liste(code_national, 'recents');
+  if not (v_r @> jsonb_build_array(jsonb_build_object('id', v_dedans)))
+     or not (v_r @> jsonb_build_array(jsonb_build_object('id', v_dehors))) then
+    raise exception 'E45 échec : l''équipe ne voit pas tout';
+  end if;
+  begin
+    perform moderation_action(code_agent, v_dehors, 'retirer');
+    raise exception 'E45 échec : l''agent retire un signalement hors périmètre';
+  exception when others then
+    if sqlerrm not like '%hors_perimetre%' then raise exception 'E45 échec : %', sqlerrm; end if;
+  end;
+  begin
+    perform moderation_chantier(code_agent, v_dehors, 'Mairie', vigie_jour_local() + 10);
+    raise exception 'E45 échec : l''agent fixe un chantier hors périmètre';
+  exception when others then
+    if sqlerrm not like '%hors_perimetre%' then raise exception 'E45 échec : %', sqlerrm; end if;
+  end;
+  begin
+    perform moderation_action(code_agent, v_dedans, 'effacer');
+    raise exception 'E45 échec : l''agent efface un signalement';
+  exception when others then
+    if sqlerrm not like '%reserve_equipe%' then raise exception 'E45 échec : %', sqlerrm; end if;
+  end;
+  perform moderation_action(code_agent, v_dedans, 'verifier', 'Commune d''essai');
+  if (select source_officielle from reports where id = v_dedans) is distinct from 'Commune d''essai' then
+    raise exception 'E45 échec : vérification de l''agent dans son périmètre';
+  end if;
+  begin
+    perform moderation_statistiques(code_agent);
+    raise exception 'E45 échec : chiffres ouverts à l''agent';
+  exception when others then
+    if sqlerrm not like '%reserve_equipe%' then raise exception 'E45 échec : %', sqlerrm; end if;
+  end;
+  begin
+    perform moderation_erreurs(code_agent);
+    raise exception 'E45 échec : erreurs ouvertes à l''agent';
+  exception when others then
+    if sqlerrm not like '%reserve_equipe%' then raise exception 'E45 échec : %', sqlerrm; end if;
+  end;
+  begin
+    perform moderation_ia_essai(code_agent);
+    raise exception 'E45 échec : essai de l''IA ouvert à l''agent';
+  exception when others then
+    if sqlerrm not like '%reserve_equipe%' then raise exception 'E45 échec : %', sqlerrm; end if;
+  end;
+  begin
+    perform moderation_alertes_etat(code_agent, 'https://fcm.googleapis.com/fcm/send/essai-agent');
+    raise exception 'E45 échec : alarme de sécurité ouverte à l''agent';
+  exception when others then
+    if sqlerrm not like '%reserve_equipe%' then raise exception 'E45 échec : %', sqlerrm; end if;
+  end;
+
+  -- Annonce de la commune : seulement les zones d'alerte qui touchent le
+  -- périmètre (5 km) ; garde-fous comptés à part de toute la Calédonie.
+  select (moderation_annonces(code_agent)->>'abonnes')::int into v_id_n;
+  insert into push_abonnements (endpoint, p256dh, auth, lat, lng, rayon_km) values
+    ('https://fcm.googleapis.com/fcm/send/essai-commune-dedans', 'cle', 'auth', lat0, lng0 + 0.01, 3),
+    ('https://fcm.googleapis.com/fcm/send/essai-commune-7km', 'cle', 'auth', lat0 - 0.063, lng0, 3),
+    ('https://fcm.googleapis.com/fcm/send/essai-commune-9km', 'cle', 'auth', lat0 - 0.081, lng0, 3),
+    ('https://fcm.googleapis.com/fcm/send/essai-commune-loin', 'cle', 'auth', -20.70, 164.90, 10);
+  select (moderation_annonces(code_national)->>'publiees_24h')::int into v_n;
+  v_r := moderation_annonce_publier(code_agent, 'vigilance', 'Essai commune : radier fermé.', 'Commune d''essai', 6, true);
+  v_ann_c := (v_r->>'id')::uuid;
+  if v_r->'zone'->>'id' is distinct from 'essai-commune'
+     or (select perimetre_id from annonces where id = v_ann_c) is distinct from 'essai-commune' then
+    raise exception 'E45 échec : annonce de l''agent sans sa commune %', v_r;
+  end if;
+  if (moderation_annonces(code_national)->>'publiees_24h')::int <> v_n then
+    raise exception 'E45 échec : annonce de la commune comptée pour toute la Calédonie';
+  end if;
+  if not (annonces_actives() @> jsonb_build_array(jsonb_build_object(
+            'id', v_ann_c, 'zone', jsonb_build_object('id', 'essai-commune', 'rayon_m', 5000)))) then
+    raise exception 'E45 échec : annonce de la commune absente ou sans zone : %', annonces_actives();
+  end if;
+  select valeur into v_secret from vigie_config where cle = 'notif_secret';
+  if v_secret is null then
+    v_secret := 'secret-essai-commune-0000000000000000';
+    insert into vigie_config (cle, valeur) values ('notif_secret', v_secret);
+  end if;
+  v_r := annonce_destinataires(v_secret, v_ann_c);
+  if not ((v_r->'abonnements') @> '[{"endpoint": "https://fcm.googleapis.com/fcm/send/essai-commune-dedans"}]'::jsonb)
+     or not ((v_r->'abonnements') @> '[{"endpoint": "https://fcm.googleapis.com/fcm/send/essai-commune-7km"}]'::jsonb)
+     or (v_r->'abonnements') @> '[{"endpoint": "https://fcm.googleapis.com/fcm/send/essai-commune-9km"}]'::jsonb
+     or (v_r->'abonnements') @> '[{"endpoint": "https://fcm.googleapis.com/fcm/send/essai-commune-loin"}]'::jsonb
+     or v_r->'annonce'->'zone'->>'id' is distinct from 'essai-commune' then
+    raise exception 'E45 échec : destinataires de l''annonce de la commune %', v_r;
+  end if;
+  v_r := moderation_annonces(code_agent);
+  if v_r->'perimetre'->>'id' is distinct from 'essai-commune'
+     or (v_r->>'abonnes')::int <> v_id_n + 2
+     or not ((v_r->'annonces') @> jsonb_build_array(jsonb_build_object('id', v_ann_c))) then
+    raise exception 'E45 échec : annonces vues par l''agent %', v_r;
+  end if;
+  v_r := moderation_annonce_publier(code_national, 'info', 'Essai national pendant l''essai commune.');
+  v_ann_n := (v_r->>'id')::uuid;
+  if (moderation_annonces(code_agent)->'annonces') @> jsonb_build_array(jsonb_build_object('id', v_ann_n)) then
+    raise exception 'E45 échec : l''agent voit les annonces de toute la Calédonie dans sa liste';
+  end if;
+  begin
+    perform moderation_annonce_retirer(code_agent, v_ann_n);
+    raise exception 'E45 échec : l''agent retire une annonce de toute la Calédonie';
+  exception when others then
+    if sqlerrm not like '%annonce_introuvable%' then raise exception 'E45 échec : %', sqlerrm; end if;
+  end;
+  perform moderation_annonce_retirer(code_agent, v_ann_c);
+  if annonces_actives() @> jsonb_build_array(jsonb_build_object('id', v_ann_c)) then
+    raise exception 'E45 échec : annonce retirée par l''agent encore visible';
+  end if;
+
+  -- Changer les droits déclenche l'alarme ; un périmètre utilisé ne
+  -- s'efface pas ; rien n'est lisible depuis l'appli.
+  perform vigie_ajouter_perimetre('essai-commune', 'Commune d''essai', lat0, lng0, 8);
+  if not exists (select 1 from moderation_journal
+                 where action = 'moderateurs_perimetre' and detail like 'Commune d''essai : 8.0 km%') then
+    raise exception 'E45 échec : rayon changé sans alarme';
+  end if;
+  begin
+    delete from perimetres where id = 'essai-commune';
+    raise exception 'E45 échec : périmètre utilisé effacé';
+  exception when foreign_key_violation then
+    null;
+  end;
+  perform vigie_limiter_moderateur('Essai agent', null);
+  if not exists (select 1 from moderation_journal
+                 where action = 'moderateurs_perimetre' and detail = 'Essai agent → toute la Calédonie') then
+    raise exception 'E45 échec : agent remis sur toute la Calédonie sans alarme';
+  end if;
+  if not ((moderation_liste(code_agent, 'recents')) @> jsonb_build_array(jsonb_build_object('id', v_dehors))) then
+    raise exception 'E45 échec : agent remis sur toute la Calédonie mais limité';
+  end if;
+  if has_table_privilege('anon', 'public.perimetres', 'select')
+     or has_table_privilege('authenticated', 'public.perimetres', 'select')
+     or has_function_privilege('anon', 'vigie_ajouter_agent(text, text, text)', 'execute')
+     or has_function_privilege('authenticated', 'vigie_limiter_moderateur(text, text)', 'execute')
+     or has_function_privilege('anon', 'vigie_ajouter_perimetre(text, text, double precision, double precision, numeric)', 'execute')
+     or has_function_privilege('anon', 'vigie_dans_perimetre(text, double precision, double precision)', 'execute') then
+    raise exception 'E45 échec : périmètres accessibles depuis l''appli';
+  end if;
+  delete from annonces where texte like 'Essai%';
+  delete from push_abonnements where endpoint like '%essai-commune%';
+  delete from reports where id in (v_dedans, v_dehors);
+  delete from moderateurs where nom in ('Essai agent', 'Essai national');
+  delete from perimetres where id = 'essai-commune';
+
+  raise notice 'ESSAIS OK (45)';
 end
 $essais$;

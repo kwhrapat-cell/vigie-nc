@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnnonceCard, finAnnonce } from "./AnnonceBanner";
 import { PrimaryButton } from "./ui";
+import { textePerimetre } from "@/lib/annonces-zone";
 import { formatAge } from "@/lib/geo";
 import { errorMessage, modAnnoncePublier, modAnnonceRetirer, ModAnnonces, modAnnonces } from "@/lib/reports-api";
 import {
@@ -15,11 +16,14 @@ import {
   ANNONCE_TEXTE_MAX,
   ANNONCE_TEXTE_MIN,
   AnnonceNiveau,
+  Perimetre,
 } from "@/lib/types";
 
 // Onglet « Annonces » de /moderation : publier un message vu par TOUT le
 // monde, dans toute la Calédonie (bandeau en haut de la carte), et le
-// retirer. Voir moderation_annonce_publier() dans supabase/schema.sql.
+// retirer. Agent d'une commune (`perimetre`) : le message ne va qu'à son
+// périmètre, choisi par la base. Voir moderation_annonce_publier() dans
+// supabase/schema.sql.
 
 const NIVEAU_AIDE: Record<AnnonceNiveau, string> = {
   info: "Rappel, travaux prévus, info pratique.",
@@ -33,7 +37,7 @@ const NIVEAU_ACTIF: Record<AnnonceNiveau, string> = {
   urgence: "border-danger bg-danger/15 text-danger",
 };
 
-export function ModAnnoncesPanel({ code }: { code: string }) {
+export function ModAnnoncesPanel({ code, perimetre = null }: { code: string; perimetre?: Perimetre | null }) {
   const [data, setData] = useState<ModAnnonces | null>(null);
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
@@ -63,6 +67,9 @@ export function ModAnnoncesPanel({ code }: { code: string }) {
     load();
   }, [load]);
 
+  // Ce que la base a renvoyé fait foi ; avant, celui de la connexion.
+  const zone = data ? data.perimetre : perimetre;
+  const pour = zone ? `pour ${zone.nom}` : "pour toute la Calédonie";
   const notifRestantes = Math.max(0, ANNONCE_NOTIF_MAX_24H - (data?.notifiees24h ?? 0));
   const peutNotifier = niveau !== "info" && notifRestantes > 0;
   const longueur = texte.trim().length;
@@ -77,8 +84,9 @@ export function ModAnnoncesPanel({ code }: { code: string }) {
       source: source.trim() || null,
       createdAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + dureeH * 3_600_000).toISOString(),
+      zone,
     }),
-    [niveau, texte, source, dureeH],
+    [niveau, texte, source, dureeH, zone],
   );
 
   function changeNiveau(n: AnnonceNiveau) {
@@ -90,10 +98,15 @@ export function ModAnnoncesPanel({ code }: { code: string }) {
     if (!texteOk || busy) return;
     const avecNotif = notifier && peutNotifier;
     const abonnes = data?.abonnes ?? 0;
+    const telephones = `${abonnes} téléphone${abonnes > 1 ? "s" : ""} abonné${abonnes > 1 ? "s" : ""}`;
     const message =
-      `Publier cette annonce (${ANNONCE_NIVEAU_LABELS[niveau]}) pour TOUTE la Calédonie, pendant ${dureeH} h ?` +
+      (zone
+        ? `Publier cette annonce (${ANNONCE_NIVEAU_LABELS[niveau]}) pour ${zone.nom} (${textePerimetre(zone)}), pendant ${dureeH} h ?`
+        : `Publier cette annonce (${ANNONCE_NIVEAU_LABELS[niveau]}) pour TOUTE la Calédonie, pendant ${dureeH} h ?`) +
       (avecNotif
-        ? `\n\nUne notification partira aussi vers ${abonnes} téléphone${abonnes > 1 ? "s" : ""} abonné${abonnes > 1 ? "s" : ""}, partout en Calédonie.`
+        ? zone
+          ? `\n\nUne notification partira aussi vers ${telephones} dont la zone d'alerte touche ce périmètre.`
+          : `\n\nUne notification partira aussi vers ${telephones}, partout en Calédonie.`
         : "");
     if (!window.confirm(message)) return;
 
@@ -112,7 +125,9 @@ export function ModAnnoncesPanel({ code }: { code: string }) {
       setSource("");
       setNotifier(false);
       setNotice(
-        "Annonce publiée : elle est maintenant en haut de la carte de tout le monde." +
+        (zone
+          ? `Annonce publiée : elle est maintenant en haut de la carte des personnes qui sont dans le périmètre de ${zone.nom}.`
+          : "Annonce publiée : elle est maintenant en haut de la carte de tout le monde.") +
           (avecNotif && !out.notifiee
             ? " La notification n'a pas pu partir (envoi des alertes non configuré dans la base)."
             : avecNotif
@@ -134,11 +149,19 @@ export function ModAnnoncesPanel({ code }: { code: string }) {
     <div className="mt-3 flex flex-col gap-3">
       {/* ---------------- Nouvelle annonce ---------------- */}
       <section className="mx-4 rounded-xl border border-line bg-panel px-3.5 py-3.5">
-        <h2 className="font-display font-semibold text-[14.5px]">Nouvelle annonce pour toute la Calédonie</h2>
-        <p className="mt-1 text-[11.5px] text-mist-dim leading-relaxed">
-          Elle s&apos;affiche en haut de la carte de <strong className="text-mist">tout le monde</strong>, quelle que
-          soit sa zone, jusqu&apos;à l&apos;heure de fin. Seulement des faits vérifiés, jamais de nom de personne.
-        </p>
+        <h2 className="font-display font-semibold text-[14.5px]">Nouvelle annonce {pour}</h2>
+        {zone ? (
+          <p className="mt-1 text-[11.5px] text-mist-dim leading-relaxed">
+            Elle s&apos;affiche en haut de la carte des personnes qui sont{" "}
+            <strong className="text-mist">dans ton périmètre</strong> ({zone.nom}, {textePerimetre(zone)}), jusqu&apos;à
+            l&apos;heure de fin. Seulement des faits vérifiés, jamais de nom de personne.
+          </p>
+        ) : (
+          <p className="mt-1 text-[11.5px] text-mist-dim leading-relaxed">
+            Elle s&apos;affiche en haut de la carte de <strong className="text-mist">tout le monde</strong>, quelle que
+            soit sa zone, jusqu&apos;à l&apos;heure de fin. Seulement des faits vérifiés, jamais de nom de personne.
+          </p>
+        )}
 
         <p className="mt-3 text-[12px] font-medium">Niveau</p>
         <div className="mt-1.5 grid grid-cols-3 gap-2" role="radiogroup" aria-label="Niveau de l'annonce">
@@ -219,19 +242,20 @@ export function ModAnnoncesPanel({ code }: { code: string }) {
             className="mt-0.5 w-5 h-5 shrink-0 accent-[#1C9890]"
           />
           <span className="text-[12px] leading-snug">
-            Envoyer aussi une <strong>notification</strong> à tous les abonnés aux alertes
+            Envoyer aussi une <strong>notification</strong>{" "}
+            {zone ? "aux abonnés aux alertes de ton périmètre" : "à tous les abonnés aux alertes"}
             {data ? ` (${data.abonnes} téléphone${data.abonnes > 1 ? "s" : ""})` : ""}
             <span className="mt-0.5 block text-[11px] text-mist-dim">
               {niveau === "info"
                 ? "Pas pour une simple info : choisis Vigilance ou Urgence."
                 : notifRestantes === 0
                   ? "Déjà 3 notifications ces dernières 24 h : c'est le maximum."
-                  : `Partout en Calédonie, même loin. À garder pour les vraies urgences : encore ${notifRestantes} possible${notifRestantes > 1 ? "s" : ""} sur 24 h.`}
+                  : `${zone ? "Ceux dont la zone d'alerte touche ton périmètre." : "Partout en Calédonie, même loin."} À garder pour les vraies urgences : encore ${notifRestantes} possible${notifRestantes > 1 ? "s" : ""} sur 24 h.`}
             </span>
           </span>
         </label>
 
-        <p className="mt-3 text-[12px] font-medium">Ce que tout le monde verra</p>
+        <p className="mt-3 text-[12px] font-medium">{zone ? "Ce que les habitants verront" : "Ce que tout le monde verra"}</p>
         <div className={`mt-1.5 ${texte.trim() ? "" : "opacity-60"}`}>
           <AnnonceCard annonce={apercu} defaultOpen />
         </div>
@@ -248,7 +272,7 @@ export function ModAnnoncesPanel({ code }: { code: string }) {
         )}
 
         <PrimaryButton className="mt-3" disabled={busy || !texteOk} onClick={publier}>
-          {busy ? "Publication…" : "Publier pour toute la Calédonie"}
+          {busy ? "Publication…" : `Publier ${pour}`}
         </PrimaryButton>
       </section>
 
@@ -303,7 +327,7 @@ function AnnonceItem({
   const [error, setError] = useState<string | null>(null);
 
   async function retirer() {
-    if (!window.confirm("Retirer cette annonce de la carte de tout le monde ?")) return;
+    if (!window.confirm("Retirer cette annonce de la carte ?")) return;
     setBusy(true);
     setError(null);
     try {

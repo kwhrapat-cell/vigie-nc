@@ -9,6 +9,7 @@ import {
   demoActive,
   SCENARIO_MONT_DORE,
 } from "../lib/demo";
+import { dansPerimetre } from "../lib/annonces-zone";
 import { distanceM } from "../lib/geo";
 import { ANNONCE_SOURCE_MAX, ANNONCE_TEXTE_MAX, ANNONCE_TEXTE_MIN, REPORT_TYPE_LIFETIME_MIN } from "../lib/types";
 
@@ -70,4 +71,9 @@ test("démo : l'annonce respecte les limites des vraies annonces", () => {
   assert.ok(ANNONCE_DEMO.texte.length >= ANNONCE_TEXTE_MIN);
   assert.ok(ANNONCE_DEMO.texte.length <= ANNONCE_TEXTE_MAX);
   assert.ok(ANNONCE_DEMO.ageMin < ANNONCE_DEMO.dureeMin);
+});
+
+test("démo : l'annonce de la commune est visible à la position simulée", () => {
+  assert.ok(dansPerimetre(ANNONCE_DEMO.zone, DEMO_POSITION));
+  assert.ok(ANNONCE_DEMO.zone.rayonM >= 1_000 && ANNONCE_DEMO.zone.rayonM <= 60_000);
 });

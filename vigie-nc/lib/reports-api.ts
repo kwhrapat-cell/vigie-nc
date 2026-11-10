@@ -23,6 +23,7 @@ import {
   Annonce,
   AnnonceNiveau,
   FlagReason,
+  Perimetre,
   RelaySource,
   Report,
   ReportType,
@@ -102,6 +103,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   trop_de_notifications:
     "3 annonces sont déjà parties en notification ces dernières 24 h : publie celle-ci sans notification.",
   annonce_introuvable: "Cette annonce n'existe plus.",
+  hors_perimetre: "Ce signalement est en dehors de ta commune : tu ne peux pas le modérer.",
+  reserve_equipe: "Réservé à l'équipe Vigie NC.",
   chantier_type_invalide: "Seuls les travaux peuvent avoir une date de fin.",
   chantier_date_invalide: "Choisis une date de fin entre aujourd'hui et dans 6 mois.",
   ia_non_configuree:
@@ -566,13 +569,21 @@ async function liveRpc<T>(fn: string, args: Record<string, unknown>): Promise<T>
 }
 
 /** Vérifie un code de modération ; renvoie le nom du modérateur. */
-export async function modVerify(code: string): Promise<string> {
+export interface ModSession {
+  nom: string;
+  /** Nul : équipe Vigie NC (toute la Calédonie). Sinon : agent de cette commune. */
+  perimetre: Perimetre | null;
+}
+
+export async function modVerify(code: string): Promise<ModSession> {
   // Session ouverte d'abord (sans bloquer si elle échoue) : le serveur note
   // cet appareil comme appareil de l'équipe, qui ne compte plus dans les
   // chiffres (vigie_noter_appareil_equipe dans le SQL).
   await ensureSession().catch(() => false);
-  const out = await liveRpc<{ nom: string }>("moderation_verifier", { p_code: code });
-  return out.nom;
+  const out = await liveRpc<{ nom: string; perimetre?: PerimetreRow | null }>("moderation_verifier", {
+    p_code: code,
+  });
+  return { nom: out.nom, perimetre: mapPerimetre(out.perimetre) };
 }
 
 export async function modList(code: string, filter: ModFilter): Promise<ModItem[]> {
@@ -978,10 +989,25 @@ export async function trajetSupprimerServeur(endpoint: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------
-// Annonces générales : vues par tout le monde, dans toute la Calédonie.
+// Annonces générales : vues par tout le monde, dans toute la Calédonie,
+// ou seulement dans le périmètre d'une commune (« zone », trié sur le
+// téléphone par lib/annonces-zone.ts).
 // Lecture sans session (annonces_actives) ; publication et retrait avec le
 // code d'un modérateur. Pas de mode démo : sans base, aucune annonce.
 // ---------------------------------------------------------------------
+
+interface PerimetreRow {
+  id: string;
+  nom: string;
+  lat: number;
+  lng: number;
+  rayon_m: number;
+}
+
+function mapPerimetre(r: PerimetreRow | null | undefined): Perimetre | null {
+  if (!r || typeof r.lat !== "number" || typeof r.lng !== "number" || typeof r.rayon_m !== "number") return null;
+  return { id: r.id, nom: r.nom, lat: r.lat, lng: r.lng, rayonM: r.rayon_m };
+}
 
 interface AnnonceRow {
   id: string;
@@ -990,6 +1016,7 @@ interface AnnonceRow {
   source: string | null;
   created_at: string;
   expires_at: string;
+  zone?: PerimetreRow | null;
 }
 
 function mapAnnonce(r: AnnonceRow): Annonce {
@@ -1000,6 +1027,7 @@ function mapAnnonce(r: AnnonceRow): Annonce {
     source: r.source,
     createdAt: r.created_at,
     expiresAt: r.expires_at,
+    zone: mapPerimetre(r.zone),
   };
 }
 
@@ -1021,6 +1049,8 @@ export interface ModAnnonce extends Annonce {
 
 export interface ModAnnonces {
   annonces: ModAnnonce[];
+  /** Agent d'une commune : son périmètre (annonces et abonnés de ce périmètre). */
+  perimetre: Perimetre | null;
   abonnes: number;
   notifiees24h: number;
   publiees24h: number;
@@ -1037,6 +1067,7 @@ interface ModAnnonceRow extends AnnonceRow {
 export async function modAnnonces(code: string): Promise<ModAnnonces> {
   const out = await liveRpc<{
     annonces: ModAnnonceRow[] | null;
+    perimetre?: PerimetreRow | null;
     abonnes: number;
     notifiees_24h: number;
     publiees_24h: number;
@@ -1050,6 +1081,7 @@ export async function modAnnonces(code: string): Promise<ModAnnonces> {
       envoyee: r.envoyee,
       auteur: r.auteur,
     })),
+    perimetre: mapPerimetre(out.perimetre),
     abonnes: out.abonnes ?? 0,
     notifiees24h: out.notifiees_24h ?? 0,
     publiees24h: out.publiees_24h ?? 0,
@@ -1064,7 +1096,10 @@ export interface NewAnnonce {
   notifier: boolean;
 }
 
-/** Publie une annonce pour toute la Calédonie ; `notifiee` : notification partie. */
+/**
+ * Publie une annonce pour toute la Calédonie, ou pour le périmètre de l'agent
+ * d'une commune (choisi par la base) ; `notifiee` : notification partie.
+ */
 export async function modAnnoncePublier(code: string, a: NewAnnonce): Promise<{ id: string; notifiee: boolean }> {
   const out = await liveRpc<{ id: string; notifiee: boolean }>("moderation_annonce_publier", {
     p_code: code,

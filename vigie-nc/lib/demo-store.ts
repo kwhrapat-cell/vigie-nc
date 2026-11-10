@@ -214,6 +214,7 @@ export function demoAnnonces(): Annonce[] {
       source: ANNONCE_DEMO.source,
       createdAt: new Date(annonceDemoCreee).toISOString(),
       expiresAt: new Date(fin).toISOString(),
+      zone: ANNONCE_DEMO.zone,
     },
   ];
 }

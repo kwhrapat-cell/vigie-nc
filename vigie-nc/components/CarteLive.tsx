@@ -502,10 +502,12 @@ export function CarteLive() {
           « Tu passes par là ? », annonce info, travaux, merci. Les autres
           attendent leur tour sans rien perdre. */}
 
-      {/* Annonces générales : vues par tout le monde, quelle que soit la zone */}
+      {/* Annonces générales : vues par tout le monde, quelle que soit la zone ;
+          celles d'une commune, seulement dans son périmètre (position, sinon Ma zone) */}
       <AnnonceBanner
         masque={!presences["annonce-alerte"] && masquePar("annonce-info", presences)}
         onPresence={presenceAnnonce}
+        centre={centre}
       />
 
       {/* « Tu passes par là ? » : jamais pendant la conduite */}
