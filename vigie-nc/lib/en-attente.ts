@@ -149,13 +149,15 @@ export function fileValide(brut: unknown): SignalementEnAttente[] {
   for (const x of brut) {
     if (!x || typeof x !== "object") continue;
     const s = x as Partial<SignalementEnAttente>;
-    if (typeof s.id !== "string" || typeof s.type !== "string") continue;
-    if (s.type === "sos" || !(s.type in REPORT_TYPE_LIFETIME_MIN)) continue;
+    // Valeur lue sur le téléphone : n'importe quel texte possible.
+    const type: unknown = s.type;
+    if (typeof s.id !== "string" || typeof type !== "string") continue;
+    if (type === "sos" || !(type in REPORT_TYPE_LIFETIME_MIN)) continue;
     if (typeof s.lat !== "number" || typeof s.lng !== "number" || !Number.isFinite(s.lat) || !Number.isFinite(s.lng)) continue;
     if (typeof s.vuA !== "number" || !Number.isFinite(s.vuA)) continue;
     out.push({
       id: s.id,
-      type: s.type as TypeEnAttente,
+      type: type as TypeEnAttente,
       lat: s.lat,
       lng: s.lng,
       description: typeof s.description === "string" ? s.description : null,
