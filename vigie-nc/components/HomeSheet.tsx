@@ -6,7 +6,6 @@ import { formatAgeShort, formatDistance } from "@/lib/geo";
 import { readListeRepliee, saveListeRepliee, sensGlisseListe, suiviGlisseListe } from "@/lib/preferences";
 import { aEteReconfirme, estAncien } from "@/lib/fraicheur";
 import { libelleMiseAJour } from "@/lib/legende";
-import { getReliability } from "@/lib/reliability";
 import { useLenteur } from "@/lib/useLenteur";
 import {
   Category,
@@ -51,6 +50,7 @@ export function HomeSheet({
   replieOrdi = false,
   astuce,
   trajet,
+  apresListe,
 }: {
   allReports: Report[];
   reports: Report[]; // après filtre de catégorie
@@ -79,6 +79,8 @@ export function HomeSheet({
   astuce?: ReactNode;
   /** Point sur le trajet favori (components/TrajetResume), visible même liste repliée. */
   trajet?: ReactNode;
+  /** Sous la liste dépliée : ce qui peut attendre (invitation à ajouter son trajet). */
+  apresListe?: ReactNode;
 }) {
   const counts = CATEGORIES.reduce(
     (acc, c) => ({ ...acc, [c]: allReports.filter((r) => REPORT_TYPE_CATEGORY[r.type] === c).length }),
@@ -92,7 +94,8 @@ export function HomeSheet({
   // Liste repliée : seuls le titre et les compteurs restent, la carte
   // prend la place. Toucher la barre du haut, ou la tirer avec le doigt :
   // la liste suit le doigt (la carte grandit en direct), puis se range.
-  const [repliee, setRepliee] = useState(false);
+  // Repliée par défaut : la carte d'abord (revue de design du 11/11/2026).
+  const [repliee, setRepliee] = useState(true);
   useEffect(() => setRepliee(readListeRepliee()), []);
   const changerRepliee = (v: boolean) => {
     setRepliee(v);
@@ -172,7 +175,7 @@ export function HomeSheet({
               : "En Calédonie"}
           {hasCenter && <span className="text-mist-dim font-normal text-[14px]"> · {radiusKm} km</span>}
         </h2>
-        <span className="font-mono text-[12px] text-mist-dim" aria-live="polite">
+        <span className="text-[12.5px] text-mist-dim" aria-live="polite">
           {libelleMiseAJour(status, updatedAt, lent)}
         </span>
       </div>
@@ -187,7 +190,11 @@ export function HomeSheet({
               key={c}
               type="button"
               aria-pressed={active}
-              onClick={() => onFilter(active ? null : c)}
+              onClick={() => {
+                onFilter(active ? null : c);
+                // Filtrer, c'est vouloir voir la liste : on la déplie.
+                if (!active && repliee) changerRepliee(false);
+              }}
               className={`rounded-xl border px-2 py-2 text-center transition-colors ${
                 active ? "bg-panel-2" : "bg-void/40"
               }`}
@@ -293,6 +300,24 @@ export function HomeSheet({
         </div>
       )}
 
+      {/* Liste repliée : un vrai bouton pour la déplier (la barre du haut ne se devine pas). */}
+      {repliee && (
+        <button
+          type="button"
+          onClick={() => changerRepliee(false)}
+          aria-expanded={false}
+          aria-controls="liste-proximite"
+          className="mt-2.5 w-full min-h-[44px] flex items-center justify-center gap-2 rounded-xl border border-line bg-panel-2 text-[14.5px] font-medium text-mist lg:hidden"
+        >
+          {reports.length > 0
+            ? `Voir la liste (${reports.length} signalement${reports.length > 1 ? "s" : ""})`
+            : "Voir la liste"}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4" aria-hidden="true">
+            <path d="M6 15l6-6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      )}
+
       <div id="liste-proximite" ref={listeRef} hidden={repliee} className="lg:!block">
       <div className="mt-3 mb-1 flex items-center justify-between gap-2">
         <h3 className="text-[14px] font-medium text-mist-dim">
@@ -324,9 +349,8 @@ export function HomeSheet({
         </div>
       )}
 
-      <ul className="flex flex-col gap-1.5 max-h-[26vh] overflow-y-auto -mx-1 px-1 pb-1 lg:max-h-none lg:overflow-visible">
+      <ul className="flex flex-col gap-1.5 max-h-[38vh] overflow-y-auto -mx-1 px-1 pb-1 lg:max-h-none lg:overflow-visible">
         {reports.map((r) => {
-          const rel = getReliability(r);
           // Fraîcheur (lib/fraicheur.ts) : dernière confirmation, ou « ancien »
           const ancien = estAncien(r);
           const reconfirme = aEteReconfirme(r) && r.lastConfirmedAt;
@@ -345,37 +369,25 @@ export function HomeSheet({
                     <b className="font-semibold text-[15px] truncate">{r.type === "sos" ? "SOS — urgence" : r.label}</b>
                     {r.type !== "sos" && <ReliabilityBadge report={r} />}
                   </span>
+                  {/* L'heure d'abord, bien lisible : c'est elle qui dit si l'info vaut encore. */}
+                  <span className="block text-[13.5px] text-mist">
+                    {estChantier(r) && r.endDate
+                      ? `Chantier ${libelleFinChantier(r.endDate)}`
+                      : `Il y a ${formatAgeShort(r.createdAt)}${
+                          reconfirme ? ` · revu il y a ${formatAgeShort(reconfirme)}` : ""
+                        }`}
+                    {ancien && <span className="font-medium text-warn"> · ancien</span>}
+                  </span>
                   <span className="block text-[13px] text-mist-dim truncate">
                     {[where, r.place && dist ? dist : null].filter(Boolean).join(" · ")}
                   </span>
-                  <span className="block font-mono text-[12px] text-mist-dim">
-                    <span className="opacity-70">
-                      {estChantier(r) && r.endDate
-                        ? `chantier ${libelleFinChantier(r.endDate)}`
-                        : `il y a ${formatAgeShort(r.createdAt)}${
-                            reconfirme ? ` · revu il y a ${formatAgeShort(reconfirme)}` : ""
-                          }`}
-                    </span>
-                    {ancien && <span className="font-sans font-medium text-warn"> · ancien</span>}
-                  </span>
                 </span>
-                {r.type !== "sos" && rel.people > 0 && (
-                  <span
-                    className="shrink-0 flex items-center gap-1 text-[13px] text-mist-dim"
-                    aria-label={`${rel.people} personne${rel.people > 1 ? "s" : ""}`}
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-3.5 h-3.5">
-                      <circle cx="12" cy="8" r="3.5" />
-                      <path d="M5 20a7 7 0 0 1 14 0" />
-                    </svg>
-                    {rel.people}
-                  </span>
-                )}
               </button>
             </li>
           );
         })}
       </ul>
+      {apresListe}
       </div>
     </section>
   );

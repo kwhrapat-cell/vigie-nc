@@ -114,19 +114,23 @@ export const CATEGORY_HEX: Record<Category, string> = {
   meteo: "#3B82F6",
 };
 
-// Couleur des tuiles, par type (écran Signaler, listes)
+// Couleur des tuiles (écran Signaler, listes, fiche, images partagées) :
+// celle de la CATÉGORIE, comme sur la carte et les compteurs (revue de
+// design du 11/11/2026 : un seul code couleur dans toute l'appli ; les
+// types se distinguent par leur icône). Rouge = danger, orange =
+// perturbation, bleu = météo.
 export const REPORT_TYPE_HEX: Record<ReportType, string> = {
-  sos: "#E5484D",
-  accident: "#E2572B",
-  inondation: "#2D7BE5",
-  feu: "#C2410C",
-  route_coupee: "#F0912E",
-  danger: "#D93A3A",
-  travaux: "#D9A11E",
-  meteo: "#139E95",
-  trafic_dense: "#7C5CE0",
-  chaussee_degradee: "#9A6B3F",
-  autre: "#3D5157",
+  sos: CATEGORY_HEX.danger,
+  accident: CATEGORY_HEX.danger,
+  route_coupee: CATEGORY_HEX.danger,
+  danger: CATEGORY_HEX.danger,
+  feu: CATEGORY_HEX.danger,
+  travaux: CATEGORY_HEX.perturbation,
+  trafic_dense: CATEGORY_HEX.perturbation,
+  chaussee_degradee: CATEGORY_HEX.perturbation,
+  autre: CATEGORY_HEX.perturbation,
+  inondation: CATEGORY_HEX.meteo,
+  meteo: CATEGORY_HEX.meteo,
 };
 
 // Icônes (traits SVG 24×24) — chaînes statiques, réutilisées par React et

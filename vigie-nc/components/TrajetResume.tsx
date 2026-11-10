@@ -47,10 +47,61 @@ function RouteIcon({ className }: { className?: string }) {
 }
 
 /**
+ * Sous la liste de l'accueil (pas au-dessus : l'info du moment passe
+ * d'abord) : invitation discrète à ajouter son trajet, fermable pour
+ * toujours. Rien s'il y a déjà un trajet.
+ */
+export function InvitationTrajet() {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const relire = () => {
+      let fermee = false;
+      try {
+        fermee = window.localStorage.getItem(TRAJET_INVITE_CLE) === "fermee";
+      } catch {
+        // sans stockage : on la montre
+      }
+      setVisible(!fermee && !lireTrajet());
+    };
+    relire();
+    window.addEventListener(TRAJET_EVENT, relire);
+    return () => window.removeEventListener(TRAJET_EVENT, relire);
+  }, []);
+  if (!visible) return null;
+  return (
+    <div className="mt-2.5 flex items-center gap-1 rounded-xl border border-line bg-void/40">
+      <Link href="/alertes#trajet" className="flex min-h-[44px] flex-1 items-center gap-2.5 px-3 text-[14px] text-mist">
+        <RouteIcon className="h-[18px] w-[18px] shrink-0 text-lagoon" />
+        <span className="flex-1">
+          Ajoute ton trajet de tous les jours <span className="text-mist-dim">: le point dessus en un coup d&apos;œil</span>
+        </span>
+      </Link>
+      <button
+        type="button"
+        aria-label="Ne plus proposer"
+        onClick={() => {
+          setVisible(false);
+          try {
+            window.localStorage.setItem(TRAJET_INVITE_CLE, "fermee");
+          } catch {
+            // sans stockage, l'invitation reviendra : tant pis
+          }
+        }}
+        className="flex h-11 w-11 shrink-0 items-center justify-center text-mist-dim"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+/**
  * Accueil : le point sur le trajet favori, en un coup d'œil (« Rien de
  * signalé », « 1 à surveiller », « 2 dangers »). Déplié : la liste dans
- * l'ordre de la route, et la ligne sur la carte. Sans trajet : une
- * invitation discrète à l'ajouter (fermable pour toujours).
+ * l'ordre de la route, et la ligne sur la carte. Sans trajet : rien
+ * (l'invitation est sous la liste, InvitationTrajet).
  */
 export function TrajetResume({
   actualisation,
@@ -72,7 +123,6 @@ export function TrajetResume({
 }) {
   const [trajet, setTrajet] = useState<TrajetLocal | null>(null);
   const [pret, setPret] = useState(false);
-  const [invite, setInvite] = useState(false);
   const [liste, setListe] = useState<TrajetSignalement[] | null>(null);
   const [memoire, setMemoire] = useState<MemoireInondations | null>(null);
   const [erreur, setErreur] = useState(false);
@@ -93,11 +143,6 @@ export function TrajetResume({
       if (!t) onLigne(null, false);
     };
     relire();
-    try {
-      setInvite(window.localStorage.getItem(TRAJET_INVITE_CLE) !== "fermee");
-    } catch {
-      setInvite(true);
-    }
     setPret(true);
     window.addEventListener(TRAJET_EVENT, relire);
     return () => window.removeEventListener(TRAJET_EVENT, relire);
@@ -176,36 +221,7 @@ export function TrajetResume({
 
   if (!pret) return null;
 
-  if (!trajet) {
-    if (!invite) return null;
-    return (
-      <div className="mt-2.5 flex items-center gap-1 rounded-xl border border-line bg-void/40">
-        <Link href="/alertes#trajet" className="flex min-h-[44px] flex-1 items-center gap-2.5 px-3 text-[14px] text-mist">
-          <RouteIcon className="h-[18px] w-[18px] shrink-0 text-lagoon" />
-          <span className="flex-1">
-            Ajoute ton trajet de tous les jours <span className="text-mist-dim">: le point dessus en un coup d&apos;œil</span>
-          </span>
-        </Link>
-        <button
-          type="button"
-          aria-label="Ne plus proposer"
-          onClick={() => {
-            setInvite(false);
-            try {
-              window.localStorage.setItem(TRAJET_INVITE_CLE, "fermee");
-            } catch {
-              // sans stockage, l'invitation reviendra : tant pis
-            }
-          }}
-          className="flex h-11 w-11 shrink-0 items-center justify-center text-mist-dim"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4" aria-hidden="true">
-            <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
-          </svg>
-        </button>
-      </div>
-    );
-  }
+  if (!trajet) return null;
 
   const enCours = liste === null && !erreur;
   const pastille = enCours ? "…" : erreur && liste === null ? "Hors ligne" : texteVerdict(verdict);

@@ -27,10 +27,14 @@ export const RELIABILITY_LEVELS: {
   { level: "verifie", label: "Vérifié", rule: "Source officielle (mairie, province, pompiers…)" },
 ];
 
+// Couleurs NEUTRES (revue de design du 11/11/2026) : le rouge, l'orange et
+// le bleu disent la catégorie (danger, perturbation, météo) ; la fiabilité
+// ne doit pas les reprendre (un simple trafic « Signalé » n'est pas une
+// alerte rouge). Du gris au lagon : plus c'est sûr, plus c'est vif.
 export const RELIABILITY_HEX: Record<ReliabilityLevel, string> = {
-  signalement: "#E5484D",
-  plusieurs: "#F0912E",
-  verifie: "#3B82F6",
+  signalement: "#93B0AD",
+  plusieurs: "#D3E6E3",
+  verifie: "#22B8B0",
 };
 
 /** Texte court des petites pastilles (listes) : « 3 signalements » plutôt que le libellé long. */

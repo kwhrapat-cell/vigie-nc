@@ -10,8 +10,8 @@ test("liste : glisser vers le bas replie, vers le haut déplie", () => {
   assert.equal(sensGlisseListe(90, 60), null); // plutôt horizontal
 });
 
-test("liste : dépliée par défaut, choix gardé sur le téléphone", () => {
-  assert.equal(readListeRepliee(), false); // pas de stockage (comme côté serveur)
+test("liste : repliée par défaut (la carte d'abord), choix gardé sur le téléphone", () => {
+  assert.equal(readListeRepliee(), true); // pas de stockage (comme côté serveur)
   const donnees = new Map<string, string>();
   (globalThis as { window?: unknown }).window = {
     localStorage: {
@@ -20,6 +20,8 @@ test("liste : dépliée par défaut, choix gardé sur le téléphone", () => {
     },
   };
   try {
+    assert.equal(readListeRepliee(), true);
+    saveListeRepliee(false);
     assert.equal(readListeRepliee(), false);
     saveListeRepliee(true);
     assert.equal(readListeRepliee(), true);

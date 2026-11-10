@@ -173,7 +173,7 @@ export default function HistoriquePage() {
                 >
                   {m.total > 0 && <span className="font-mono text-[12px] leading-none text-mist-dim">{m.total}</span>}
                   <div
-                    className={`w-full rounded-t-[3px] ${peakIndexes.has(i) ? "bg-danger" : "bg-primary"}`}
+                    className={`w-full rounded-t-[3px] ${peakIndexes.has(i) ? "bg-ochre" : "bg-primary"}`}
                     style={{ height: `${Math.max((m.total / max) * 100, m.total > 0 ? 6 : 2)}%` }}
                   />
                 </div>
@@ -192,7 +192,7 @@ export default function HistoriquePage() {
             <p className="mt-3 text-[14px] text-mist-dim">
               Le plus fréquent {effectiveScope === "zone" ? "ici" : "en Calédonie"} :{" "}
               <span className="text-mist font-medium">{REPORT_TYPE_LABELS[topType[0]]}</span> ({topType[1]}).
-              {peakIndexes.size > 0 && " Les mois en rouge sont les plus chargés."}
+              {peakIndexes.size > 0 && " Les mois en jaune sont les plus chargés."}
             </p>
           )}
           {stats.total === 0 && (

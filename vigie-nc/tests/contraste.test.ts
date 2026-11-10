@@ -15,11 +15,18 @@ test("contraste : valeurs connues", () => {
   assert.equal(contraste("#000000", "#FFFFFF"), contraste("#FFFFFF", "#000000"));
 });
 
-test("tuiles : texte foncé sur l'orange et le jaune, blanc ailleurs", () => {
-  assert.equal(couleurSur(REPORT_TYPE_HEX.route_coupee), FONCE);
-  assert.equal(couleurSur(REPORT_TYPE_HEX.travaux), FONCE);
+test("tuiles : couleur de la catégorie, texte foncé sur l'orange, blanc ailleurs", () => {
   assert.equal(couleurSur(CATEGORY_HEX.perturbation), FONCE);
-  for (const t of ["accident", "inondation", "feu", "danger", "meteo", "trafic_dense", "chaussee_degradee", "autre", "sos"] as const) {
+  for (const t of ["travaux", "trafic_dense", "chaussee_degradee", "autre"] as const) {
+    assert.equal(REPORT_TYPE_HEX[t], CATEGORY_HEX.perturbation, t);
+    assert.equal(couleurSur(REPORT_TYPE_HEX[t]), FONCE, t);
+  }
+  for (const t of ["accident", "route_coupee", "feu", "danger", "sos"] as const) {
+    assert.equal(REPORT_TYPE_HEX[t], CATEGORY_HEX.danger, t);
+    assert.equal(couleurSur(REPORT_TYPE_HEX[t]), BLANC, t);
+  }
+  for (const t of ["inondation", "meteo"] as const) {
+    assert.equal(REPORT_TYPE_HEX[t], CATEGORY_HEX.meteo, t);
     assert.equal(couleurSur(REPORT_TYPE_HEX[t]), BLANC, t);
   }
 });

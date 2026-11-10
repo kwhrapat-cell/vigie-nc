@@ -59,8 +59,6 @@ export default function ProfilPage() {
     <main className="min-h-[100dvh] pb-nav">
       <ScreenHeader title="Profil" subtitle="Sans compte · anonyme" />
 
-      <MonImpact />
-
       <Card title="Ma zone surveillée">
         <p className="text-[13.5px] text-mist-dim mb-2.5">
           Rayon autour de toi pour la carte et les alertes. Pour la route, 3 à 5 km permettent de voir ce qui est
@@ -85,6 +83,38 @@ export default function ProfilPage() {
             </button>
           ))}
         </div>
+      </Card>
+
+      <Card title="Contacts d'urgence (SOS)">
+        <p className="text-[13.5px] text-mist-dim">
+          {contacts > 0
+            ? `${contacts} contact${contacts > 1 ? "s" : ""} enregistré${contacts > 1 ? "s" : ""}, uniquement sur ce téléphone.`
+            : "Aucun contact pour l'instant. En cas de SOS, un SMS avec ta position leur est préparé."}
+        </p>
+        <div className="mt-2.5 flex gap-2">
+          <Link href="/contacts" className="flex-1 rounded-lg border border-line bg-panel-2 py-2.5 text-center text-[14.5px] font-medium">
+            {contacts > 0 ? "Gérer mes contacts" : "Ajouter un contact"}
+          </Link>
+          <Link href="/sos" className="rounded-lg bg-danger px-4 py-2.5 text-center text-[14.5px] font-semibold text-white">
+            SOS
+          </Link>
+        </div>
+      </Card>
+
+      <Card title="Carte sans réseau">
+        <p className="text-[13.5px] text-mist-dim mb-2.5">
+          {cartes.length > 0
+            ? cartes
+                .map((c) => `${NOM_AIRE[c.id]} · ≈ ${texteOctets(c.octets)} · le ${new Date(c.at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`)
+                .join(" — ")
+            : "Télécharge la carte une fois : pendant un cyclone ou une coupure, elle s'affiche quand même."}
+        </p>
+        <Link
+          href="/carte-hors-ligne"
+          className="flex min-h-[48px] items-center justify-center rounded-lg border border-line bg-panel-2 text-[15px] font-medium text-mist"
+        >
+          {cartes.length > 0 ? "Gérer la carte sans réseau" : "Télécharger la carte"}
+        </Link>
       </Card>
 
       {/* Rangé ici pour alléger la carte de l'accueil */}
@@ -116,37 +146,8 @@ export default function ProfilPage() {
         </div>
       </Card>
 
-      <Card title="Carte sans réseau">
-        <p className="text-[13.5px] text-mist-dim mb-2.5">
-          {cartes.length > 0
-            ? cartes
-                .map((c) => `${NOM_AIRE[c.id]} · ≈ ${texteOctets(c.octets)} · le ${new Date(c.at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`)
-                .join(" — ")
-            : "Télécharge la carte une fois : pendant un cyclone ou une coupure, elle s'affiche quand même."}
-        </p>
-        <Link
-          href="/carte-hors-ligne"
-          className="flex min-h-[48px] items-center justify-center rounded-lg border border-line bg-panel-2 text-[15px] font-medium text-mist"
-        >
-          {cartes.length > 0 ? "Gérer la carte sans réseau" : "Télécharger la carte"}
-        </Link>
-      </Card>
-
-      <Card title="Contacts d'urgence (SOS)">
-        <p className="text-[13.5px] text-mist-dim">
-          {contacts > 0
-            ? `${contacts} contact${contacts > 1 ? "s" : ""} enregistré${contacts > 1 ? "s" : ""}, uniquement sur ce téléphone.`
-            : "Aucun contact pour l'instant. En cas de SOS, un SMS avec ta position leur est préparé."}
-        </p>
-        <div className="mt-2.5 flex gap-2">
-          <Link href="/contacts" className="flex-1 rounded-lg border border-line bg-panel-2 py-2.5 text-center text-[14.5px] font-medium">
-            {contacts > 0 ? "Gérer mes contacts" : "Ajouter un contact"}
-          </Link>
-          <Link href="/sos" className="rounded-lg bg-danger px-4 py-2.5 text-center text-[14.5px] font-semibold text-white">
-            SOS
-          </Link>
-        </div>
-      </Card>
+      {/* Le jeu après les réglages qui comptent (revue de design du 11/11/2026) */}
+      <MonImpact />
 
       <Card title="Niveaux de fiabilité">
         <ul className="flex flex-col gap-2">
