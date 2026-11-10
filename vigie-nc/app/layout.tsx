@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono, Inter, Space_Grotesk } from "next/font/google";
+import localFont from "next/font/local";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
@@ -46,14 +46,38 @@ export const metadata: Metadata = {
 // le téléphone ne contacte jamais Google Fonts (pas d'adresse IP envoyée
 // à Google à chaque visite). Utilisées par Tailwind (font-display, font-body,
 // font-mono), globals.css et le dessin du point route (lib/point-route-dessin.ts).
-const policeTexte = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], display: "swap", variable: "--police-texte" });
-const policeTitre = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
+// Polices rangées DANS le site (assets/fonts, caractères latins, licence OFL) :
+// la construction ne télécharge plus rien chez Google (le 10/11/2026, Google
+// n'a pas répondu et la mise en ligne a échoué). Mêmes fichiers que Google
+// Fonts « latin » (copie Fontsource), et le téléphone ne parle jamais à Google.
+const policeTexte = localFont({
+  src: [
+    { path: "../assets/fonts/inter-latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "../assets/fonts/inter-latin-500-normal.woff2", weight: "500", style: "normal" },
+    { path: "../assets/fonts/inter-latin-600-normal.woff2", weight: "600", style: "normal" },
+  ],
+  display: "swap",
+  variable: "--police-texte",
+});
+const policeTitre = localFont({
+  src: [
+    { path: "../assets/fonts/space-grotesk-latin-500-normal.woff2", weight: "500", style: "normal" },
+    { path: "../assets/fonts/space-grotesk-latin-600-normal.woff2", weight: "600", style: "normal" },
+    { path: "../assets/fonts/space-grotesk-latin-700-normal.woff2", weight: "700", style: "normal" },
+  ],
   display: "swap",
   variable: "--police-titre",
 });
-const policeMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], display: "swap", variable: "--police-mono" });
+const policeMono = localFont({
+  src: [
+    { path: "../assets/fonts/ibm-plex-mono-latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "../assets/fonts/ibm-plex-mono-latin-500-normal.woff2", weight: "500", style: "normal" },
+  ],
+  display: "swap",
+  variable: "--police-mono",
+  fallback: ["ui-monospace", "Menlo", "monospace"],
+  adjustFontFallback: false,
+});
 
 export const viewport: Viewport = {
   width: "device-width",

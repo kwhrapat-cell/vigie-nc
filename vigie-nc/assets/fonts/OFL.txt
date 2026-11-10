@@ -1,5 +1,7 @@
 Inter — Copyright 2016-2023 The Inter Project Authors (https://github.com/rsms/inter)
-Polices réduites aux caractères latins pour l'image d'aperçu des liens partagés (app/s/[id]/opengraph-image.tsx).
+Polices réduites aux caractères latins pour l'image d'aperçu des liens partagés (app/s/[id]/opengraph-image.tsx),
+et, en woff2 (inter-latin-*.woff2), pour le site (app/layout.tsx). Space Grotesk : SpaceGrotesk-OFL.txt ;
+IBM Plex Mono : IBMPlexMono-OFL.txt (même licence SIL Open Font License 1.1).
 
 SIL Open Font License, Version 1.1
 
