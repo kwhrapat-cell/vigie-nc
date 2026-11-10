@@ -12,6 +12,7 @@ import { estAncien } from "@/lib/fraicheur";
 import { REPERE_RECENT_MIN } from "@/lib/legende";
 import { useLenteur } from "@/lib/useLenteur";
 import { BACKUP_PLAN_LAYER, MAP_STYLES, NC_BOUNDS } from "@/lib/map-styles";
+import { brancherCarteHorsLigne } from "@/lib/couche-hors-ligne";
 import type { MapStyle } from "@/lib/preferences";
 import { getReliability } from "@/lib/reliability";
 import {
@@ -130,6 +131,8 @@ export function LiveMap({
   const leafletRef = useRef<typeof Leaflet | null>(null);
   const mapRef = useRef<Leaflet.Map | null>(null);
   const tilesRef = useRef<Leaflet.Layer[]>([]);
+  // Carte sans réseau (lib/couche-hors-ligne.ts) : débranchée à chaque changement de fond.
+  const horsLigneRef = useRef<(() => void) | null>(null);
   const markersRef = useRef<Leaflet.LayerGroup | null>(null);
   const userMarkerRef = useRef<Leaflet.Marker | null>(null);
   const avatarRef = useRef(avatar);
@@ -249,6 +252,8 @@ export function LiveMap({
       circleRef.current = null;
       ligneRef.current = null;
       tilesRef.current = [];
+      horsLigneRef.current?.();
+      horsLigneRef.current = null;
       lastFitRef.current = null;
       setReady(false);
     };
@@ -263,6 +268,11 @@ export function LiveMap({
     const layers = MAP_STYLES[mapStyle].layers.map((spec) => L.tileLayer(spec.url, spec.options).addTo(map));
     tilesRef.current = layers;
     containerRef.current?.setAttribute("data-fond", mapStyle);
+
+    // Carte téléchargée (Profil › Carte sans réseau) : dessinée sous le plan
+    // dès que le réseau manque.
+    horsLigneRef.current?.();
+    horsLigneRef.current = demoActive() ? null : brancherCarteHorsLigne(L, map, layers[0] ?? null);
 
     // Plan de secours : si les tuiles du plan n'arrivent plus alors que le
     // téléphone a du réseau (serveur bloqué ou saturé), on bascule.

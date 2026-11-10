@@ -22,6 +22,8 @@ import {
 } from "@/lib/preferences";
 import { RELIABILITY_HEX, RELIABILITY_LEVELS } from "@/lib/reliability";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { CARTE_EVENT, lireAires, NOM_AIRE, type AireCarte } from "@/lib/carte-hors-ligne";
+import { texteOctets } from "@/lib/carte-plan";
 import { useDemo } from "@/lib/useDemo";
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
@@ -39,6 +41,7 @@ export default function ProfilPage() {
   const [contacts, setContacts] = useState(0);
   const [fond, setFond] = useState<MapStyle>("plan");
   const [demo, setDemo] = useState(false);
+  const [cartes, setCartes] = useState<AireCarte[]>([]);
   // Démonstration Mont-Dore lancée dans cet onglet (lien /demo)
   const demonstration = useDemo();
 
@@ -46,6 +49,10 @@ export default function ProfilPage() {
     setRadius(readRadiusKm());
     setFond(readMapStyle());
     setContacts(getEmergencyContacts().length);
+    const relire = () => setCartes(lireAires().filter((a) => a.fini));
+    relire();
+    window.addEventListener(CARTE_EVENT, relire);
+    return () => window.removeEventListener(CARTE_EVENT, relire);
   }, []);
 
   return (
@@ -107,6 +114,22 @@ export default function ProfilPage() {
             );
           })}
         </div>
+      </Card>
+
+      <Card title="Carte sans réseau">
+        <p className="text-[13.5px] text-mist-dim mb-2.5">
+          {cartes.length > 0
+            ? cartes
+                .map((c) => `${NOM_AIRE[c.id]} · ≈ ${texteOctets(c.octets)} · le ${new Date(c.at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`)
+                .join(" — ")
+            : "Télécharge la carte une fois : pendant un cyclone ou une coupure, elle s'affiche quand même."}
+        </p>
+        <Link
+          href="/carte-hors-ligne"
+          className="flex min-h-[48px] items-center justify-center rounded-lg border border-line bg-panel-2 text-[15px] font-medium text-mist"
+        >
+          {cartes.length > 0 ? "Gérer la carte sans réseau" : "Télécharger la carte"}
+        </Link>
       </Card>
 
       <Card title="Contacts d'urgence (SOS)">

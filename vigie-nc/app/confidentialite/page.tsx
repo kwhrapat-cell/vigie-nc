@@ -284,6 +284,13 @@ export default function ConfidentialitePage() {
             2 heures au plus (1 heure pour le trafic dense), ou quand tu touches « Effacer ».
           </li>
           <li>
+            La carte sans réseau, si tu la télécharges (Profil › Carte sans réseau) : des morceaux de la carte de la
+            Calédonie (données publiques OpenStreetMap), autour de toi, le long de ton trajet ou pour toute la
+            Calédonie. Ils sont demandés à Vigie NC ; ta position n&apos;est pas envoyée, mais les morceaux demandés
+            correspondent à la zone choisie. Mise à jour une fois par mois en Wi-Fi si l&apos;option est cochée ;
+            effacée quand tu touches « Supprimer ».
+          </li>
+          <li>
             Sur iPhone, l&apos;appli ajoutée à l&apos;écran d&apos;accueil garde ses propres réglages et contacts, à
             part de ceux de Safari.
           </li>
@@ -378,6 +385,10 @@ export default function ConfidentialitePage() {
           </li>
           <li>Cloudflare (Turnstile) : vérifie qu&apos;une vraie personne ouvre la session anonyme, si cette protection est active.</li>
           <li>Les polices de caractères sont servies par Vigie NC : ton téléphone ne contacte pas Google Fonts.</li>
+          <li>
+            GitHub : garde le fichier de la carte sans réseau (mis en forme par Protomaps). Ton téléphone ne le
+            contacte pas : c&apos;est le serveur de Vigie NC qui va y chercher les morceaux demandés.
+          </li>
           <li>
             Anthropic (intelligence artificielle Claude) : écrit le résumé automatique à partir des textes des témoins,
             et le point route du mode conduite à partir des signalements devant toi, sans savoir qui tu es ni où tu

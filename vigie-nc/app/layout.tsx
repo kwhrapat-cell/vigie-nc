@@ -9,6 +9,7 @@ import { ServiceIndisponible } from "@/components/ServiceIndisponible";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { SessionInit } from "@/components/SessionInit";
 import { EnvoiEnAttente } from "@/components/EnvoiEnAttente";
+import { MajCarteHorsLigne } from "@/components/MajCarteHorsLigne";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 import { demoBlocked } from "@/lib/supabase";
 
@@ -110,6 +111,7 @@ export default function RootLayout({
         <ErreurReporter />
         {!demoBlocked && <SessionInit />}
         {!demoBlocked && <EnvoiEnAttente />}
+        {!demoBlocked && <MajCarteHorsLigne />}
         <BandeauDemo />
         <AppShell>{demoBlocked ? <ServiceIndisponible /> : children}</AppShell>
       </body>

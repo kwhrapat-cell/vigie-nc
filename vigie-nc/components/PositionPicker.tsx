@@ -5,6 +5,8 @@ import type * as Leaflet from "leaflet";
 import { LatLng } from "@/lib/geo";
 import { MAP_STYLES, NC_BOUNDS } from "@/lib/map-styles";
 import { readMapStyle } from "@/lib/preferences";
+import { brancherCarteHorsLigne } from "@/lib/couche-hors-ligne";
+import { demoActive } from "@/lib/demo";
 
 const PIN_SVG = `<svg class="pick-pin" viewBox="0 0 34 44" aria-hidden="true">
   <path d="M17 1.5A15.5 15.5 0 0 1 32.5 17c0 11-15.5 25.5-15.5 25.5S1.5 28 1.5 17A15.5 15.5 0 0 1 17 1.5z" fill="#E5484D" stroke="#081317" stroke-width="2"/>
@@ -37,6 +39,7 @@ export function PositionPicker({
   const accuracyRef = useRef<Leaflet.Circle | null>(null);
   const zoneRef = useRef<Leaflet.Circle | null>(null);
   const centeredOnce = useRef(false);
+  const debrancherRef = useRef<(() => void) | null>(null);
   const [ready, setReady] = useState(false);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -57,9 +60,13 @@ export function PositionPicker({
       // Même fond que celui choisi sur la carte d'accueil
       const style = readMapStyle();
       containerRef.current.setAttribute("data-fond", style);
+      let plan: Leaflet.TileLayer | null = null;
       for (const spec of MAP_STYLES[style].layers) {
-        L.tileLayer(spec.url, spec.options).addTo(map);
+        const couche = L.tileLayer(spec.url, spec.options).addTo(map);
+        plan ??= couche;
       }
+      // Sans réseau : la carte téléchargée (Profil › Carte sans réseau).
+      if (!demoActive()) debrancherRef.current = brancherCarteHorsLigne(L, map, plan);
       map.on("click", (e: Leaflet.LeafletMouseEvent) =>
         onChangeRef.current({ lat: e.latlng.lat, lng: e.latlng.lng }),
       );
@@ -71,6 +78,8 @@ export function PositionPicker({
     })();
     return () => {
       cancelled = true;
+      debrancherRef.current?.();
+      debrancherRef.current = null;
       mapRef.current?.remove();
       mapRef.current = null;
       pinRef.current = null;
