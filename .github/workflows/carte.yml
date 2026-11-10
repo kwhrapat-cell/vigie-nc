@@ -1,0 +1,109 @@
+# Carte sans réseau : le fichier de la carte de la Calédonie (PMTiles,
+# données OpenStreetMap mises en forme par Protomaps, licence ODbL).
+# Découpé chaque mois dans la carte du monde Protomaps, puis publié dans la
+# pré-version « carte-nc » du dépôt :
+#   nc-AAAAMMJJ.pmtiles  la carte (nom daté : un fichier ne change jamais)
+#   nc.json              la fiche de la version en cours (lue par l'appli)
+# L'appli ne lit jamais GitHub directement : elle passe par /api/carte
+# (vigie-nc.com), qui va chercher les morceaux demandés.
+name: Carte sans réseau (fichier de la Calédonie)
+
+on:
+  schedule:
+    # Le 3 de chaque mois vers 1 h 37 du matin à Nouméa.
+    - cron: "37 14 2 * *"
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/carte.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: carte-nc
+  cancel-in-progress: false
+
+jobs:
+  carte:
+    name: Découpe et publication de la carte
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PMTILES_VERSION: "v1.31.2"
+      # Grande Terre, Belep, îles Loyauté, île des Pins (ouest, sud, est, nord)
+      EMPRISE: "163.5,-22.9,168.2,-19.4"
+      ZOOM_MAX: "15"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Outil pmtiles
+        run: |
+          gh release download "$PMTILES_VERSION" --repo protomaps/go-pmtiles \
+            --pattern "*Linux_x86_64.tar.gz" --output pmtiles.tar.gz
+          tar -xzf pmtiles.tar.gz pmtiles
+          ./pmtiles version
+
+      - name: Carte du monde Protomaps la plus récente
+        id: source
+        run: |
+          for i in $(seq 0 14); do
+            d=$(date -u -d "-$i day" +%Y%m%d)
+            if curl -fsI "https://build.protomaps.com/$d.pmtiles" >/dev/null; then
+              echo "date=$d" >> "$GITHUB_OUTPUT"
+              echo "Source : $d"
+              exit 0
+            fi
+          done
+          echo "Aucune carte du monde trouvée ces 15 derniers jours" >&2
+          exit 1
+
+      - name: Taille prévue (sans télécharger)
+        run: |
+          for z in 13 14 15; do
+            echo "--- jusqu'au zoom $z"
+            ./pmtiles extract "https://build.protomaps.com/${{ steps.source.outputs.date }}.pmtiles" essai.pmtiles \
+              --bbox="$EMPRISE" --maxzoom=$z --dry-run 2>&1 | tail -4
+          done
+
+      - name: Découpe de la Calédonie
+        run: |
+          ./pmtiles extract "https://build.protomaps.com/${{ steps.source.outputs.date }}.pmtiles" nc.pmtiles \
+            --bbox="$EMPRISE" --maxzoom="$ZOOM_MAX"
+          ./pmtiles show nc.pmtiles
+          ./pmtiles verify nc.pmtiles
+
+      - name: Contrôle et fiche de version
+        id: fiche
+        run: |
+          octets=$(stat -c %s nc.pmtiles)
+          echo "Taille : $octets octets"
+          # Trop petit = découpe ratée ; plus d'1,5 Go = emprise ou zoom faux.
+          test "$octets" -gt 1000000
+          test "$octets" -lt 1500000000
+          d="${{ steps.source.outputs.date }}"
+          fichier="nc-$d.pmtiles"
+          mv nc.pmtiles "$fichier"
+          printf '{"fichier":"%s","source":"%s","octets":%s,"zoomMax":%s,"emprise":[%s],"publieLe":"%s"}\n' \
+            "$fichier" "$d" "$octets" "$ZOOM_MAX" "$EMPRISE" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > nc.json
+          cat nc.json
+          echo "fichier=$fichier" >> "$GITHUB_OUTPUT"
+
+      - name: Publication (pré-version carte-nc)
+        run: |
+          if ! gh release view carte-nc --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create carte-nc --repo "$GITHUB_REPOSITORY" --prerelease --latest=false --target "$GITHUB_SHA" \
+              --title "Carte de la Calédonie (sans réseau)" \
+              --notes "Fichier de la carte téléchargée par l'appli (Profil › Carte sans réseau), via vigie-nc.com/api/carte. Données © contributeurs OpenStreetMap (ODbL), mises en forme par Protomaps. Mis à jour chaque mois : ne pas modifier à la main."
+          fi
+          # La carte d'abord, la fiche ensuite : l'appli ne voit jamais une
+          # fiche qui pointe vers un fichier absent.
+          gh release upload carte-nc "${{ steps.fiche.outputs.fichier }}" --repo "$GITHUB_REPOSITORY" --clobber
+          gh release upload carte-nc nc.json --repo "$GITHUB_REPOSITORY" --clobber
+          # On garde les 2 dernières cartes (un téléchargement en cours
+          # sur l'ancienne version peut finir), on efface les plus vieilles.
+          gh release view carte-nc --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq '.assets[].name | select(test("^nc-[0-9]{8}\\.pmtiles$"))' | sort -r | tail -n +3 |
+            while read -r vieux; do
+              echo "Effacé : $vieux"
+              gh release delete-asset carte-nc "$vieux" --repo "$GITHUB_REPOSITORY" --yes
+            done
