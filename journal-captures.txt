@@ -1,0 +1,11 @@
+retour — OK     telephone : la fiche s'ouvre
+retour — OK     telephone : Retour ferme la fiche
+retour — OK     telephone : on reste sur la carte sans recharger (page /, rechargée : false)
+retour — OK     telephone : fiche fermée par Échap : étape retirée
+retour — ÉCHEC  telephone : bouton Légende introuvable
+retour — OK     portable : la fiche s'ouvre
+retour — OK     portable : Retour ferme la fiche
+retour — OK     portable : on reste sur la carte sans recharger (page /, rechargée : false)
+retour — OK     portable : fiche fermée par Échap : étape retirée
+retour — ÉCHEC  portable : bouton Légende introuvable
+captures faites
