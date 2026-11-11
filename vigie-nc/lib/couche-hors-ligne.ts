@@ -58,6 +58,18 @@ function couchesDe(source: Source, z: number, x: number, y: number): Promise<Cou
   return p;
 }
 
+// File de dessin : une tuile à la fois, chacune dans sa propre tâche, pour
+// que le téléphone reste réactif (glisser, toucher) pendant que la carte se
+// dessine. Une tuile retirée entre-temps (zoom ou déplacement rapide) n'est
+// pas dessinée du tout.
+let file: Promise<void> = Promise.resolve();
+const pause = () => new Promise<void>((r) => setTimeout(r, 0));
+function aSonTour(travail: () => void): Promise<void> {
+  const p = file.then(pause).then(travail);
+  file = p.catch(() => undefined);
+  return p;
+}
+
 async function dessiner(
   canvas: HTMLCanvasElement,
   c: { z: number; x: number; y: number },
@@ -73,6 +85,21 @@ async function dessiner(
   const xd = Math.floor(c.x / echelle);
   const yd = Math.floor(c.y / echelle);
   const couches = await couchesDe(source, zd, xd, yd);
+  await aSonTour(() => peindre(canvas, c, densite, source, palette, police, couches, { echelle, xd, yd }));
+}
+
+function peindre(
+  canvas: HTMLCanvasElement,
+  c: { z: number; x: number; y: number },
+  densite: number,
+  source: Source,
+  palette: NomPalette,
+  police: string,
+  couches: Couche[] | null,
+  { echelle, xd, yd }: { echelle: number; xd: number; yd: number },
+): void {
+  // Tuile déjà retirée de la carte : rien à dessiner.
+  if (!canvas.isConnected) return;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   if (!couches) {

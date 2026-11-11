@@ -326,7 +326,9 @@ vigie-nc/
                      « vigie-clair » (plein soleil, routes blanches bordées de gris),
                      « osm » (carte sans réseau sous le plan OSM). Routes et
                      cartouches JAMAIS rouges ni orange (réservés aux dangers et
-                     perturbations ; tests/carte-vigie.test.ts)
+                     perturbations ; tests/carte-vigie.test.ts). Trait de côte ;
+                     bâtiments seulement dès z16 dans les palettes Vigie (moitié
+                     du temps de dessin en ville) ; points à moins d'1 px sautés
     carte-blocs.ts   lecture du fichier de la carte par blocs alignés de 32 Ko
                      (mêmes adresses pour tous : CDN, navigateur, service worker) ;
                      mesuré le 11/11/2026 : une vue de téléphone ≈ 7 blocs, ≈ 220 Ko
@@ -354,7 +356,10 @@ vigie-nc/
     couche-hors-ligne.ts couches Leaflet (GridLayer + canvas, sur-zoom net au-delà
                      de z15) : creerCoucheVigie (tuile du téléphone si la carte sans
                      réseau est téléchargée, sinon en ligne ; rien = la mer) et
-                     creerCoucheHorsLigne ; brancherCarteHorsLigne l'ajoute SOUS le
+                     creerCoucheHorsLigne ; dessin en FILE, une tuile par tâche
+                     (le téléphone reste réactif), tuile retirée = pas dessinée
+                     (mesuré le 11/11/2026 : z14-15 ≈ 2 fois plus rapide) ;
+                     brancherCarteHorsLigne l'ajoute SOUS le
                      plan OSM ou satellite dès que le téléphone est hors ligne ou
                      que 2 tuiles du plan échouent en 20 s (jamais en démo)
     trajet-hors-ligne.ts dernier point du trajet favori gardé
