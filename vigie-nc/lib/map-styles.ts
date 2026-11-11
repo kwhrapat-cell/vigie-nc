@@ -1,7 +1,12 @@
+import type { NomPalette } from "./carte-dessin";
 import type { MapStyle } from "./preferences";
 
-// Fonds de carte gratuits, sans clé, utilisables avec Leaflet.
-// Tout est regroupé ici pour pouvoir changer de fournisseur facilement.
+// Fonds de carte. Par défaut, le fond « Vigie » (revue de design du
+// 11/11/2026) : dessiné sur le téléphone à partir de la carte vectorielle
+// de la Calédonie servie par vigie-nc.com (lib/carte-en-ligne.ts,
+// lib/couche-hors-ligne.ts). Les autres sont des images gratuites, sans
+// clé, d'autres serveurs. Tout est regroupé ici pour pouvoir changer de
+// fournisseur facilement ; la pose sur une carte : lib/fond-carte.ts.
 
 export interface TileSpec {
   url: string;
@@ -13,6 +18,7 @@ export interface TileSpec {
     // Tuiles demandées en CORS : le service worker peut en garder une copie
     // lisible pour l'affichage sans réseau (public/sw.js).
     crossOrigin?: "anonymous";
+    className?: string;
   };
 }
 
@@ -62,18 +68,46 @@ const PLAN_LAYER = MAPTILER_KEY ? MAPTILER_LAYER : OSM_LAYER;
  */
 export const BACKUP_PLAN_LAYER: TileSpec = MAPTILER_KEY ? OSM_LAYER : ESRI_STREETS_LAYER;
 
-export const MAP_STYLES: Record<MapStyle, { label: string; hint: string; layers: TileSpec[] }> = {
-  // Lisible de jour : routes, communes, rivières bien visibles.
-  plan: {
-    label: "Plan",
-    hint: "Routes et communes bien lisibles",
-    layers: [PLAN_LAYER],
+/**
+ * Secours du fond Vigie si la carte vectorielle n'arrive pas (serveur en
+ * panne) : le plan habituel, assombri pour « Vigie » (classe fond-secours,
+ * globals.css).
+ */
+export const SECOURS_VIGIE: TileSpec = {
+  url: PLAN_LAYER.url,
+  options: { ...PLAN_LAYER.options, className: "fond-secours" },
+};
+
+export interface DefinitionFond {
+  label: string;
+  hint: string;
+  /** Images posées l'une sur l'autre (fonds d'autres serveurs). */
+  layers: TileSpec[];
+  /** Fond dessiné sur le téléphone, avec cette palette. */
+  vecteur?: NomPalette;
+}
+
+export const MAP_STYLES: Record<MapStyle, DefinitionFond> = {
+  // Sombre comme l'appli, sobre : les routes en clair, les rivières, le
+  // lagon et les numéros des grandes routes. Les dangers ressortent
+  // (aucune route en rouge ni en orange).
+  vigie: {
+    label: "Vigie",
+    hint: "Sombre et sobre : routes, rivières, lagon",
+    layers: [],
+    vecteur: "vigie",
   },
-  // Même plan, assombri par un filtre (voir .leaflet-container[data-fond="nuit"]
-  // dans globals.css) : moins éblouissant la nuit, en voiture.
-  nuit: {
-    label: "Nuit",
-    hint: "Sombre, pour la conduite de nuit",
+  // La même en clair, pour le plein soleil.
+  "vigie-clair": {
+    label: "Vigie clair",
+    hint: "La même en clair, pour le plein soleil",
+    layers: [],
+    vecteur: "vigie-clair",
+  },
+  // Le plan OpenStreetMap habituel, très détaillé.
+  plan: {
+    label: "OpenStreetMap",
+    hint: "Le plan détaillé : commerces, chemins…",
     layers: [PLAN_LAYER],
   },
   // Vue aérienne + noms des lieux (Esri) : utile pour reconnaître un radier,

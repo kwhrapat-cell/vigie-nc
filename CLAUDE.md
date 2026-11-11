@@ -57,10 +57,10 @@ vigie-nc/
                     au format réel marquée « Essai », lib/alerte-exemple.ts, bouton
                     « Recevoir un exemple d'alerte » de l'écran Alertes : montre connectée)
                   + /api/sante (moniteur : site + base ; RPC vigie_sante)
-                  + /api/carte (carte sans réseau : ?fiche=1 = version en cours,
-                    ?f=nc-AAAAMMJJ.pmtiles&debut&fin = octets du fichier, 4 Mo au plus,
-                    lus dans la pré-version GitHub « carte-nc » ; morceaux gardés en
-                    cache par le CDN de Vercel : un fichier daté ne change jamais)
+                  + /api/carte (fond de carte « Vigie » et carte sans réseau : ?fiche=1 =
+                    version en cours, ?f=nc-AAAAMMJJ.pmtiles&debut&fin = octets du fichier,
+                    4 Mo au plus, lus dans la pré-version GitHub « carte-nc » ; morceaux
+                    gardés en cache par le CDN de Vercel : un fichier daté ne change jamais)
                   + /carte-hors-ligne (Profil › Carte sans réseau : choisir Autour de moi
                     10 km / Mon trajet / Toute la Calédonie avec la taille exacte,
                     téléchargement avec progression, reprise toute seule si le réseau
@@ -307,8 +307,27 @@ vigie-nc/
                      DecompressionStream)
     mvt.ts           lecture d'une tuile vectorielle (protobuf) sans dépendance
     carte-dessin.ts  dessin d'une tuile Protomaps sur un canvas (terre, sols, eau,
-                     récifs, routes, bâtiments dès z14, noms des communes et
-                     quartiers) ; couleurs du plan OSM, « Nuit » par le filtre CSS
+                     récifs, rivières, routes, bâtiments dès z14, noms des communes
+                     et quartiers, numéros des routes RT1/RPN10… en cartouche, une
+                     tuile sur deux). PALETTES : « vigie » (sombre, FOND PAR DÉFAUT
+                     depuis la revue de design du 11/11/2026 : mer bleu nuit, lagon
+                     et récifs sarcelle, terre ardoise, routes sable et gris),
+                     « vigie-clair » (plein soleil, routes blanches bordées de gris),
+                     « osm » (carte sans réseau sous le plan OSM). Routes et
+                     cartouches JAMAIS rouges ni orange (réservés aux dangers et
+                     perturbations ; tests/carte-vigie.test.ts)
+    carte-blocs.ts   lecture du fichier de la carte par blocs alignés de 32 Ko
+                     (mêmes adresses pour tous : CDN, navigateur, service worker) ;
+                     mesuré le 11/11/2026 : une vue de téléphone ≈ 7 blocs, ≈ 220 Ko
+    carte-en-ligne.ts fond « Vigie » en ligne : fiche (gardée dans
+                     « vigie-nc:carte-fiche » pour s'afficher sans réseau), en-tête,
+                     répertoires et tuiles par blocs (96 en mémoire) ; 404 = version
+                     retirée, fiche relue
+    fond-carte.ts    poserFond(L, map, conteneur, style) : pose le fond choisi
+                     (LiveMap, PositionPicker, TrajetApercu) ; Vigie → s'il n'arrive
+                     pas avec du réseau (8 erreurs en 20 s), plan OSM assombri
+                     (classe fond-secours) ; plan → plan de secours ; plan et
+                     satellite → carte sans réseau dessous quand le réseau manque
     carte-plan.ts    logique pure de la carte sans réseau : tuiles d'un cercle
                      (zone 10 km) ou le long d'un trajet (1,5 km de chaque côté),
                      zooms 6 à 15, morceaux de 4 Mo au plus, index gardé sur le
@@ -321,10 +340,12 @@ vigie-nc/
                      lecture d'une tuile (zone, puis trajet, puis NC).
                      Mesuré le 11/11/2026 : zone 10 km ≈ 1,5 Mo, trajet ≈ 2 Mo,
                      toute la Calédonie ≈ 23 Mo (zoom 15)
-    couche-hors-ligne.ts couche Leaflet (GridLayer + canvas, sur-zoom net au-delà
-                     de z15) ; brancherCarteHorsLigne l'ajoute SOUS le plan dès que
-                     le téléphone est hors ligne ou que 2 tuiles du plan échouent
-                     en 20 s (LiveMap, PositionPicker ; jamais en démo)
+    couche-hors-ligne.ts couches Leaflet (GridLayer + canvas, sur-zoom net au-delà
+                     de z15) : creerCoucheVigie (tuile du téléphone si la carte sans
+                     réseau est téléchargée, sinon en ligne ; rien = la mer) et
+                     creerCoucheHorsLigne ; brancherCarteHorsLigne l'ajoute SOUS le
+                     plan OSM ou satellite dès que le téléphone est hors ligne ou
+                     que 2 tuiles du plan échouent en 20 s (jamais en démo)
     trajet-hors-ligne.ts dernier point du trajet favori gardé
                      (« vigie-nc:trajet-dernier-point », 12 h, même trajet) :
                      sans réseau, TrajetResume montre la liste d'alors avec son
@@ -409,9 +430,11 @@ vigie-nc/
                      git), jsDelivr/Google en secours. MEDIAPIPE_VERSION doit
                      égaler la version installée (sinon la construction s'arrête)
     place.ts         nom du lieu via Nominatim
-    map-styles.ts    fonds de carte (OpenStreetMap / Esri, sans clé — pas CARTO,
-                     qui exige une clé depuis 2026 ; MapTiler si
-                     NEXT_PUBLIC_MAPTILER_KEY ; plan de secours automatique) + emprise NC
+    map-styles.ts    fonds de carte : Vigie (défaut), Vigie clair, OpenStreetMap,
+                     Satellite (Esri) ; images sans clé — pas CARTO, qui exige une
+                     clé depuis 2026 ; MapTiler si NEXT_PUBLIC_MAPTILER_KEY ; plans
+                     de secours) + emprise NC. Choix gardé « vigie-nc:fond-carte »
+                     (lireFond : l'ancien « nuit » devient « vigie »)
     cluster.ts       regroupement des signalements en pastilles chiffrées
     bandeaux.ts      ordre des bandeaux de l'accueil (un seul affiché à la fois)
     niveaux.ts       niveaux du cagou (repère de TA position, façon Waze, vu par toi
@@ -469,7 +492,9 @@ vigie-nc/
   public/sw.js     service worker : notifications + ouverture sans réseau
                    (pages réseau d'abord, fichiers /_next/static, tuiles OSM
                    vues — jamais de téléchargement en masse, interdit par
-                   OpenStreetMap) ; « prechauffer » copie /, /signaler et /sos
+                   OpenStreetMap ; blocs du fond « Vigie » en cache d'abord dans
+                   « carte-blocs-v1 », 300 au plus ≈ 10 Mo, gardé d'une version
+                   à l'autre) ; « prechauffer » copie /, /signaler et /sos
                    avec leurs fichiers (A_PREPARER) pour qu'ils s'ouvrent sans
                    réseau même jamais ouverts. VERSION inchangée = tuiles gardées
   assets/fonts/    Inter réduite aux caractères latins (image d'aperçu de /s/[id]), licence OFL.txt

@@ -12,6 +12,7 @@ import { getEmergencyContacts } from "@/lib/emergency-contacts";
 import { CONTACT_MAILTO, LEGAL } from "@/lib/legal";
 import { MAP_STYLES } from "@/lib/map-styles";
 import {
+  DEFAULT_MAP_STYLE,
   MapStyle,
   RADIUS_OPTIONS_KM,
   RadiusKm,
@@ -39,7 +40,7 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
 export default function ProfilPage() {
   const [radius, setRadius] = useState<RadiusKm>(5);
   const [contacts, setContacts] = useState(0);
-  const [fond, setFond] = useState<MapStyle>("plan");
+  const [fond, setFond] = useState<MapStyle>(DEFAULT_MAP_STYLE);
   const [demo, setDemo] = useState(false);
   const [cartes, setCartes] = useState<AireCarte[]>([]);
   // Démonstration Mont-Dore lancée dans cet onglet (lien /demo)

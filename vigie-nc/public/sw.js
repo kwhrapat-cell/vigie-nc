@@ -6,6 +6,12 @@
 //     noms changent à chaque version, une copie n'est jamais périmée).
 //   - Fonds de carte OpenStreetMap : réseau d'abord (rien ne change en
 //     ligne) ; copie des dernières tuiles vues pour les afficher sans réseau.
+//   - Fond « Vigie » : blocs de 32 Ko du fichier de la carte (/api/carte,
+//     lib/carte-blocs.ts). Un fichier daté ne change jamais : cache d'abord,
+//     dans « carte-blocs-v1 » (nom sans « vigie- » : gardé d'une version du
+//     site à l'autre), les MAX_BLOCS derniers. Les gros morceaux de la carte
+//     sans réseau (jusqu'à 4 Mo) ne passent pas par là : l'appli les range
+//     elle-même (lib/carte-hors-ligne.ts).
 //   - Données (Supabase, /api) : jamais mises en cache ici ; la dernière
 //     carte est gardée par l'appli (lib/useLiveReports.ts) avec son heure.
 //   - Préparation (message « prechauffer » de components/ServiceWorkerRegister,
@@ -20,6 +26,9 @@ const STATIQUE = `vigie-statique-${VERSION}`;
 const TUILES = `vigie-tuiles-${VERSION}`;
 const MAX_STATIQUE = 200;
 const MAX_TUILES = 300;
+const BLOCS = "carte-blocs-v1";
+const MAX_BLOCS = 300; // ≈ 10 Mo
+const BLOC_MAX_OCTETS = 32768;
 const A_PREPARER = ["/", "/signaler", "/sos"];
 // Fichiers de l'appli cités dans une page (scripts, styles, polices).
 const FICHIER_APPLI = /\/_next\/static\/[^"'\s<>\\)]+/g;
@@ -96,6 +105,14 @@ async function cacheFirst(request, cacheName, max) {
   return response;
 }
 
+/** Bloc du fond « Vigie » (pas un gros morceau de la carte sans réseau). */
+function estBloc(url) {
+  const f = url.searchParams.get("f");
+  const debut = Number(url.searchParams.get("debut"));
+  const fin = Number(url.searchParams.get("fin"));
+  return Boolean(f) && Number.isInteger(debut) && Number.isInteger(fin) && fin >= debut && fin - debut + 1 <= BLOC_MAX_OCTETS;
+}
+
 async function preparer() {
   const pages = await caches.open(PAGES);
   const statique = await caches.open(STATIQUE);
@@ -143,6 +160,10 @@ self.addEventListener("fetch", (event) => {
   }
   if (url.hostname === "tile.openstreetmap.org") {
     event.respondWith(networkFirstTile(request));
+    return;
+  }
+  if (url.origin === self.location.origin && url.pathname === "/api/carte" && estBloc(url)) {
+    event.respondWith(cacheFirst(request, BLOCS, MAX_BLOCS));
   }
   // Tout le reste (Supabase, /api, autres sites) : réseau normal.
 });

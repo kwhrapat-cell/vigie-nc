@@ -29,6 +29,7 @@ import { useDemo } from "@/lib/useDemo";
 import { distanceM, LatLng } from "@/lib/geo";
 import {
   dansLaCaledonie,
+  DEFAULT_MAP_STYLE,
   effacerPointZone,
   estOrdiSouris,
   MapStyle,
@@ -61,7 +62,7 @@ export function CarteLive() {
   // la commune, sans vigilance Météo-France ni trajet personnel.
   const demo = useDemo();
   const [zone, setZone] = useState<ZoneChoice>(5);
-  const [mapStyle, setMapStyle] = useState<MapStyle>("plan");
+  const [mapStyle, setMapStyle] = useState<MapStyle>(DEFAULT_MAP_STYLE);
   const [follow, setFollow] = useState(true);
   const [queryCenter, setQueryCenter] = useState<LatLng | null>(null);
   const [filter, setFilter] = useState<Category | null>(null);

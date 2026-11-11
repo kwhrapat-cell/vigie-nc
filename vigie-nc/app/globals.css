@@ -218,9 +218,17 @@ html .leaflet-container {
 html .leaflet-container[data-fond="plan"] {
   background: #aad3df;
 }
-/* Fond « Nuit » : le plan OpenStreetMap inversé et assombri (seules les
-   tuiles sont filtrées, pas les marqueurs) */
-html .leaflet-container[data-fond="nuit"] .leaflet-tile-pane {
+/* Fonds « Vigie » (lib/carte-dessin.ts) : couleur de leur mer pendant le
+   chargement */
+html .leaflet-container[data-fond="vigie"] {
+  background: #0c2532;
+}
+html .leaflet-container[data-fond="vigie-clair"] {
+  background: #a9cfd9;
+}
+/* Secours du fond « Vigie » (carte vectorielle indisponible) : le plan
+   OpenStreetMap inversé et assombri (seules ces tuiles sont filtrées) */
+html .leaflet-container[data-fond="vigie"] .fond-secours {
   filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%) saturate(70%);
 }
 html .leaflet-container .leaflet-control-attribution {

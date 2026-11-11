@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
 import { couleurSur } from "@/lib/contraste";
-import { MAP_STYLES, NC_BOUNDS } from "@/lib/map-styles";
+import { NC_BOUNDS } from "@/lib/map-styles";
+import { poserFond } from "@/lib/fond-carte";
 import { readMapStyle } from "@/lib/preferences";
 import type { Point } from "@/lib/trajet";
 
@@ -36,9 +37,7 @@ export function TrajetApercu({ trace, surveille }: { trace: Point[]; surveille?:
       if (cancelled || !containerRef.current || mapRef.current) return;
       const map = L.map(containerRef.current, { zoomControl: false, minZoom: 6 });
       map.fitBounds(NC_BOUNDS, { padding: [8, 8] });
-      const style = readMapStyle();
-      containerRef.current.setAttribute("data-fond", style);
-      for (const spec of MAP_STYLES[style].layers) L.tileLayer(spec.url, spec.options).addTo(map);
+      poserFond(L, map, containerRef.current, readMapStyle());
       leafletRef.current = L;
       mapRef.current = map;
       groupeRef.current = L.layerGroup().addTo(map);

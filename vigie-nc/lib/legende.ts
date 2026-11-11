@@ -115,7 +115,7 @@ export const LEGENDE = {
     lignes: [
       "Elle n'apparaît que sur ton écran : personne d'autre ne la voit sur la carte.",
       "Pour trouver les signalements autour de toi, elle est envoyée à la base de Vigie NC au moment de la recherche, sans être enregistrée.",
-      "Les fonds de carte (OpenStreetMap, ou Esri en satellite) reçoivent les morceaux de carte affichés, donc la zone que tu regardes, comme pour toute carte en ligne.",
+      "Le fond de carte Vigie vient de Vigie NC : les morceaux de carte demandés correspondent à la zone que tu regardes. Les autres fonds de carte (OpenStreetMap, ou Esri en satellite) la reçoivent aussi, comme pour toute carte en ligne.",
       "Sur l'écran Signaler, la position du repère est envoyée à OpenStreetMap dès l'ouverture, pour afficher le nom du lieu.",
       "Quand tu publies, seul l'endroit du signalement est gardé, jamais ton nom. Avec les alertes : le lieu choisi, arrondi à environ 1 km, et ton trajet favori sans son départ ni son arrivée.",
     ],

@@ -109,8 +109,10 @@ export default function ConfidentialitePage() {
           d&apos;un signalement que tu publies est conservée.
         </p>
         <p>
-          Comme pour toute carte en ligne, les fonds de carte (OpenStreetMap, ou Esri en satellite) reçoivent les
-          morceaux de carte affichés, donc <strong>la zone que tu regardes</strong>, avec ton adresse IP. Sur
+          Le fond de carte « Vigie » (choisi au départ) est servi par Vigie NC lui-même : ta position n&apos;est pas
+          envoyée, mais les morceaux de carte demandés correspondent à <strong>la zone que tu regardes</strong>. Si
+          tu choisis un autre fond (OpenStreetMap, ou Esri en satellite), comme pour toute carte en ligne, ce
+          service reçoit les morceaux affichés, donc la zone que tu regardes, avec ton adresse IP. Sur
           l&apos;écran Signaler, la position du repère est envoyée à OpenStreetMap (Nominatim) dès l&apos;ouverture,
           pour afficher le nom du lieu, même si tu ne publies rien. Ni l&apos;un ni l&apos;autre ne sait qui tu es.
         </p>
@@ -291,6 +293,10 @@ export default function ConfidentialitePage() {
             effacée quand tu touches « Supprimer ».
           </li>
           <li>
+            Les derniers morceaux du fond de carte « Vigie » que tu as regardés (10 Mo au plus), pour revoir ces
+            endroits sans réseau. Les plus anciens sont effacés au fur et à mesure.
+          </li>
+          <li>
             Sur iPhone, l&apos;appli ajoutée à l&apos;écran d&apos;accueil garde ses propres réglages et contacts, à
             part de ceux de Safari.
           </li>
@@ -356,8 +362,9 @@ export default function ConfidentialitePage() {
       <LegalSection title="Services extérieurs utilisés par l'appli">
         <LegalList>
           <li>
-            OpenStreetMap (ou MapTiler) : fonds de carte (ils voient la zone affichée), et nom du lieu à partir de
-            la position du repère de l&apos;écran Signaler, dès son ouverture (OpenStreetMap).
+            OpenStreetMap (ou MapTiler) : fond de carte « OpenStreetMap » si tu le choisis, et plan de secours si
+            le fond « Vigie » ne répond plus (ils voient la zone affichée) ; nom du lieu à partir de la position du
+            repère de l&apos;écran Signaler, dès son ouverture (OpenStreetMap).
           </li>
           <li>Esri : fond de carte satellite si tu le choisis, et plan de secours si le plan habituel ne répond plus.</li>
           <li>
