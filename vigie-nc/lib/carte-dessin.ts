@@ -28,10 +28,14 @@ interface Trace {
 export interface Palette {
   mer: string;
   terre: string;
+  /** Trait de côte (null = aucun) : la terre se détache de la mer, surtout de loin. */
+  cote: string | null;
   eauLigne: string;
   recif: string;
   sols: Record<string, string>;
   batiments: string;
+  /** Zoom affiché à partir duquel les bâtiments sont dessinés. */
+  batimentsDes: number;
   routes: Record<CleRoute, Trace | null>;
   /** Zoom à partir duquel les routes ont un bord, et son épaisseur (px, les deux côtés). */
   bordsDes: number;
@@ -140,6 +144,7 @@ export const PALETTES: Record<NomPalette, Palette> = {
   osm: {
     mer: "#aad3df",
     terre: "#f2efe9",
+    cote: null,
     eauLigne: "#8cc0d3",
     recif: "#c3e0e8",
     sols: {
@@ -175,6 +180,7 @@ export const PALETTES: Record<NomPalette, Palette> = {
       quarry: "#e4dcd2",
     },
     batiments: "#d9d0c9",
+    batimentsDes: 14,
     routes: {
       highway: { fond: "#e892a2", bord: "#c46a7d" },
       principale: { fond: "#fcd6a4", bord: "#c39a66" },
@@ -199,6 +205,7 @@ export const PALETTES: Record<NomPalette, Palette> = {
   vigie: {
     mer: "#0c2532",
     terre: "#1b2522",
+    cote: "#3d6b72",
     eauLigne: "#2f6e86",
     recif: "#124049",
     sols: {
@@ -226,6 +233,9 @@ export const PALETTES: Record<NomPalette, Palette> = {
       aerodrome: "#232b2a",
     },
     batiments: "#2b3634",
+    // Bâtiments seulement de très près (rue par rue) : presque la moitié du
+    // temps de dessin en ville, pour peu d'utilité sur une carte des routes.
+    batimentsDes: 16,
     routes: {
       highway: { fond: "#f1e4c4", bord: "#081210" },
       principale: { fond: "#d8ccad", bord: "#081210" },
@@ -248,6 +258,7 @@ export const PALETTES: Record<NomPalette, Palette> = {
   "vigie-clair": {
     mer: "#a9cfd9",
     terre: "#efece5",
+    cote: "#8fb7c3",
     eauLigne: "#6fa9c0",
     recif: "#c5e2e6",
     sols: {
@@ -275,6 +286,7 @@ export const PALETTES: Record<NomPalette, Palette> = {
       aerodrome: "#e5e3df",
     },
     batiments: "#d9d2c9",
+    batimentsDes: 16,
     routes: {
       highway: { fond: "#ffffff", bord: "#8f8677" },
       principale: { fond: "#ffffff", bord: "#a59c8e" },
@@ -382,20 +394,56 @@ export interface OptionsDessin {
 
 type Transfo = (x: number, y: number) => [number, number];
 
-function tracer(ctx: CanvasRenderingContext2D, o: Objet, t: Transfo, fermer: boolean): void {
+/** Passage des coordonnées de la tuile aux pixels : x * f - ox, y * f - oy. */
+interface Repere {
+  f: number;
+  ox: number;
+  oy: number;
+}
+
+// Sans tableau créé à chaque point, et en sautant les points à moins d'un
+// pixel du précédent (invisibles) : des dizaines de milliers de points par
+// tuile en ville, c'était l'essentiel du temps de dessin sur un petit
+// téléphone. Le dernier point d'une partie est toujours gardé.
+function tracer(ctx: CanvasRenderingContext2D, o: Objet, r: Repere, fermer: boolean): void {
+  const { f, ox, oy } = r;
   for (const p of o.parties) {
-    if (p.length < 4) continue;
-    const [x0, y0] = t(p[0], p[1]);
-    ctx.moveTo(x0, y0);
-    for (let i = 2; i < p.length; i += 2) {
-      const [x, y] = t(p[i], p[i + 1]);
+    const n = p.length;
+    if (n < 4) continue;
+    let lx = p[0] * f - ox;
+    let ly = p[1] * f - oy;
+    ctx.moveTo(lx, ly);
+    for (let i = 2; i < n; i += 2) {
+      const x = p[i] * f - ox;
+      const y = p[i + 1] * f - oy;
+      if (i < n - 2 && Math.abs(x - lx) + Math.abs(y - ly) < 1) continue;
       ctx.lineTo(x, y);
+      lx = x;
+      ly = y;
     }
     if (fermer) ctx.closePath();
   }
 }
 
-function remplir(ctx: CanvasRenderingContext2D, objets: Objet[], t: Transfo, couleur: string): void {
+/** Petits polygones (maisons) : invisibles en dessous de 2 px de côté. */
+function assezGrand(o: Objet, f: number, min: number): boolean {
+  for (const p of o.parties) {
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    let y0 = Infinity;
+    let y1 = -Infinity;
+    for (let i = 0; i + 1 < p.length; i += 2) {
+      if (p[i] < x0) x0 = p[i];
+      if (p[i] > x1) x1 = p[i];
+      if (p[i + 1] < y0) y0 = p[i + 1];
+      if (p[i + 1] > y1) y1 = p[i + 1];
+    }
+    if ((x1 - x0) * f >= min || (y1 - y0) * f >= min) return true;
+  }
+  return false;
+}
+
+function remplir(ctx: CanvasRenderingContext2D, objets: Objet[], t: Repere, couleur: string): void {
   if (objets.length === 0) return;
   ctx.beginPath();
   for (const o of objets) tracer(ctx, o, t, true);
@@ -482,13 +530,22 @@ export function dessinerTuile(ctx: CanvasRenderingContext2D, couches: Couche[], 
   const par = new Map(couches.map((c) => [c.nom, c] as [string, Couche]));
   const etendue = couches[0]?.etendue ?? 4096;
   const f = (taille * echelle) / etendue;
-  const t: Transfo = (x, y) => [x * f - dx * taille, y * f - dy * taille];
+  const rep: Repere = { f, ox: dx * taille, oy: dy * taille };
+  const t: Transfo = (x, y) => [x * f - rep.ox, y * f - rep.oy];
 
   // Mer partout, puis la terre par-dessus.
   ctx.fillStyle = pal.mer;
   ctx.fillRect(0, 0, taille, taille);
   const terre = par.get("earth")?.objets.filter((o) => o.type === 3) ?? [];
-  remplir(ctx, terre, t, pal.terre);
+  remplir(ctx, terre, rep, pal.terre);
+  if (pal.cote && terre.length > 0) {
+    ctx.beginPath();
+    for (const o of terre) tracer(ctx, o, rep, true);
+    ctx.strokeStyle = pal.cote;
+    ctx.lineWidth = (z <= 9 ? 1.2 : 0.8) * densite;
+    ctx.lineJoin = "round";
+    ctx.stroke();
+  }
 
   // Sols (couverture puis usage), groupés par couleur.
   for (const nom of ["landcover", "landuse"]) {
@@ -501,7 +558,7 @@ export function dessinerTuile(ctx: CanvasRenderingContext2D, couches: Couche[], 
       if (g) g.push(o);
       else groupes.set(c, [o]);
     }
-    for (const [c, objets] of groupes) remplir(ctx, objets, t, c);
+    for (const [c, objets] of groupes) remplir(ctx, objets, rep, c);
   }
 
   // Eau : surfaces, récifs, puis rivières.
@@ -509,55 +566,69 @@ export function dessinerTuile(ctx: CanvasRenderingContext2D, couches: Couche[], 
   remplir(
     ctx,
     eau.filter((o) => o.type === 3 && o.props.kind === "reef"),
-    t,
+    rep,
     pal.recif,
   );
   remplir(
     ctx,
     eau.filter((o) => o.type === 3 && o.props.kind !== "reef"),
-    t,
+    rep,
     pal.mer,
   );
+  // Rivières et ruisseaux : un seul tracé par sorte (beaucoup plus rapide
+  // qu'un tracé par cours d'eau sur un petit téléphone).
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  for (const o of eau) {
-    if (o.type !== 2 || o.props.kind === "reef") continue;
-    const riviere = o.props.kind === "river";
-    const l = riviere ? largeurAuZoom([[9, 0.8], [12, 1.6], [15, 4], [18, 10]], z) : largeurAuZoom([[12, 0.5], [14, 1], [15, 1.5], [18, 3]], z);
+  for (const riviere of [false, true]) {
+    const l = riviere
+      ? largeurAuZoom([[9, 0.8], [12, 1.6], [15, 4], [18, 10]], z)
+      : largeurAuZoom([[12, 0.5], [14, 1], [15, 1.5], [18, 3]], z);
     if (l <= 0) continue;
+    const lignes = eau.filter((o) => o.type === 2 && o.props.kind !== "reef" && (o.props.kind === "river") === riviere);
+    if (lignes.length === 0) continue;
     ctx.beginPath();
-    tracer(ctx, o, t, false);
+    for (const o of lignes) tracer(ctx, o, rep, false);
     ctx.strokeStyle = pal.eauLigne;
     ctx.lineWidth = l * densite;
     ctx.stroke();
   }
 
-  // Bâtiments (à partir du zoom 14).
-  if (z >= 14) {
-    const bat = (par.get("buildings")?.objets ?? []).filter((o) => o.type === 3);
-    remplir(ctx, bat, t, pal.batiments);
+  // Bâtiments (de près seulement, selon la palette).
+  if (z >= pal.batimentsDes) {
+    const bat = (par.get("buildings")?.objets ?? []).filter((o) => o.type === 3 && assezGrand(o, f, 2 * densite));
+    remplir(ctx, bat, rep, pal.batiments);
   }
 
-  // Routes : bords puis intérieurs, des petites aux grandes.
+  // Routes : bords puis intérieurs, des petites aux grandes. Un seul tracé
+  // par classe de route (même couleur, même largeur) : quelques appels au
+  // lieu de plusieurs centaines par tuile en ville.
   const routes = (par.get("roads")?.objets ?? [])
     .filter((o) => o.type === 2)
     .map((o) => ({ o, s: styleRoute(o.props.kind, o.props.kind_detail, nomPalette) }))
     .filter((r): r is { o: Objet; s: StyleRoute } => r.s !== null && largeurAuZoom(r.s.largeurs, z) > 0)
     .sort((a, b) => a.s.rang - b.s.rang);
+  const classes = new Map<string, { s: StyleRoute; objets: Objet[] }>();
+  for (const { o, s } of routes) {
+    const cle = `${s.rang}|${s.fond}|${s.bord}|${s.largeurs[0][0]}`;
+    const c = classes.get(cle);
+    if (c) c.objets.push(o);
+    else classes.set(cle, { s, objets: [o] });
+  }
+  const parRang = [...classes.values()].sort((a, b) => a.s.rang - b.s.rang);
   if (z >= pal.bordsDes) {
-    for (const { o, s } of routes) {
+    ctx.setLineDash([]);
+    for (const { s, objets } of parRang) {
       if (!s.bord) continue;
       ctx.beginPath();
-      tracer(ctx, o, t, false);
-      ctx.setLineDash([]);
+      for (const o of objets) tracer(ctx, o, rep, false);
       ctx.strokeStyle = s.bord;
       ctx.lineWidth = (largeurAuZoom(s.largeurs, z) + pal.bordEpaisseur) * densite;
       ctx.stroke();
     }
   }
-  for (const { o, s } of routes) {
+  for (const { s, objets } of parRang) {
     ctx.beginPath();
-    tracer(ctx, o, t, false);
+    for (const o of objets) tracer(ctx, o, rep, false);
     ctx.setLineDash(s.pointilles ? s.pointilles.map((v) => v * densite) : []);
     ctx.strokeStyle = s.fond;
     ctx.lineWidth = largeurAuZoom(s.largeurs, z) * densite;

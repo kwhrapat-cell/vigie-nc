@@ -7,7 +7,7 @@ import { ScreenHeader, TypeTile } from "@/components/ui";
 import { LatLng } from "@/lib/geo";
 import { readRadiusKm } from "@/lib/preferences";
 import { errorMessage, fetchZoneStats, ZoneStats } from "@/lib/reports-api";
-import { REPORT_TYPE_LABELS, ReportType } from "@/lib/types";
+import { CATEGORY_HEX, REPORT_TYPE_LABELS, ReportType } from "@/lib/types";
 import { useGeolocation } from "@/lib/useGeolocation";
 
 type Tab = "resume" | "evenements";
@@ -155,10 +155,12 @@ export default function HistoriquePage() {
       {stats && tab === "resume" && (
         <section className="mx-4">
           <div className="grid grid-cols-2 gap-2">
+            {/* Couleurs des catégories (un seul code couleur) : la route coupée
+                est un danger, en rouge comme l'accident. */}
             <StatCard value={stats.total} label="Signalements" color="#22B8B0" />
-            <StatCard value={inondations} label="Inondations & météo" color="#3B82F6" />
-            <StatCard value={t.accident ?? 0} label="Accidents" color="#E5484D" />
-            <StatCard value={t.route_coupee ?? 0} label="Routes coupées" color="#F0912E" />
+            <StatCard value={inondations} label="Inondations & météo" color={CATEGORY_HEX.meteo} />
+            <StatCard value={t.accident ?? 0} label="Accidents" color={CATEGORY_HEX.danger} />
+            <StatCard value={t.route_coupee ?? 0} label="Routes coupées" color={CATEGORY_HEX.danger} />
           </div>
 
           <h2 className="mt-5 mb-2 text-[15px] font-medium">Évolution mensuelle</h2>

@@ -536,7 +536,7 @@ export function ReportDetail({
                 type="button"
                 disabled={!flagReason || flagBusy}
                 onClick={sendFlag}
-                className="rounded-lg bg-danger py-2.5 text-[14.5px] font-semibold text-white disabled:opacity-40"
+                className="rounded-lg bg-primary py-2.5 text-[14.5px] font-semibold text-white disabled:opacity-40"
               >
                 {flagBusy ? "Envoi…" : "Envoyer"}
               </button>

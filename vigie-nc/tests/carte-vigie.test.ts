@@ -106,3 +106,13 @@ test("fond gardé : « Vigie » par défaut, l'ancien « Nuit » devient « Vigi
   assert.equal(lireFond("satellite"), "satellite");
   assert.equal(lireFond("n'importe quoi"), "vigie");
 });
+
+test("palettes Vigie : sobres et rapides (bâtiments de près seulement, trait de côte)", () => {
+  // Les bâtiments faisaient presque la moitié du temps de dessin en ville.
+  assert.ok(PALETTES.vigie.batimentsDes >= 16);
+  assert.ok(PALETTES["vigie-clair"].batimentsDes >= 16);
+  assert.equal(PALETTES.osm.batimentsDes, 14);
+  // La côte est tracée : la terre se détache de la mer de loin.
+  assert.ok(PALETTES.vigie.cote);
+  assert.ok(PALETTES["vigie-clair"].cote);
+});

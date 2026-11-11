@@ -215,7 +215,7 @@ export default function RelayerPage() {
               className="w-full rounded-xl border border-line bg-panel px-3 py-2.5 text-[15px] placeholder:text-mist-dim/60 focus:outline-none focus:border-lagoon"
             />
             <p className="mt-1.5 text-[12.5px] text-mist-dim leading-relaxed">
-              Sur Facebook : appui long sur le message, puis « Copier ». Le texte reste sur ton téléphone :
+              Sur Facebook : appui long sur le message, puis « Copier ». Le texte reste sur ton téléphone :
               seuls le type d&apos;événement et le lieu sont publiés. Jamais de nom ni de photo.
             </p>
           </div>
