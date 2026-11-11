@@ -1,0 +1,6 @@
+OK     telephone : la fiche s'ouvre
+OK     telephone : Retour ferme la fiche
+OK     telephone : on reste sur la carte sans recharger (page /, rechargée : false)
+OK     telephone : fiche fermée par Échap : étape retirée
+OK     telephone : la légende s'ouvre
+OK     telephone : Retour ferme la légende

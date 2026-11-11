@@ -1,0 +1,6 @@
+OK     portable : la fiche s'ouvre
+OK     portable : Retour ferme la fiche
+OK     portable : on reste sur la carte sans recharger (page /, rechargée : false)
+OK     portable : fiche fermée par Échap : étape retirée
+OK     portable : la légende s'ouvre
+OK     portable : Retour ferme la légende
