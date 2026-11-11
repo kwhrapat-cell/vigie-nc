@@ -3,6 +3,7 @@
 // tous les téléphones abonnés aux alertes, quel que soit leur lieu.
 // La base ne remet la liste qu'une seule fois par annonce.
 
+import { secretValide } from "@/lib/secret-serveur";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import {
@@ -30,7 +31,7 @@ interface Destinataires {
 
 export async function POST(req: Request) {
   const secret = process.env.NOTIF_SECRET;
-  if (!secret || req.headers.get("x-vigie-secret") !== secret) {
+  if (!secret || !secretValide(req.headers.get("x-vigie-secret"), secret)) {
     return NextResponse.json({ erreur: "non autorisé" }, { status: 401 });
   }
   if (!supabase || !pushConfigured) {

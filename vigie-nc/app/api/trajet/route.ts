@@ -3,6 +3,8 @@
 // aux téléphones dont le trajet favori a un danger confirmé, 30 min avant
 // l'heure de départ choisie. Rien n'est envoyé si le trajet est calme.
 
+import { parLots } from "@/lib/par-lots";
+import { secretValide } from "@/lib/secret-serveur";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import {
@@ -19,7 +21,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   const secret = process.env.NOTIF_SECRET;
-  if (!secret || req.headers.get("x-vigie-secret") !== secret) {
+  if (!secret || !secretValide(req.headers.get("x-vigie-secret"), secret)) {
     return NextResponse.json({ erreur: "non autorisé" }, { status: 401 });
   }
   if (!supabase || !pushConfigured) {
@@ -34,12 +36,10 @@ export async function POST(req: Request) {
     endpointValide(t.endpoint),
   );
 
-  const resultats = await Promise.all(
-    trajets.map(async (t) => ({
-      endpoint: t.endpoint,
-      r: await sendPush(t, avantDepartPayload(t), avantDepartTtl(t)),
-    })),
-  );
+  const resultats = await parLots(trajets, async (t) => ({
+    endpoint: t.endpoint,
+    r: await sendPush(t, avantDepartPayload(t), avantDepartTtl(t)),
+  }));
 
   const partis = resultats.filter((x) => x.r === "gone").map((x) => x.endpoint);
   if (partis.length > 0) {

@@ -192,7 +192,15 @@ self.addEventListener("push", (event) => {
 // Toucher la notification ouvre (ou ramène) l'appli sur le signalement.
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin).href;
+  // Seulement une page de Vigie NC (revue de sécurité du 11/11/2026) : une
+  // adresse d'un autre site dans une notification ouvre l'accueil à la place.
+  let url = new URL("/", self.location.origin).href;
+  try {
+    const demandee = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin);
+    if (demandee.origin === self.location.origin) url = demandee.href;
+  } catch {
+    // adresse illisible : l'accueil
+  }
   event.waitUntil(
     (async () => {
       const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });

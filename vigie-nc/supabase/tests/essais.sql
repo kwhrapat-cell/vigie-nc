@@ -1369,6 +1369,60 @@ begin
   delete from moderateurs where nom in ('Essai agent', 'Essai national');
   delete from perimetres where id = 'essai-commune';
 
-  raise notice 'ESSAIS OK (45)';
+  -- E46 · Revue de sécurité du 11/11/2026 : droits de l'appli réduits à la
+  -- lecture, inscription aux alertes avec de vraies clés et plafonnée par heure.
+  declare
+    ep text := 'https://fcm.googleapis.com/fcm/send/essai-securite-';
+    p256 text := repeat('B', 87);
+    cle_auth text := repeat('a', 22);
+    v_deja int;
+    v_max int;
+  begin
+    if has_table_privilege('anon', 'public.vigie_signal', 'truncate')
+       or has_table_privilege('authenticated', 'public.vigie_signal', 'trigger')
+       or has_table_privilege('anon', 'public.vigie_annonce_signal', 'truncate')
+       or has_table_privilege('anon', 'public.zones', 'references')
+       or not has_table_privilege('anon', 'public.vigie_signal', 'select') then
+      raise exception 'E46 échec : droits des tables publiques';
+    end if;
+    if has_function_privilege('anon', 'vigie_abonnements_max_heure()', 'execute') then
+      raise exception 'E46 échec : plafond des inscriptions lisible depuis l''appli';
+    end if;
+    if not exists (select 1 from pg_proc where proname = 'vigie_texte_erreur'
+                   and array_to_string(proconfig, ',') like 'search_path=%') then
+      raise exception 'E46 échec : vigie_texte_erreur sans search_path';
+    end if;
+    -- Clés fantaisistes : refusées.
+    begin
+      perform notif_abonner(ep || 'faux', 'cle', 'auth', -22.27, 166.45, 5);
+      raise exception 'E46 échec : abonnement avec de fausses clés accepté';
+    exception when others then
+      if sqlerrm not like '%abonnement_invalide%' then raise exception 'E46 échec : %', sqlerrm; end if;
+    end;
+    -- Plafond : quelques nouvelles inscriptions de plus que celles de l'heure
+    -- (rien de réel n'est effacé : l'essai à blanc passe aussi sur la base).
+    v_deja := (select count(*) from push_abonnements where created_at > now() - interval '1 hour');
+    v_max := greatest(v_deja + 2, 5);
+    insert into vigie_config (cle, valeur) values ('abonnements_max_heure', v_max::text)
+      on conflict (cle) do update set valeur = excluded.valeur;
+    for i in 1..(v_max - v_deja) loop
+      perform notif_abonner(ep || i, p256, cle_auth, -22.27, 166.45, 5);
+    end loop;
+    begin
+      perform notif_abonner(ep || 'de-trop', p256, cle_auth, -22.27, 166.45, 5);
+      raise exception 'E46 échec : plafond des inscriptions dépassé';
+    exception when others then
+      if sqlerrm not like '%abonnements_trop%' then raise exception 'E46 échec : %', sqlerrm; end if;
+    end;
+    -- Changer de lieu ou de rayon : jamais bloqué par le plafond.
+    perform notif_abonner(ep || '1', p256, cle_auth, -22.20, 166.40, 10);
+    if (select rayon_km from push_abonnements where endpoint = ep || '1') <> 10 then
+      raise exception 'E46 échec : changement de rayon refusé';
+    end if;
+    delete from push_abonnements where endpoint like ep || '%';
+    delete from vigie_config where cle = 'abonnements_max_heure';
+  end;
+
+  raise notice 'ESSAIS OK (46)';
 end
 $essais$;

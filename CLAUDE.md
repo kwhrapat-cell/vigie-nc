@@ -497,8 +497,15 @@ vigie-nc/
     ia.ts            SERVEUR uniquement : résumé des témoignages et point route par
                      l'IA Claude (claude-haiku-5-5, clé ANTHROPIC_API_KEY de Vercel) :
                      consignes, appel de l'API avec sortie JSON (appelerClaude),
-                     nettoyage (ni numéro ni lien). Ne jamais l'importer depuis un
-                     écran (« use client »)
+                     nettoyage (ni numéro ni lien). texteInterdit : texte de l'IA
+                     REFUSÉ s'il affirme que la route est libre (ou « confirmé »),
+                     même glissé dans un témoignage (résumé : permis seulement
+                     rapporté à des témoins ; voix : jamais). Ne jamais l'importer
+                     depuis un écran (« use client »)
+    secret-serveur.ts SERVEUR : secretValide, comparaison à temps constant du
+                     secret x-vigie-secret (routes appelées par la base)
+    par-lots.ts      parLots : notifications envoyées 50 à la fois (jamais des
+                     milliers de connexions d'un coup)
   app/opengraph-image.png  aperçu du lien (WhatsApp, Facebook…), app/icon.png +
                        app/apple-icon.png : icônes (écran d'accueil, onglet)
   app/manifest.ts  rend l'appli installable + raccourcis par appui long sur
@@ -522,11 +529,11 @@ vigie-nc/
   supabase/schema.sql  schéma complet, ré-exécutable
   supabase/functions/purge-photos  fonction Supabase (Deno) : photos > 7 jours
   supabase/tests/  shim-supabase.sql (faux Supabase pour Postgres + PostGIS)
-                   et essais.sql (45 essais : identité, votes, SOS, photos, droits,
+                   et essais.sql (46 essais : identité, votes, SOS, photos, droits,
                    type « feu », chiffres d'utilisation, annonces générales, chantiers,
                    témoignages et résumé IA, point route, erreurs des téléphones,
                    trajet favori, historique et effacement, appareils de l'équipe,
-                   périmètre d'une commune)
+                   périmètre d'une commune, revue de sécurité)
 .github/workflows/verification.yml  à chaque PR : tests de la logique (Node 22),
                    build + types, schema.sql deux fois puis essais.sql sur
                    Postgres + PostGIS
@@ -744,7 +751,10 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   la provenance ni les records). `modVerify` ouvre la session avant.
 - Notifications : RPC `notif_abonner` / `notif_mon_abonnement` /
   `notif_desabonner` (table privée `push_abonnements`, lieu arrondi à
-  ~1 km, rayon 3/5/10 km). Le déclencheur `trg_vigie_notification` appelle
+  ~1 km, rayon 3/5/10 km ; clés au format d'un vrai navigateur et
+  `vigie_abonnements_max_heure()` nouvelles inscriptions par heure pour
+  toute la base, 300, clé `abonnements_max_heure` — revue de sécurité du
+  11/11/2026 : des milliers de faux abonnements ralentiraient les alertes). Le déclencheur `trg_vigie_notification` appelle
   `/api/notifier` par `pg_net` quand un danger devient confirmé (2e
   personne ou source officielle) ; adresse et secret dans la table privée
   `vigie_config` (le secret = `NOTIF_SECRET` de Vercel, jamais dans le
@@ -832,6 +842,14 @@ android/           appli Android DE TEST (Kotlin, sans dépendance lourde) : le 
   sauvegarde.dump` (les déclencheurs sont créés après les données : rien
   n'est envoyé pendant la restauration), puis relancer la partie pg_cron de
   schema.sql.
+- **Revue de sécurité du 11/11/2026** (supabase/maj-securite-2026-11-11.sql,
+  testé à blanc) : l'appli n'a que SELECT sur les tables publiques
+  (`vigie_signal`, `vigie_annonce_signal`, `zones` : plus de TRUNCATE,
+  TRIGGER, REFERENCES) ; les fonctions `security definer` ouvertes à `anon`
+  sont voulues (lecture, ou protégées par secret / code / adresse
+  d'abonnement) ; aucune fonction d'administration (`vigie_ajouter_*`…)
+  n'est appelable depuis l'appli. Les aperçus Vercel partagent la base et
+  les secrets de la production : ne jamais y déployer de code non relu.
 - Les pages `/confidentialite` et `/conditions` décrivent ce que fait
   vraiment le code (données envoyées, durées, purge `pg_cron`) : les mettre
   à jour (et `miseAJour` dans `lib/legal.ts`) si ça change.

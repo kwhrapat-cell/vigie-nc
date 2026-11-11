@@ -89,6 +89,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   action_invalide: "Action non reconnue.",
   mode_demo: "Cette fonction n'est disponible qu'avec la base en direct.",
   abonnement_invalide: "Ce téléphone n'a pas pu être inscrit aux alertes. Réessaie.",
+  abonnements_trop: "Beaucoup d'inscriptions aux alertes en ce moment : réessaie dans une heure.",
   rayon_invalide: "Choisis une distance : 3, 5 ou 10 km.",
   permission_refusee:
     "Notifications refusées : autorise-les pour ce site dans les réglages du navigateur, puis réessaie.",
