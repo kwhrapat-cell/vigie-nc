@@ -136,12 +136,36 @@ export function construireMessage(d: DemandeResume): string {
 const NUMERO = /(?:\d[\s.-]?){6,}/;
 const LIEN = /https?:\/\/|www\.|@[a-z0-9-]+\./i;
 
+// Règles de Patrice (05 et 06/11/2026) vérifiées APRÈS l'IA (revue de
+// sécurité du 11/11/2026) : une consigne cachée dans un témoignage pourrait
+// lui faire écrire que la route est libre, ou « confirmé ». Le texte est
+// alors refusé : la fiche garde la description, la voix lit le texte sans IA.
+const ROUTE_LIBRE =
+  /\b(?:route|voie|chauss[ée]e|passage|circulation|trajet|pont|radier|col)s?\s+(?:est|sont|reste|restent|semble|semblent|redevient|redeviennent)?\s*(?:à\s+nouveau\s+|de\s+nouveau\s+|totalement\s+|complètement\s+|entièrement\s+)?(?:libres?|d[ée]gag[ée]e?s?|s[ûu]re?s?|sans\s+danger|praticables?)(?![\p{L}])|\btout\s+est\s+calme\b|\baucun\s+(?:danger|risque|probl[èe]me)\b|\brien\s+à\s+craindre\b|\b(?:tu\s+peux|vous\s+pouvez|on\s+peut)\s+(?:passer|circuler|y\s+aller|rouler)\b|\ben\s+toute\s+s[ée]curit[ée](?![\p{L}])/iu;
+// « Confirmé » au nombre : jamais (« à confirmer » reste permis).
+const CONFIRME = /\bconfirmé(?:e|es|s)?(?![\p{L}])/iu;
+// Une phrase qui RAPPORTE ce que disent des témoins (« selon les témoins, ça
+// passe à nouveau ») reste permise dans le résumé, pas dans la voix.
+const RAPPORTE = /\b(?:selon|d['’]apr[èe]s)\s+(?:les?\s+|la\s+|un\s+|une\s+|des\s+|plusieurs\s+|certains\s+|le\s+dernier\s+|les\s+derniers\s+)*(?:t[ée]moin|personne|conducteur|automobiliste|usager|habitant|signalement)/iu;
+
+/**
+ * Le texte affirme-t-il que la route est libre (ou « confirmé ») ? Phrase
+ * par phrase ; `rapporteAutorise` : une phrase qui rapporte des témoins passe.
+ */
+export function texteInterdit(texte: string, rapporteAutorise: boolean): boolean {
+  if (CONFIRME.test(texte)) return true;
+  return texte
+    .split(/(?<=[.!?…])\s+/)
+    .some((phrase) => ROUTE_LIBRE.test(phrase) && !(rapporteAutorise && RAPPORTE.test(phrase)));
+}
+
 /** Résumé prêt à afficher, ou null s'il ne doit pas l'être. */
 export function nettoyerResume(brut: unknown): string | null {
   if (typeof brut !== "string") return null;
   let t = uneLigne(brut).replace(/^["«“\s]+|["»”\s]+$/g, "").trim();
   if (t.length < 10) return null;
   if (NUMERO.test(t) || LIEN.test(t)) return null;
+  if (texteInterdit(t, true)) return null;
   if (t.length > RESUME_MAX) {
     const coupe = t.slice(0, RESUME_MAX - 1);
     const espace = coupe.lastIndexOf(" ");
@@ -333,6 +357,7 @@ export function nettoyerPointRoute(brut: unknown): string | null {
   let t = uneLigne(brut).replace(/^["«“\s]+|["»”\s]+$/g, "").trim();
   if (t.length < 20) return null;
   if (NUMERO.test(t) || LIEN.test(t)) return null;
+  if (texteInterdit(t, false)) return null;
   if (t.length > POINT_ROUTE_TEXTE_MAX) {
     // Coupe à la dernière phrase entière.
     const coupe = t.slice(0, POINT_ROUTE_TEXTE_MAX);

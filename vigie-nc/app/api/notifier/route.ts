@@ -6,6 +6,8 @@
 //     annoncé dans les 12 h (zone d'alerte ou trajet) est déclaré terminé :
 //     « fin d'alerte ».
 
+import { parLots } from "@/lib/par-lots";
+import { secretValide } from "@/lib/secret-serveur";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import {
@@ -37,7 +39,7 @@ interface DestinatairesFin {
 
 export async function POST(req: Request) {
   const secret = process.env.NOTIF_SECRET;
-  if (!secret || req.headers.get("x-vigie-secret") !== secret) {
+  if (!secret || !secretValide(req.headers.get("x-vigie-secret"), secret)) {
     return NextResponse.json({ erreur: "non autorisé" }, { status: 401 });
   }
   if (!supabase || !pushConfigured) {
@@ -72,9 +74,8 @@ export async function POST(req: Request) {
   }
 
   const cibles = envois.filter((e) => endpointValide(e.cible.endpoint));
-  const resultats = await Promise.all(
-    cibles.map(async (e) => ({ endpoint: e.cible.endpoint, r: await sendPush(e.cible, e.payload) })),
-  );
+  // 50 à la fois : jamais des milliers de connexions ouvertes d'un coup.
+  const resultats = await parLots(cibles, async (e) => ({ endpoint: e.cible.endpoint, r: await sendPush(e.cible, e.payload) }));
 
   const partis = resultats.filter((x) => x.r === "gone").map((x) => x.endpoint);
   if (partis.length > 0) {

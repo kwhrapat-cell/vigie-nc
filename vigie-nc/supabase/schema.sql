@@ -1846,6 +1846,24 @@ as $$
      and p_endpoint ~ '^https://(fcm\.googleapis\.com|([a-z0-9-]+\.)*push\.services\.mozilla\.com|web\.push\.apple\.com|([a-z0-9-]+\.)*notify\.windows\.com)/';
 $$;
 
+-- Nouvelles inscriptions aux alertes acceptées par heure, pour toute la
+-- base (revue de sécurité du 11/11/2026) : des milliers de faux abonnements
+-- ralentiraient l'envoi des vraies alertes. 300 par défaut, clé
+-- abonnements_max_heure de vigie_config (5 à 5000). Changer de lieu ou de
+-- rayon n'est jamais compté.
+create or replace function vigie_abonnements_max_heure()
+returns int
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select least(greatest(coalesce(
+    (select case when valeur ~ '^[0-9]{1,4}$' then valeur::int end
+     from vigie_config where cle = 'abonnements_max_heure'),
+    300), 5), 5000);
+$$;
+
 -- RPC : s'abonner (ou changer de lieu / rayon) depuis ce téléphone
 create or replace function notif_abonner(
   p_endpoint text,
@@ -1862,9 +1880,11 @@ security definer
 set search_path = public, extensions
 as $$
 begin
+  -- Clés d'un vrai abonnement du navigateur (base64 « url ») : p256dh =
+  -- 65 octets (87 caractères), auth = 16 octets (22 caractères).
   if not vigie_endpoint_valide(p_endpoint)
-     or p_p256dh is null or char_length(p_p256dh) > 200
-     or p_auth is null or char_length(p_auth) > 100 then
+     or p_p256dh is null or p_p256dh !~ '^[A-Za-z0-9_-]{80,100}={0,2}$'
+     or p_auth is null or p_auth !~ '^[A-Za-z0-9_-]{16,32}={0,2}$' then
     raise exception 'abonnement_invalide';
   end if;
   if p_lat is null or p_lng is null or not vigie_dans_nc(p_lat, p_lng) then
@@ -1872,6 +1892,11 @@ begin
   end if;
   if p_rayon_km is null or p_rayon_km not in (3, 5, 10) then
     raise exception 'rayon_invalide';
+  end if;
+  if not exists (select 1 from push_abonnements where endpoint = p_endpoint)
+     and (select count(*) from push_abonnements where created_at > now() - interval '1 hour')
+         >= vigie_abonnements_max_heure() then
+    raise exception 'abonnements_trop';
   end if;
 
   insert into push_abonnements (endpoint, p256dh, auth, lat, lng, rayon_km, nom)
@@ -4381,6 +4406,7 @@ create or replace function vigie_texte_erreur(p_texte text, p_max int)
 returns text
 language sql
 immutable
+set search_path = pg_catalog
 as $$
   select nullif(left(btrim(
     regexp_replace(
@@ -4529,8 +4555,10 @@ grant select on vigie_signal to anon, authenticated;
 grant select on vigie_annonce_signal to anon, authenticated;
 revoke all on reports from anon, authenticated;
 revoke all on zone_history from anon, authenticated;
-revoke insert, update, delete on vigie_signal from anon, authenticated;
-revoke insert, update, delete on zones from anon, authenticated;
+-- Lecture seule pour l'appli : ni écriture, ni vidage (TRUNCATE), ni
+-- déclencheur, ni clé étrangère (revue de sécurité du 11/11/2026).
+revoke insert, update, delete, truncate, references, trigger on vigie_signal from anon, authenticated;
+revoke insert, update, delete, truncate, references, trigger on zones from anon, authenticated;
 revoke all on report_authors from anon, authenticated;
 revoke all on report_votes from anon, authenticated;
 revoke all on report_flags from anon, authenticated;
@@ -4547,7 +4575,7 @@ revoke all on vigie_sources_jour from anon, authenticated;
 revoke all on vigie_stats_jour from anon, authenticated;
 revoke all on vigie_appareils_equipe from anon, authenticated;
 revoke all on annonces from anon, authenticated;
-revoke insert, update, delete on vigie_annonce_signal from anon, authenticated;
+revoke insert, update, delete, truncate, references, trigger on vigie_annonce_signal from anon, authenticated;
 revoke all on report_temoignages from anon, authenticated;
 revoke all on vigie_ia_appels from anon, authenticated;
 revoke all on vigie_erreurs from anon, authenticated;
@@ -4641,6 +4669,7 @@ grant execute on function annonce_destinataires(text, uuid) to anon, authenticat
 revoke execute on function vigie_demander_resume(uuid) from public, anon, authenticated;
 revoke execute on function vigie_ia_active() from public, anon, authenticated;
 revoke execute on function vigie_ia_max_heure() from public, anon, authenticated;
+revoke execute on function vigie_abonnements_max_heure() from public, anon, authenticated;
 revoke execute on function vigie_ia_quota_ok() from public, anon, authenticated;
 grant execute on function ia_temoignages(text, uuid) to anon, authenticated;
 grant execute on function ia_enregistrer_resume(text, uuid, text, int, timestamptz) to anon, authenticated;

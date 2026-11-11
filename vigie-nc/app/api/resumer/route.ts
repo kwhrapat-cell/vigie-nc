@@ -4,6 +4,7 @@
 // témoignages arrivent pendant ce temps, refait un passage (3 au plus).
 // Les textes ne sont jamais écrits dans les journaux du serveur.
 
+import { secretValide } from "@/lib/secret-serveur";
 import { NextResponse } from "next/server";
 import { iaConfiguree, resumerTemoignages, Temoignage } from "@/lib/ia";
 import { supabase } from "@/lib/supabase";
@@ -42,7 +43,7 @@ interface Ecriture {
 
 export async function POST(req: Request) {
   const secret = process.env.NOTIF_SECRET;
-  if (!secret || req.headers.get("x-vigie-secret") !== secret) {
+  if (!secret || !secretValide(req.headers.get("x-vigie-secret"), secret)) {
     return NextResponse.json({ erreur: "non autorisé" }, { status: 401 });
   }
   if (!supabase) {
