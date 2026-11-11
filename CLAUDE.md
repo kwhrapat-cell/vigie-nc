@@ -400,8 +400,25 @@ vigie-nc/
                      Écran /sos : phrase sous le bouton + « Comment marche le
                      SOS » (SOS_EXPLICATION de legende.ts, aussi dans la
                      légende) ; position introuvable → « Prévenir mes contacts
-                     sans position » ; sans contact → le dit. ⚠️ À tester sur
-                     iPhone avec 2 contacts (lien sms: à plusieurs numéros)
+                     sans position » ; sans contact → le dit. Lien SMS propre
+                     à l'iPhone (estAppareilApple) : « sms://open?addresses=A,B
+                     &body=… » (avec « sms:A,B?body= », l'iPhone ne garde que le
+                     1er numéro ; audit mobile du 11/11/2026). ⚠️ Toujours à
+                     tester sur un vrai iPhone avec 2 contacts. /contacts : sur
+                     iPhone dans Safari (pas installée), avertissement « Safari
+                     efface après 7 jours » + lien /profil#installer ;
+                     enregistrer un contact demande storage.persist()
+    retour-fenetre.ts bouton Retour d'Android (et geste retour de Safari) : ferme
+                     la fenêtre ouverte (fiche, légende, aide position, partage
+                     du point route, choix de « Ma zone », tutoriel revu ; pas
+                     celui de la 1re ouverture) au lieu de quitter la page.
+                     Chaque fenêtre ajoute une étape d'historique qui note la
+                     liste des fenêtres ouvertes (clé « vigieFenetres », état de
+                     Next.js gardé) ; fermée à la main, elle retire son étape
+                     (reprise si une autre s'ouvre aussitôt). Hook
+                     useRetourFerme(ouvert, fermer) dans lib/useRetourFerme.ts ;
+                     testé par tests/retour-fenetre.test.ts. Toute nouvelle
+                     fenêtre ou feuille du bas doit l'utiliser
     cagou.ts         dessin SVG du cagou (composant Cagou + image du point route)
     impact.ts        « Mon impact », SUR LE TÉLÉPHONE seulement (localStorage
                      « vigie-nc:impact-v1 ») : mes 30 derniers signalements,
@@ -440,6 +457,8 @@ vigie-nc/
                      erreurs-texte.ts (message + pile sans l'adresse du site,
                      navigateur « Chrome 140 · Android », jamais l'UA complet)
     face-blur.ts     photo : réduction, floutage visages, suppression EXIF.
+                     Chargé par import() seulement quand une photo est choisie
+                     (jamais importé d'office : l'écran Signaler doit s'ouvrir vite).
                      MediaPipe servi par NOTRE site (public/mediapipe/<version>/,
                      fabriqué par scripts/preparer-floutage.mjs au « prebuild » :
                      WASM copié du paquet npm + modèles téléchargés ; ignoré par

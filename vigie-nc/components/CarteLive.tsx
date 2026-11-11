@@ -50,6 +50,7 @@ import { ecrireAstuceCarteVue, heureCourte, lireAstuceCarte } from "@/lib/legend
 import { ASTUCE_SIGNALER_EVENT } from "@/lib/tuto";
 import type { Point } from "@/lib/trajet";
 import { Category, Report, REPORT_TYPE_CATEGORY } from "@/lib/types";
+import { useRetourFerme } from "@/lib/useRetourFerme";
 
 // On ne relance la recherche que si l'on s'est déplacé d'au moins 250 m.
 const REQUERY_DISTANCE_M = 250;
@@ -391,7 +392,8 @@ export function CarteLive() {
     if (!position) changeZone("nc");
   }, [position, changeZone]);
 
-  // Échap annule le choix de la zone.
+  // Bouton Retour du téléphone, ou Échap : annule le choix de la zone.
+  useRetourFerme(choixZone, annulerChoix);
   useEffect(() => {
     if (!choixZone) return;
     const touche = (e: KeyboardEvent) => {

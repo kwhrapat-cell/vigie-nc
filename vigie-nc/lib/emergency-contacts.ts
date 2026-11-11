@@ -21,6 +21,16 @@ export function getEmergencyContacts(): EmergencyContact[] {
 export function saveEmergencyContacts(contacts: EmergencyContact[]): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(contacts));
+  // Demande au téléphone de ne pas effacer les données du site quand la
+  // place manque (Android l'accorde souvent à une appli installée). Sans
+  // réponse ni effet ailleurs : rien à faire si c'est refusé.
+  if (contacts.length > 0) {
+    try {
+      void navigator.storage?.persist?.()?.catch(() => {});
+    } catch {
+      // navigateur sans cette fonction
+    }
+  }
 }
 
 export function addEmergencyContact(

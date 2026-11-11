@@ -18,7 +18,8 @@ function isIos(): boolean {
   return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
 }
 
-function isStandalone(): boolean {
+/** Ouverte depuis l'icône de l'écran d'accueil (appli installée). */
+export function isStandalone(): boolean {
   return (
     (navigator as Navigator & { standalone?: boolean }).standalone === true ||
     window.matchMedia("(display-mode: standalone)").matches

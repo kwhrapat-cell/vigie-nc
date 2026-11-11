@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { PrimaryButton, SecondaryButton } from "./ui";
 import { imagePointRoute, textePartage, zonePointRoute } from "@/lib/point-route-partage";
 import { Report } from "@/lib/types";
+import { useRetourFerme } from "@/lib/useRetourFerme";
 
 // Bouton « Partager » de l'accueil : fabrique sur le téléphone une image
 // « Point route » de la zone affichée (lib/point-route-partage.ts) et la
@@ -55,6 +56,8 @@ export function PartagePointRoute({
     setImage(null);
     setMessage(null);
   }
+  // Bouton Retour du téléphone : ferme la fenêtre de partage.
+  useRetourFerme(ouvert, fermer);
 
   function texteSeul(): string {
     return image?.texte ?? textePartage(reports, zonePointRoute(reports, toutLeTerritoire, rayonKm));

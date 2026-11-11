@@ -18,6 +18,7 @@ import {
   Vote,
 } from "@/lib/types";
 import { ReliabilityBadge, TypeTile } from "./ui";
+import { useRetourFerme } from "@/lib/useRetourFerme";
 
 const FLAG_MESSAGES: Record<FlagResult, string> = {
   enregistre: "Merci, c'est noté. Si d'autres personnes le signalent aussi, la photo et le texte seront masqués.",
@@ -109,6 +110,9 @@ export function ReportDetail({
     const t = setInterval(() => setTick((x) => x + 1), 60_000);
     return () => clearInterval(t);
   }, []);
+
+  // Bouton Retour du téléphone : ferme la fiche (lib/retour-fenetre.ts).
+  useRetourFerme(true, onClose);
 
   // Fermeture au clavier (Échap).
   useEffect(() => {

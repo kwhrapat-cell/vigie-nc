@@ -9,6 +9,7 @@ import { Category, CATEGORY_HEX, CATEGORY_LABELS, REPORT_TYPE_ICON } from "@/lib
 import { PIN_ZONE_SVG } from "./LiveMap";
 import { RoundButton } from "./MapControls";
 import { PrimaryButton } from "./ui";
+import { useRetourFerme } from "@/lib/useRetourFerme";
 
 const CATEGORIES: Category[] = ["danger", "perturbation", "meteo"];
 
@@ -121,6 +122,8 @@ export function LegendeCarte({
   demo?: boolean;
 }) {
   const fermerRef = useRef<HTMLButtonElement>(null);
+  // Bouton Retour du téléphone : ferme la légende.
+  useRetourFerme(true, onFermer);
   // Le clavier arrive sur « Fermer » ; Échap ferme.
   useEffect(() => {
     fermerRef.current?.focus();
