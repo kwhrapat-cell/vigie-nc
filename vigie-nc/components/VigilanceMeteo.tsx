@@ -25,7 +25,7 @@ export function VigilanceMeteo({ className = "" }: { className?: string }) {
           <h2 id="vigilance-titre" className="font-display font-semibold text-[15.5px] leading-tight">
             Vigilance météo
           </h2>
-          <p className="text-[12.5px] text-mist-dim">Source officielle · Météo-France</p>
+          <p className="text-[12.5px] text-mist-dim">Source : Météo-France</p>
         </div>
         <a
           href={VIGILANCE_PAGE_URL}
