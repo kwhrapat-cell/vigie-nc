@@ -229,7 +229,7 @@ for (const e of ECRANS) {
       noter((await fenetreOuverte()) === 0 && s.fenetres.length === 0 && !s.recharge, "fiche fermée par Échap : étape retirée");
 
       // 3. Légende « ? », puis Retour
-      const legende = p.getByRole("button", { name: "Légende", exact: true });
+      const legende = p.getByRole("button", { name: "Légende de la carte, SOS et ta position" });
       if (await legende.isVisible().catch(() => false)) {
         await legende.click();
         await attendre(900);
