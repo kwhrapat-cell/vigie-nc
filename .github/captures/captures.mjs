@@ -1,7 +1,7 @@
 // Captures d'écran de l'appli (mode démo) à plusieurs largeurs : téléphone,
 // tablette, ordinateur. Lancé par .github/workflows/captures.yml.
 import { chromium } from "playwright";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 const OUT = process.env.OUT_DIR ?? "captures";
@@ -163,6 +163,92 @@ for (const e of ECRANS) {
     console.log(`démo (${e.nom}) :`, err instanceof Error ? err.message : err);
   }
   await context.close();
+
+  // Bouton Retour (lib/retour-fenetre.ts) : il doit fermer la fenêtre ouverte
+  // sans quitter la carte ni recharger la page. Résultat dans retour.txt.
+  if (e.nom === "telephone" || e.nom === "portable") {
+    const ctx = await browser.newContext({
+      viewport: { width: e.width, height: e.height },
+      deviceScaleFactor: 1,
+      isMobile: e.mobile,
+      hasTouch: e.mobile,
+      locale: "fr-FR",
+      timezoneId: "Pacific/Noumea",
+      geolocation: { latitude: -22.1316, longitude: 166.358 },
+      permissions: ["geolocation"],
+    });
+    await ctx.addInitScript(() => {
+      try {
+        localStorage.setItem("vigie-nc:avertissement-v1", "1");
+        localStorage.setItem("vigie-nc:astuce-signaler", "vue");
+        localStorage.setItem("vigie-nc:astuce-carte", "vue");
+        localStorage.setItem("vigie-nc:trajet-invite", "1");
+      } catch {}
+    });
+    const lignes = [];
+    const noter = (ok, quoi) => {
+      const l = `${ok ? "OK    " : "ÉCHEC "} ${e.nom} : ${quoi}`;
+      lignes.push(l);
+      console.log(`retour — ${l}`);
+    };
+    try {
+      const p = await ctx.newPage();
+      await p.goto(BASE + "/demo", { waitUntil: "networkidle", timeout: 30000 }).catch(() => {});
+      await p.getByRole("button", { name: "Lancer la démo" }).click();
+      await p.waitForURL(BASE + "/", { timeout: 15000 }).catch(() => {});
+      await attendre(4000);
+      await p.evaluate(() => {
+        window.__sansRecharge = true;
+      });
+      const fenetreOuverte = () => p.locator('[role="dialog"][aria-modal="true"]').count();
+      const etat = async () =>
+        p.evaluate(() => ({
+          recharge: window.__sansRecharge !== true,
+          url: location.pathname,
+          fenetres: (history.state && history.state.vigieFenetres) || [],
+        }));
+
+      // 1. Fiche ouverte, puis Retour
+      await deplierListe(p);
+      const premiere = p.locator("#liste-proximite ul button").first();
+      await premiere.click({ timeout: 8000 });
+      await attendre(1200);
+      noter((await fenetreOuverte()) > 0, "la fiche s'ouvre");
+      await p.goBack().catch(() => {});
+      await attendre(1200);
+      let s = await etat();
+      noter((await fenetreOuverte()) === 0, "Retour ferme la fiche");
+      noter(s.url === "/" && !s.recharge, `on reste sur la carte sans recharger (page ${s.url}, rechargée : ${s.recharge})`);
+
+      // 2. Fiche fermée par Échap : l'étape est retirée, pas de fenêtre fantôme
+      await premiere.click({ timeout: 8000 });
+      await attendre(1000);
+      await p.keyboard.press("Escape");
+      await attendre(1200);
+      s = await etat();
+      noter((await fenetreOuverte()) === 0 && s.fenetres.length === 0 && !s.recharge, "fiche fermée par Échap : étape retirée");
+
+      // 3. Légende « ? », puis Retour
+      const legende = p.getByRole("button", { name: "Légende", exact: true });
+      if (await legende.isVisible().catch(() => false)) {
+        await legende.click();
+        await attendre(900);
+        noter((await fenetreOuverte()) > 0, "la légende s'ouvre");
+        await p.goBack().catch(() => {});
+        await attendre(1000);
+        s = await etat();
+        noter((await fenetreOuverte()) === 0 && s.url === "/" && !s.recharge, "Retour ferme la légende");
+      } else {
+        noter(false, "bouton Légende introuvable");
+      }
+      await p.screenshot({ path: `${OUT}/${e.nom}-${e.width}-apres-retour.png` });
+      await p.evaluate(() => sessionStorage.removeItem("vigie-nc:demo"));
+    } catch (err) {
+      noter(false, `essai interrompu : ${err instanceof Error ? err.message : err}`);
+    }
+    writeFileSync(`${OUT}/retour-${e.nom}.txt`, lignes.join("\n") + "\n");
+    await ctx.close();
+  }
 
   // Position bloquée (ordinateur de mairie, Windows qui refuse…) : l'aide,
   // puis le choix de « Ma zone » sur la carte, puis la zone choisie.
