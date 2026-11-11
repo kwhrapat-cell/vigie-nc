@@ -3,10 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
 import { LatLng } from "@/lib/geo";
-import { MAP_STYLES, NC_BOUNDS } from "@/lib/map-styles";
+import { NC_BOUNDS } from "@/lib/map-styles";
+import { poserFond } from "@/lib/fond-carte";
 import { readMapStyle } from "@/lib/preferences";
-import { brancherCarteHorsLigne } from "@/lib/couche-hors-ligne";
-import { demoActive } from "@/lib/demo";
 
 const PIN_SVG = `<svg class="pick-pin" viewBox="0 0 34 44" aria-hidden="true">
   <path d="M17 1.5A15.5 15.5 0 0 1 32.5 17c0 11-15.5 25.5-15.5 25.5S1.5 28 1.5 17A15.5 15.5 0 0 1 17 1.5z" fill="#E5484D" stroke="#081317" stroke-width="2"/>
@@ -58,15 +57,8 @@ export function PositionPicker({
       }
       map.fitBounds(NC_BOUNDS, { padding: [8, 8] });
       // Même fond que celui choisi sur la carte d'accueil
-      const style = readMapStyle();
-      containerRef.current.setAttribute("data-fond", style);
-      let plan: Leaflet.TileLayer | null = null;
-      for (const spec of MAP_STYLES[style].layers) {
-        const couche = L.tileLayer(spec.url, spec.options).addTo(map);
-        plan ??= couche;
-      }
-      // Sans réseau : la carte téléchargée (Profil › Carte sans réseau).
-      if (!demoActive()) debrancherRef.current = brancherCarteHorsLigne(L, map, plan);
+      // (avec ses secours et, sans réseau, la carte téléchargée)
+      debrancherRef.current = poserFond(L, map, containerRef.current, readMapStyle());
       map.on("click", (e: Leaflet.LeafletMouseEvent) =>
         onChangeRef.current({ lat: e.latlng.lat, lng: e.latlng.lng }),
       );

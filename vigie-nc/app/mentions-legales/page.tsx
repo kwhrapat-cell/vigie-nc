@@ -78,7 +78,7 @@ export default function MentionsLegalesPage() {
             <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">
               OpenStreetMap
             </a>{" "}
-            ; imagerie satellite © Esri.
+            (fond « Vigie » : données OpenStreetMap découpées par Protomaps) ; imagerie satellite © Esri.
           </li>
           <li>Noms de lieux : Nominatim (OpenStreetMap).</li>
           <li>Vigilance météo : vignette officielle de Météo-France Nouvelle-Calédonie (meteo.nc).</li>

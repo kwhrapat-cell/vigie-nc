@@ -11,8 +11,8 @@ import { signalerErreur } from "@/lib/erreurs";
 import { estAncien } from "@/lib/fraicheur";
 import { REPERE_RECENT_MIN } from "@/lib/legende";
 import { useLenteur } from "@/lib/useLenteur";
-import { BACKUP_PLAN_LAYER, MAP_STYLES, NC_BOUNDS } from "@/lib/map-styles";
-import { brancherCarteHorsLigne } from "@/lib/couche-hors-ligne";
+import { NC_BOUNDS } from "@/lib/map-styles";
+import { poserFond } from "@/lib/fond-carte";
 import type { MapStyle } from "@/lib/preferences";
 import { getReliability } from "@/lib/reliability";
 import {
@@ -130,9 +130,9 @@ export function LiveMap({
   choixRef.current = choixZone;
   const leafletRef = useRef<typeof Leaflet | null>(null);
   const mapRef = useRef<Leaflet.Map | null>(null);
-  const tilesRef = useRef<Leaflet.Layer[]>([]);
+  /** Enlève le fond de carte posé (lib/fond-carte.ts). */
+  const fondRef = useRef<(() => void) | null>(null);
   // Carte sans réseau (lib/couche-hors-ligne.ts) : débranchée à chaque changement de fond.
-  const horsLigneRef = useRef<(() => void) | null>(null);
   const markersRef = useRef<Leaflet.LayerGroup | null>(null);
   const userMarkerRef = useRef<Leaflet.Marker | null>(null);
   const avatarRef = useRef(avatar);
@@ -251,46 +251,21 @@ export function LiveMap({
       if (lireCentreRef) lireCentreRef.current = null;
       circleRef.current = null;
       ligneRef.current = null;
-      tilesRef.current = [];
-      horsLigneRef.current?.();
-      horsLigneRef.current = null;
+      fondRef.current?.();
+      fondRef.current = null;
       lastFitRef.current = null;
       setReady(false);
     };
   }, []);
 
-  // 2. Fond de carte (Plan / Nuit / Satellite)
+  // 2. Fond de carte (Vigie, Vigie clair, OpenStreetMap, Satellite), avec
+  // ses secours et la carte sans réseau (lib/fond-carte.ts).
   useEffect(() => {
     const L = leafletRef.current;
     const map = mapRef.current;
     if (!ready || !L || !map) return;
-    tilesRef.current.forEach((t) => t.remove());
-    const layers = MAP_STYLES[mapStyle].layers.map((spec) => L.tileLayer(spec.url, spec.options).addTo(map));
-    tilesRef.current = layers;
-    containerRef.current?.setAttribute("data-fond", mapStyle);
-
-    // Carte téléchargée (Profil › Carte sans réseau) : dessinée sous le plan
-    // dès que le réseau manque.
-    horsLigneRef.current?.();
-    horsLigneRef.current = demoActive() ? null : brancherCarteHorsLigne(L, map, layers[0] ?? null);
-
-    // Plan de secours : si les tuiles du plan n'arrivent plus alors que le
-    // téléphone a du réseau (serveur bloqué ou saturé), on bascule.
-    const main = layers[0];
-    if (mapStyle !== "satellite" && main) {
-      let errors: number[] = [];
-      main.on("tileerror", () => {
-        if (typeof navigator !== "undefined" && !navigator.onLine) return;
-        const now = Date.now();
-        errors = errors.filter((t) => now - t < 20_000);
-        errors.push(now);
-        if (errors.length >= 8 && tilesRef.current.includes(main)) {
-          main.remove();
-          const backup = L.tileLayer(BACKUP_PLAN_LAYER.url, BACKUP_PLAN_LAYER.options).addTo(map);
-          tilesRef.current = tilesRef.current.map((t) => (t === main ? backup : t));
-        }
-      });
-    }
+    fondRef.current?.();
+    fondRef.current = poserFond(L, map, containerRef.current, mapStyle);
   }, [ready, mapStyle]);
 
   // 3. Marqueurs : signalements seuls ou pastilles chiffrées
