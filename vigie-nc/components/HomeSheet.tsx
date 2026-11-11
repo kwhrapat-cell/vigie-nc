@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode, type TouchEvent } from "react";
-import { estChantier, libelleFinChantier } from "@/lib/chantier";
-import { formatAgeShort, formatDistance } from "@/lib/geo";
 import { readListeRepliee, saveListeRepliee, sensGlisseListe, suiviGlisseListe } from "@/lib/preferences";
-import { aEteReconfirme, estAncien } from "@/lib/fraicheur";
 import { libelleMiseAJour } from "@/lib/legende";
 import { useLenteur } from "@/lib/useLenteur";
 import {
@@ -17,7 +14,7 @@ import {
 import type { LiveStatus } from "@/lib/useLiveReports";
 import { useDemo } from "@/lib/useDemo";
 import type { WatchStatus } from "@/lib/useWatchPosition";
-import { ReliabilityBadge, TypeTile } from "./ui";
+import { ContenuLigneSignalement } from "./LigneSignalement";
 import { Cagou } from "./Cagou";
 import { PartagePointRoute } from "./PartagePointRoute";
 import { EnAttenteCarte } from "./EnAttenteCarte";
@@ -350,42 +347,17 @@ export function HomeSheet({
       )}
 
       <ul className="flex flex-col gap-1.5 max-h-[38vh] overflow-y-auto -mx-1 px-1 pb-1 lg:max-h-none lg:overflow-visible">
-        {reports.map((r) => {
-          // Fraîcheur (lib/fraicheur.ts) : dernière confirmation, ou « ancien »
-          const ancien = estAncien(r);
-          const reconfirme = aEteReconfirme(r) && r.lastConfirmedAt;
-          const dist = formatDistance(r.distanceM);
-          const where = r.place ?? (dist ? dist.replace(/^à /, "À ") : null);
-          return (
-            <li key={r.id}>
-              <button
-                type="button"
-                onClick={() => onSelect(r.id)}
-                className="w-full flex items-center gap-3 rounded-xl bg-panel-2/70 border border-line px-2.5 py-2 text-left lg:hover:border-lagoon/50 lg:hover:bg-panel-2"
-              >
-                <TypeTile type={r.type} size={38} />
-                <span className="flex-1 min-w-0">
-                  <span className="flex items-center gap-1.5">
-                    <b className="font-semibold text-[15px] truncate">{r.type === "sos" ? "SOS — urgence" : r.label}</b>
-                    {r.type !== "sos" && <ReliabilityBadge report={r} />}
-                  </span>
-                  {/* L'heure d'abord, bien lisible : c'est elle qui dit si l'info vaut encore. */}
-                  <span className="block text-[13.5px] text-mist">
-                    {estChantier(r) && r.endDate
-                      ? `Chantier ${libelleFinChantier(r.endDate)}`
-                      : `Il y a ${formatAgeShort(r.createdAt)}${
-                          reconfirme ? ` · revu il y a ${formatAgeShort(reconfirme)}` : ""
-                        }`}
-                    {ancien && <span className="font-medium text-warn"> · ancien</span>}
-                  </span>
-                  <span className="block text-[13px] text-mist-dim truncate">
-                    {[where, r.place && dist ? dist : null].filter(Boolean).join(" · ")}
-                  </span>
-                </span>
-              </button>
-            </li>
-          );
-        })}
+        {reports.map((r) => (
+          <li key={r.id}>
+            <button
+              type="button"
+              onClick={() => onSelect(r.id)}
+              className="w-full flex items-center gap-3 rounded-xl bg-panel-2/70 border border-line px-2.5 py-2 text-left lg:hover:border-lagoon/50 lg:hover:bg-panel-2"
+            >
+              <ContenuLigneSignalement r={r} />
+            </button>
+          </li>
+        ))}
       </ul>
       {apresListe}
       </div>

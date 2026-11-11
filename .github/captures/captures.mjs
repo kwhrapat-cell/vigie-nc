@@ -21,6 +21,7 @@ const PAGES = [
   "/signaler",
   "/relayer",
   "/alertes",
+  "/alertes#prevenir",
   "/historique",
   "/profil",
   "/sos",
@@ -66,7 +67,7 @@ for (const e of ECRANS) {
   });
   const page = await context.newPage();
   for (const chemin of PAGES) {
-    const nom = chemin === "/" ? "accueil" : chemin.slice(1).replace(/\//g, "-");
+    const nom = chemin === "/" ? "accueil" : chemin.slice(1).replace(/[/#]/g, "-");
     try {
       await page.goto(BASE + chemin, { waitUntil: "networkidle", timeout: 30000 });
     } catch {
