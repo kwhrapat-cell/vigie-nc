@@ -1,9 +1,9 @@
 import { CAGOU_SVG_INTERIEUR, CAGOU_VIEWBOX } from "@/lib/cagou";
 
 // Mascotte de Vigie NC : un cagou, l'oiseau de la Calédonie, qui veille
-// sur la route. Dessin original (bec et pattes couleur terre rouge, comme
-// le logo), dans lib/cagou.ts. Décoratif : caché aux lecteurs d'écran,
-// sauf `titre`.
+// sur la route. Dessin original d'après le vrai oiseau (huppe, gros œil
+// rouge-brun, bec et pattes orange), dans lib/cagou.ts. Décoratif : caché
+// aux lecteurs d'écran, sauf `titre`.
 
 export function Cagou({ size = 64, titre, className = "" }: { size?: number; titre?: string; className?: string }) {
   return (
