@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { PIN_ZONE_SVG } from "./LiveMap";
 import type { WatchStatus } from "@/lib/useWatchPosition";
+import { useRetourFerme } from "@/lib/useRetourFerme";
 
 /**
  * Position refusée ou introuvable (souvent sur un ordinateur : Windows ou le
@@ -26,6 +27,8 @@ export function AidePosition({
   onFermer: () => void;
 }) {
   const boutonRef = useRef<HTMLButtonElement>(null);
+  // Bouton Retour du téléphone : ferme l'aide.
+  useRetourFerme(true, onFermer);
   // Le clavier arrive sur le bouton principal ; Échap ferme.
   useEffect(() => {
     boutonRef.current?.focus();

@@ -27,9 +27,9 @@ import { CARTE_EVENT, lireAires, NOM_AIRE, type AireCarte } from "@/lib/carte-ho
 import { texteOctets } from "@/lib/carte-plan";
 import { useDemo } from "@/lib/useDemo";
 
-function Card({ title, children }: { title: string; children: ReactNode }) {
+function Card({ title, id, children }: { title: string; id?: string; children: ReactNode }) {
   return (
-    <section className="mx-4 mb-3 rounded-xl border border-line bg-panel px-4 py-3.5">
+    <section id={id} className="mx-4 mb-3 rounded-xl border border-line bg-panel px-4 py-3.5 scroll-mt-4">
       <h2 className="font-display font-semibold text-[15px] mb-2">{title}</h2>
       {children}
     </section>
@@ -167,7 +167,7 @@ export default function ProfilPage() {
         </p>
       </Card>
 
-      <Card title="Installer l'appli">
+      <Card title="Installer l'appli" id="installer">
         <p className="text-[13.5px] text-mist-dim mb-2.5">
           Une icône sur ton écran d&apos;accueil pour ouvrir Vigie NC en un geste, comme une appli. Rien à télécharger
           sur le Play Store ou l&apos;App Store.

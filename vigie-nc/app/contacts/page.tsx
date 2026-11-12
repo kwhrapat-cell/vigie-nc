@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PrimaryButton, ScreenHeader } from "@/components/ui";
 import {
@@ -7,15 +8,22 @@ import {
   addEmergencyContact,
   removeEmergencyContact,
 } from "@/lib/emergency-contacts";
+import { isStandalone } from "@/lib/push";
+import { estAppareilApple } from "@/lib/sos";
 import { EmergencyContact } from "@/lib/types";
 
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  // iPhone dans Safari (appli pas installée) : Safari efface les données d'un
+  // site pas ouvert depuis 7 jours d'utilisation de Safari (règle anti-pistage
+  // d'Apple ; l'appli de l'écran d'accueil n'est pas concernée).
+  const [safariIphone, setSafariIphone] = useState(false);
 
   useEffect(() => {
     setContacts(getEmergencyContacts());
+    setSafariIphone(estAppareilApple(navigator.userAgent, navigator.maxTouchPoints ?? 0) && !isStandalone());
   }, []);
 
   function handleAdd() {
@@ -39,6 +47,19 @@ export default function ContactsPage() {
         l&apos;app ouvre ton appli SMS avec un message pré-rempli — c&apos;est
         toi qui décides d&apos;envoyer.
       </p>
+
+      {safariIphone && (
+        <div role="note" className="mx-4 mt-3 rounded-xl border border-warn/40 bg-warn/10 px-3 py-2.5 text-[14px] leading-relaxed text-mist">
+          <p>
+            <strong>Sur iPhone, installe d&apos;abord Vigie NC.</strong> Dans Safari, ces contacts sont effacés si tu
+            utilises Safari 7 jours sans ouvrir Vigie NC. L&apos;appli installée sur l&apos;écran d&apos;accueil les garde,
+            mais elle a ses propres réglages : ajoute tes contacts dedans.
+          </p>
+          <Link href="/profil#installer" className="mt-1.5 inline-flex min-h-[44px] items-center text-lagoon underline">
+            Comment installer l&apos;appli
+          </Link>
+        </div>
+      )}
 
       <div className="mx-4 mt-4 flex flex-col gap-2">
         {contacts.length === 0 && (

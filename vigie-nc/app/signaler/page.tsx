@@ -11,7 +11,6 @@ import { PrimaryButton, ScreenHeader, SecondaryButton, TypeIcon, TypeTile } from
 import { distanceM, formatDuration, LatLng } from "@/lib/geo";
 import { GeoPosition, useGeolocation } from "@/lib/useGeolocation";
 import { reversePlace } from "@/lib/place";
-import { preparePhoto } from "@/lib/face-blur";
 import { supabase } from "@/lib/supabase";
 import { demoActive } from "@/lib/demo";
 import {
@@ -188,7 +187,10 @@ export default function SignalerPage() {
     setProcessingPhoto(true);
     try {
       // Floutage + nettoyage des métadonnées dès la sélection : la photo
-      // brute n'est jamais gardée pour l'envoi.
+      // brute n'est jamais gardée pour l'envoi. L'outil de floutage
+      // (MediaPipe, lourd) n'est chargé qu'ici, quand une photo est choisie :
+      // l'écran Signaler s'ouvre plus vite (audit mobile du 11/11/2026).
+      const { preparePhoto } = await import("@/lib/face-blur");
       const prepared = await preparePhoto(file);
       setPhoto(prepared.file);
       setFacesBlurred(prepared.facesBlurred);

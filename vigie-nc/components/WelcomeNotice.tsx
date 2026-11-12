@@ -17,6 +17,7 @@ import {
 import { REPORT_TYPE_HEX, REPORT_TYPE_ICON, REPORT_TYPE_LABELS, type ReportType } from "@/lib/types";
 import { Logo, PrimaryButton, TypeIcon, TypeTile } from "./ui";
 import { Cagou } from "./Cagou";
+import { useRetourFerme } from "@/lib/useRetourFerme";
 
 // Clé de lib/tuto.ts (changer sa version si le texte change de façon
 // importante : l'écran sera montré à nouveau à tout le monde).
@@ -90,6 +91,9 @@ export function Tutoriel({ mode, onFermer }: { mode: "accueil" | "revoir"; onFer
   useEffect(() => {
     dialogRef.current?.focus();
   }, []);
+  // Bouton Retour du téléphone : ferme le tutoriel revu depuis le Profil (pas
+  // celui de la 1re ouverture, qui mène aux règles à accepter).
+  useRetourFerme(mode === "revoir", onFermer);
 
   const aller = (cible: number) => {
     if (cible === index) return;
